@@ -10,3 +10,5 @@ pnpm-lock.yaml
 package-lock.json
 # Migraciones generadas por Prisma (formato propio)
 prisma/migrations
+# Cliente generado por Prisma
+src/generated

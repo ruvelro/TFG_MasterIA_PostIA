@@ -17,6 +17,13 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     environment: "node",
+    // Entorno controlado para los tests: así la validación fail-fast de `lib/config/env`
+    // no obliga a tener un `.env` real para ejecutar la suite. Valores deterministas y
+    // sin secretos reales.
+    env: {
+      DATABASE_URL: "file:./test.db",
+      AUTH_SECRET: "test-secret-do-not-use-in-prod",
+    },
     include: ["tests/unit/**/*.test.{ts,tsx}", "tests/integration/**/*.test.{ts,tsx}"],
     coverage: {
       provider: "v8",

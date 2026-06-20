@@ -1,0 +1,89 @@
+// Esquema de datos de PostIA. Documentación de las entidades en docs/modelo-datos.md.
+// Generamos el cliente dentro de src/ para importarlo con el alias @/ y mantenerlo
+// fuera del control de versiones (es código generado, ver .gitignore).
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 obtiene la URL de conexión desde prisma.config.ts (CLI) y, en runtime, desde
+// el driver adapter que se pasa al PrismaClient (ver src/lib/db/client.ts).
+datasource db {
+  provider = "sqlite"
+}
+
+// Usuario que inicia sesión. Usamos Credentials (email + contraseña) con sesiones JWT,
+// por lo que NO necesitamos las tablas de adaptador de Auth.js (Account/Session): basta
+// con almacenar el hash de la contraseña aquí.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  articles Article[]
+  runs     GenerationRun[]
+}
+
+// Una ejecución del pipeline para un tema concreto. Guarda el estado global y enlaza con
+// la traza por etapa y con el artículo resultante.
+model GenerationRun {
+  id        String   @id @default(cuid())
+  userId    String
+  topic     String
+  // Estado como String porque SQLite no tiene enums nativos: pending | running | completed | failed
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps   GenerationStep[]
+  article Article?
+
+  @@index([userId])
+}
+
+// Traza de cada etapa dentro de una ejecución. Permite analizar coste y rendimiento:
+// qué modelo se usó, cuánto tardó y cuántos tokens consumió.
+model GenerationStep {
+  id           String   @id @default(cuid())
+  runId        String
+  // research | outline | draft | validate | humanize-seo
+  stageId      String
+  status       String   @default("pending")
+  // Modelo de OpenRouter usado; null en la etapa research, que no usa IA.
+  model        String?
+  durationMs   Int?
+  tokensInput  Int?
+  tokensOutput Int?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  run GenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+// Artículo final publicable, propiedad de un usuario. Opcionalmente enlaza con la
+// ejecución que lo produjo (un artículo también podría existir sin run en el futuro).
+model Article {
+  id              String   @id @default(cuid())
+  userId          String
+  runId           String?  @unique
+  title           String
+  slug            String
+  contentMarkdown String
+  metaDescription String
+  // Lista de keywords serializada como JSON: SQLite no soporta arrays nativos.
+  keywords        String   @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run  GenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
