@@ -27,6 +27,20 @@ const serverSchema = z.object({
   // URL pública de la app. La usa Better Auth como baseURL y para derivar el dominio
   // (rpID) y el origen de las passkeys (WebAuthn). En local apunta a localhost.
   APP_URL: z.url({ error: "APP_URL debe ser una URL válida" }).default("http://localhost:3000"),
+
+  // Clave maestra (KEK) para cifrar en reposo los secretos de terceros (claves de API de
+  // OpenRouter y de búsqueda) que se guardan en la base de datos. Debe ser de 32 bytes
+  // (AES-256), codificada en base64. Genérala con: openssl rand -base64 32
+  ENCRYPTION_KEY: z.string().refine(
+    (value) => {
+      try {
+        return Buffer.from(value, "base64").length === 32;
+      } catch {
+        return false;
+      }
+    },
+    { error: "ENCRYPTION_KEY debe ser 32 bytes en base64 (genera con: openssl rand -base64 32)" },
+  ),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;
