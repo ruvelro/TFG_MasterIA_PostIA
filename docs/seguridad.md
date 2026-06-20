@@ -22,6 +22,9 @@ resume las amenazas consideradas y los controles aplicados.
 | Robo de credenciales       | Contraseñas con hash scrypt (gestionado por Better Auth; nunca en claro). Passkeys/WebAuthn como método sin contraseña resistente a phishing.                           |
 | Enumeración de usuarios    | El login devuelve un mensaje genérico que no distingue "email inexistente" de "contraseña incorrecta".                                                                  |
 | Clickjacking / sniffing    | Cabeceras de seguridad en `next.config.ts` (CSP, X-Frame-Options, nosniff, etc.).                                                                                       |
+| Fuerza bruta en login      | Rate limiting en los endpoints de autenticación (Better Auth), activo en producción.                                                                                    |
+| Robo de claves de terceros | Las claves de API (OpenRouter, buscadores) se guardan **cifradas** en la BD (AES-256-GCM, KEK en `ENCRYPTION_KEY`); nunca se devuelven al cliente (solo enmascaradas).  |
+| Configuración global       | Solo el rol **admin** puede leer/cambiar claves, modelos y prompts; cada Server Action revalida la autorización (no basta con ocultar la página).                       |
 | Coste descontrolado de IA  | Límite de peticiones (_rate limit_) en el endpoint de generación.                                                                                                       |
 | XSS por contenido generado | El Markdown del artículo se sanea al renderizar; no se inyecta HTML sin sanitizar.                                                                                      |
 

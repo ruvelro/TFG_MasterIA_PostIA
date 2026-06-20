@@ -26,6 +26,9 @@ model User {
   email         String   @unique
   emailVerified Boolean  @default(false)
   image         String?
+  // Rol de autorización: "admin" puede gestionar la configuración global (claves de API,
+  // modelos y prompts por paso). El primer usuario registrado se promueve a admin.
+  role          String   @default("user")
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
@@ -100,6 +103,39 @@ model Passkey {
 
   @@index([userId])
   @@index([credentialID])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuración global de la app (gestionada por el administrador).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Secretos de terceros cifrados en reposo (AES-256-GCM). El valor NUNCA se guarda en
+// claro ni se devuelve al cliente. La clave (`key`) identifica el secreto, p. ej.
+// "openrouter_api_key", "tavily_api_key", "google_cse_api_key".
+model Secret {
+  key        String   @id
+  ciphertext String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Ajustes de configuración no sensibles (texto en claro), p. ej. "search_provider"
+// ("tavily" | "google") o "google_cse_engine_id".
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Configuración por etapa del pipeline que usa IA (outline, draft, validate, humanize-seo):
+// qué modelo de OpenRouter usar y la plantilla de prompt (con variables {{...}}).
+model PipelineStepConfig {
+  stageId   String   @id
+  model     String
+  prompt    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

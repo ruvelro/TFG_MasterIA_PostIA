@@ -50,8 +50,10 @@ npm install
 
 # 2. Configurar el entorno
 cp .env.example .env
-#    Edita .env y añade tus claves (OpenRouter y un proveedor de búsqueda).
-#    Genera el secreto de sesión:  openssl rand -base64 32
+#    Genera el secreto de sesión y la clave de cifrado (cada uno):  openssl rand -base64 32
+#    -> AUTH_SECRET y ENCRYPTION_KEY en .env
+#    Las claves de OpenRouter y del buscador NO van en .env: se configuran luego desde el
+#    panel de administración (se guardan cifradas en la BD).
 
 # 3. Preparar la base de datos (crea el fichero SQLite y aplica las migraciones)
 npm run db:migrate
@@ -91,6 +93,8 @@ datos, guía de contribución y decisiones de diseño (ADRs).
 - Investigación con fuentes reales de la web (no alucinadas).
 - Visualización del progreso de cada etapa en tiempo real.
 - Registro y autenticación de usuarios (contraseña segura + passkeys opcionales).
+- Panel de administración (rol admin): claves de API cifradas en BD y configuración de
+  modelo + prompt por etapa del pipeline.
 - Artículos guardados por usuario.
 - Historial de artículos: consultar, releer y eliminar.
 - Trazabilidad: cada ejecución registra qué modelo usó cada etapa.
@@ -103,6 +107,9 @@ cuenta con cualquier email y una contraseña que cumpla la política:
 
 > Mínimo **12 caracteres**, con **mayúscula, minúscula, número y símbolo** (se rechazan
 > además las contraseñas más comunes). Ejemplo válido: `Tfg-PostIA-2026!`
+
+El **primer usuario** que se registre se convierte automáticamente en **administrador** y
+podrá acceder al panel `/admin` para configurar las claves de API y el pipeline.
 
 Opcionalmente, desde **Cuenta** puedes registrar una **passkey** (WebAuthn) para iniciar
 sesión sin contraseña.

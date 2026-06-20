@@ -45,11 +45,13 @@ src/
   components/     Componentes de UI pequeños y reutilizables
   lib/
     config/       Validación de entorno (env.ts) y constantes
+    crypto/       Cifrado de secretos en reposo (AES-256-GCM)
     db/           Cliente Prisma
-    auth/         Better Auth: instancia servidor, cliente, helper de sesión
-    ai/           Cliente OpenRouter + resolución de modelo por etapa
+    auth/         Better Auth: instancia servidor, cliente, sesión, autorización (roles)
+    settings/     Repositorios de configuración (secretos cifrados, ajustes, config por paso)
+    ai/           Cliente OpenRouter + resolución de modelo/prompt por etapa
     search/       Abstracción de proveedores de búsqueda (Tavily, Google CSE)
-    pipeline/     Orquestador + etapas (steps/) + tipos
+    pipeline/     Orquestador + etapas (steps/) + tipos + prompts por defecto + plantillas
     validation/   Esquemas Zod compartidos
   types/          Tipos compartidos
 tests/            unit / integration / e2e

@@ -13,6 +13,15 @@
 
 > Los nombres de campo de estas tablas los fija Better Auth y no deben renombrarse.
 
+El **rol** del usuario (`user.role`) controla la autorización: el primer usuario registrado
+se promueve a `admin` y puede gestionar la configuración global.
+
+## Configuración global (gestionada por el admin)
+
+- **Secret** — claves de API de terceros **cifradas** (OpenRouter, Tavily, Google CSE).
+- **AppSetting** — ajustes no sensibles (proveedor de búsqueda, id del motor de Google CSE).
+- **PipelineStepConfig** — modelo y prompt por etapa de IA (si falta, se usan los defaults).
+
 ## Entidades de dominio (PostIA)
 
 - **Article** — artículo final generado: contenido en Markdown y metadatos SEO.

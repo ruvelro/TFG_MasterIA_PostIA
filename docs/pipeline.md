@@ -20,11 +20,31 @@ compartido. El orquestador las ejecuta en orden y emite el progreso.
 | 4   | **Validate**       | Sí (modelo "juez")    | borrador + fuentes | informe de calidad + correcciones        |
 | 5   | **Humanize + SEO** | Sí                    | borrador validado  | artículo final + metadatos SEO           |
 
-## Modelo por etapa
+## Modelo y prompt por etapa
 
-Cada etapa declara qué modelo necesita; el _resolver_ de `lib/ai` traduce eso a un modelo
-concreto de OpenRouter según configuración. Esto permite, por ejemplo, usar un modelo
-económico para el research-outline y uno más capaz para la validación.
+Cada etapa que usa IA (outline, draft, validate, humanize-seo) tiene **modelo** y **prompt**
+configurables. La precedencia la resuelve `resolveStepConfig` en `lib/ai/resolve-step.ts`:
+
+```
+override puntual (por generación)  >  configuración guardada (admin)  >  valores por defecto
+```
+
+- Los **valores por defecto** (modelo + plantilla de prompt) están en
+  `lib/pipeline/default-config.ts`.
+- El **administrador** puede cambiar modelo y prompt de cada etapa desde el panel `/admin`;
+  se guardan en la tabla `PipelineStepConfig`.
+- Cada **generación** puede hacer un override puntual de modelo/prompt.
+
+Los prompts son **plantillas** con marcadores que el pipeline rellena con el contexto
+acumulado (`lib/pipeline/render-template.ts`): `{{topic}}`, `{{sources}}`, `{{outline}}`,
+`{{draft}}`. El modelo concreto de OpenRouter se introduce como texto libre, p. ej.
+`google/gemini-2.5-flash`.
+
+## Claves y proveedor de búsqueda
+
+La clave de OpenRouter y las del buscador se guardan **cifradas** en la BD y se gestionan en
+`/admin` (ver [seguridad.md](seguridad.md)). El proveedor de búsqueda (Tavily o Google CSE)
+también se elige ahí; el research lo consume a través de la interfaz `SearchProvider`.
 
 ## Progreso en tiempo real
 

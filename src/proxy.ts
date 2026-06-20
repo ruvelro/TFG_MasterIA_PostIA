@@ -10,7 +10,7 @@ import type { NextRequest } from "next/server";
  * fiable de la sesión se hace en el layout del grupo (app) con `getCurrentSession()`.
  * Defensa en profundidad: nunca confiamos solo en esta capa.
  */
-const PROTECTED_PREFIXES = ["/generate", "/articles", "/account"];
+const PROTECTED_PREFIXES = ["/generate", "/articles", "/account", "/admin"];
 
 // Better Auth nombra la cookie de sesión distinto según el esquema: `__Secure-` sobre HTTPS.
 const SESSION_COOKIE_NAMES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
@@ -31,5 +31,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/generate/:path*", "/articles/:path*", "/account/:path*"],
+  matcher: ["/generate/:path*", "/articles/:path*", "/account/:path*", "/admin/:path*"],
 };
