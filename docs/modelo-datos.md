@@ -3,9 +3,18 @@
 > El esquema vive en `prisma/schema.prisma` (se implementa en la Fase 2). Este documento
 > describe las entidades y sus relaciones.
 
-## Entidades
+## Entidades de autenticación (gestionadas por Better Auth)
 
-- **User** — usuario que inicia sesión y posee sus artículos.
+- **User** — usuario registrado. La contraseña **no** vive aquí.
+- **Account** — credenciales del usuario; almacena el **hash de la contraseña** (scrypt).
+- **Session** — sesiones activas (token, expiración, IP/user-agent).
+- **Verification** — tokens temporales (p. ej. verificación de email, si se habilita).
+- **Passkey** — credenciales WebAuthn registradas por el usuario (clave pública, contador…).
+
+> Los nombres de campo de estas tablas los fija Better Auth y no deben renombrarse.
+
+## Entidades de dominio (PostIA)
+
 - **Article** — artículo final generado: contenido en Markdown y metadatos SEO.
 - **GenerationRun** — una ejecución del pipeline para un tema dado (estado, tema, fechas).
 - **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó,

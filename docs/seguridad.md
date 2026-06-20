@@ -17,8 +17,10 @@ resume las amenazas consideradas y los controles aplicados.
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Fuga de secretos           | Claves solo en variables de entorno de servidor; `.env` en `.gitignore`; nunca `NEXT_PUBLIC_*` para secretos. Validación de entorno _fail-fast_ en `lib/config/env.ts`. |
 | Entrada maliciosa          | Validación con Zod en todos los Route Handlers y Server Actions antes de tocar la BD o la IA.                                                                           |
-| Acceso no autorizado       | Autenticación con Auth.js; verificación de sesión en cada operación; los artículos se filtran por `userId`.                                                             |
-| Robo de credenciales       | Contraseñas con hash bcrypt (nunca en claro); sesiones JWT firmadas con `AUTH_SECRET`.                                                                                  |
+| Acceso no autorizado       | Autenticación con Better Auth; verificación de sesión en cada operación; los artículos se filtran por `userId`.                                                         |
+| Credenciales débiles       | Política de contraseñas fuertes (≥12, mayús/minús/número/símbolo + lista de bloqueo), aplicada en cliente Y en un hook de servidor de Better Auth (no se puede saltar). |
+| Robo de credenciales       | Contraseñas con hash scrypt (gestionado por Better Auth; nunca en claro). Passkeys/WebAuthn como método sin contraseña resistente a phishing.                           |
+| Enumeración de usuarios    | El login devuelve un mensaje genérico que no distingue "email inexistente" de "contraseña incorrecta".                                                                  |
 | Clickjacking / sniffing    | Cabeceras de seguridad en `next.config.ts` (CSP, X-Frame-Options, nosniff, etc.).                                                                                       |
 | Coste descontrolado de IA  | Límite de peticiones (_rate limit_) en el endpoint de generación.                                                                                                       |
 | XSS por contenido generado | El Markdown del artículo se sanea al renderizar; no se inyecta HTML sin sanitizar.                                                                                      |

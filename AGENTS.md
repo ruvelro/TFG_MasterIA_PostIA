@@ -31,7 +31,8 @@ El criterio de evaluación del TFG son las **buenas prácticas**, no solo que fu
 - **Next.js 16** (App Router) + **React 19** + **TypeScript** (estricto).
 - **Tailwind CSS v4** para estilos.
 - **Prisma + SQLite** para persistencia.
-- **Auth.js (NextAuth) + bcrypt** para autenticación con credenciales.
+- **Better Auth** para autenticación: email + contraseña (política de contraseñas fuertes)
+  y **passkeys/WebAuthn** como método adicional opcional. Registro abierto.
 - **Vercel AI SDK + OpenRouter** para la capa de IA.
 - **Zod v4** para validación de entrada y de salidas estructuradas de IA.
 - **Vitest** (unit/integration) + **Playwright** (e2e).
@@ -45,7 +46,7 @@ src/
   lib/
     config/       Validación de entorno (env.ts) y constantes
     db/           Cliente Prisma
-    auth/         Configuración de Auth.js y hashing
+    auth/         Better Auth: instancia servidor, cliente, helper de sesión
     ai/           Cliente OpenRouter + resolución de modelo por etapa
     search/       Abstracción de proveedores de búsqueda (Tavily, Google CSE)
     pipeline/     Orquestador + etapas (steps/) + tipos

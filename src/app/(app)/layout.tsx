@@ -1,16 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { auth } from "@/lib/auth";
-import { logout } from "@/lib/auth/actions";
+import { SignOutButton } from "@/components/sign-out-button";
+import { getCurrentSession } from "@/lib/auth/session";
 
 /**
  * Layout de las rutas protegidas. Aquí está la barrera de seguridad REAL: verifica la
- * sesión en el servidor con `auth()` y redirige si no existe. El `proxy.ts` solo hace una
- * comprobación optimista previa; esta es la que no se puede saltar.
+ * sesión en el servidor y redirige si no existe. El `proxy.ts` solo hace una comprobación
+ * optimista previa; esta es la que no se puede saltar.
  */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
+  const session = await getCurrentSession();
   if (!session?.user) redirect("/login");
 
   return (
@@ -26,14 +26,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/articles" className="text-muted hover:text-foreground text-sm">
             Historial
           </Link>
+          <Link href="/account" className="text-muted hover:text-foreground text-sm">
+            Cuenta
+          </Link>
         </nav>
         <div className="flex items-center gap-3 text-sm">
           <span className="text-muted">{session.user.email}</span>
-          <form action={logout}>
-            <button type="submit" className="text-primary font-medium">
-              Salir
-            </button>
-          </form>
+          <SignOutButton />
         </div>
       </header>
       <main className="flex-1">{children}</main>
