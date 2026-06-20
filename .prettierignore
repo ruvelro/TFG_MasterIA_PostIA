@@ -1,0 +1,12 @@
+# Artefactos y dependencias: no deben formatearse
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+pnpm-lock.yaml
+package-lock.json
+# Migraciones generadas por Prisma (formato propio)
+prisma/migrations

@@ -1,0 +1,3 @@
+# Pre-push: red de seguridad antes de compartir código.
+# Comprobamos tipos y ejecutamos los tests unitarios/integración (no los e2e, que son lentos).
+npm run typecheck && npm run test

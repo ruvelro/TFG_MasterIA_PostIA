@@ -1,0 +1,2 @@
+# Pre-commit: formatea y lintea solo los archivos en stage (rápido).
+npx lint-staged
