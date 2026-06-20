@@ -15,6 +15,14 @@ import { z } from "zod";
  */
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+
+  // Conexión a la base de datos. Se mantiene como string genérico (no solo `file:`) para
+  // poder migrar de SQLite a PostgreSQL cambiando solo el valor, sin tocar el esquema.
+  DATABASE_URL: z.string().min(1, { error: "DATABASE_URL es obligatoria" }),
+
+  // Secreto con el que Auth.js firma las sesiones JWT. Exigimos una longitud mínima para
+  // descartar secretos triviales; en producción debe generarse con `openssl rand -base64 32`.
+  AUTH_SECRET: z.string().min(16, { error: "AUTH_SECRET debe tener al menos 16 caracteres" }),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;

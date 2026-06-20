@@ -55,3 +55,5 @@ prisma/*.db-journal
 .idea
 .vscode/*
 !.vscode/extensions.json
+
+/src/generated/prisma
