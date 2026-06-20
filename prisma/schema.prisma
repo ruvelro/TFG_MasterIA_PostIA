@@ -1,6 +1,5 @@
 // Esquema de datos de PostIA. Documentación de las entidades en docs/modelo-datos.md.
-// Generamos el cliente dentro de src/ para importarlo con el alias @/ y mantenerlo
-// fuera del control de versiones (es código generado, ver .gitignore).
+// El cliente se genera dentro de src/ (ver .gitignore) para importarlo con el alias @/.
 
 generator client {
   provider = "prisma-client"
@@ -13,20 +12,99 @@ datasource db {
   provider = "sqlite"
 }
 
-// Usuario que inicia sesión. Usamos Credentials (email + contraseña) con sesiones JWT,
-// por lo que NO necesitamos las tablas de adaptador de Auth.js (Account/Session): basta
-// con almacenar el hash de la contraseña aquí.
-model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String?
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+// ─────────────────────────────────────────────────────────────────────────────
+// Modelos de Better Auth.
+//
+// Better Auth gestiona la autenticación: la contraseña (hash scrypt) vive en `Account`,
+// no en `User`. Los nombres de campo siguen exactamente lo que espera Better Auth; no
+// deben renombrarse. Solo añadimos a `User` las relaciones de dominio de PostIA.
+// ─────────────────────────────────────────────────────────────────────────────
 
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  passkeys Passkey[]
+
+  // Relaciones de dominio (PostIA).
   articles Article[]
   runs     GenerationRun[]
 }
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  // Hash de la contraseña (scrypt) para el proveedor de credenciales.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// Passkey (WebAuthn). Campos según el plugin @better-auth/passkey.
+model Passkey {
+  id           String   @id @default(cuid())
+  name         String?
+  publicKey    String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([credentialID])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modelos de dominio de PostIA.
+// ─────────────────────────────────────────────────────────────────────────────
 
 // Una ejecución del pipeline para un tema concreto. Guarda el estado global y enlaza con
 // la traza por etapa y con el artículo resultante.
@@ -68,7 +146,7 @@ model GenerationStep {
 }
 
 // Artículo final publicable, propiedad de un usuario. Opcionalmente enlaza con la
-// ejecución que lo produjo (un artículo también podría existir sin run en el futuro).
+// ejecución que lo produjo.
 model Article {
   id              String   @id @default(cuid())
   userId          String

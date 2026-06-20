@@ -7,13 +7,13 @@ import type { NextRequest } from "next/server";
  * Hace solo una comprobación OPTIMISTA: si el usuario intenta entrar en una ruta protegida
  * sin cookie de sesión, lo redirige a /login antes de renderizar. Esto mejora la UX
  * (redirección instantánea), pero NO es la barrera de seguridad real: la verificación
- * fiable de la sesión se hace en el layout del grupo (app) con `auth()`. Defensa en
- * profundidad: nunca confiamos solo en esta capa.
+ * fiable de la sesión se hace en el layout del grupo (app) con `getCurrentSession()`.
+ * Defensa en profundidad: nunca confiamos solo en esta capa.
  */
-const PROTECTED_PREFIXES = ["/generate", "/articles"];
+const PROTECTED_PREFIXES = ["/generate", "/articles", "/account"];
 
-// Auth.js nombra la cookie de sesión distinto según el esquema: `__Secure-` sobre HTTPS.
-const SESSION_COOKIE_NAMES = ["authjs.session-token", "__Secure-authjs.session-token"];
+// Better Auth nombra la cookie de sesión distinto según el esquema: `__Secure-` sobre HTTPS.
+const SESSION_COOKIE_NAMES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
 
 export function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
@@ -31,5 +31,5 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  matcher: ["/generate/:path*", "/articles/:path*"],
+  matcher: ["/generate/:path*", "/articles/:path*", "/account/:path*"],
 };

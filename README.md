@@ -33,7 +33,7 @@ El usuario ve el progreso de cada etapa en vivo y el artículo final se guarda e
 | Lenguaje      | TypeScript (modo estricto)                                 |
 | Estilos       | Tailwind CSS v4                                            |
 | Persistencia  | Prisma ORM + SQLite                                        |
-| Autenticación | Auth.js (NextAuth) con credenciales + bcrypt               |
+| Autenticación | Better Auth (email + contraseña, passkeys/WebAuthn)        |
 | IA            | Vercel AI SDK + OpenRouter (modelo configurable por etapa) |
 | Búsqueda      | Tavily / Google Custom Search (abstracción intercambiable) |
 | Validación    | Zod v4                                                     |
@@ -53,9 +53,8 @@ cp .env.example .env
 #    Edita .env y añade tus claves (OpenRouter y un proveedor de búsqueda).
 #    Genera el secreto de sesión:  openssl rand -base64 32
 
-# 3. Preparar la base de datos (crea SQLite + usuario de prueba)   [disponible en Fase 2]
-# npm run db:migrate
-# npm run db:seed
+# 3. Preparar la base de datos (crea el fichero SQLite y aplica las migraciones)
+npm run db:migrate
 
 # 4. Arrancar en desarrollo
 npm run dev
@@ -72,7 +71,7 @@ src/
   lib/
     config/    Validación de variables de entorno
     db/        Cliente Prisma
-    auth/      Configuración de Auth.js
+    auth/      Configuración de Better Auth (servidor, cliente, sesión)
     ai/        Cliente OpenRouter + modelo por etapa
     search/    Proveedores de búsqueda (Tavily, Google CSE)
     pipeline/  Orquestador y etapas del pipeline
@@ -80,7 +79,7 @@ src/
   types/       Tipos compartidos
 tests/         unit / integration / e2e
 docs/          Documentación detallada del proyecto
-prisma/        Esquema, migraciones y seed
+prisma/        Esquema y migraciones
 ```
 
 Documentación ampliada en [`docs/`](docs/): arquitectura, pipeline, seguridad, modelo de
@@ -91,17 +90,22 @@ datos, guía de contribución y decisiones de diseño (ADRs).
 - Generación de artículos mediante pipeline multi-etapa con modelo por etapa.
 - Investigación con fuentes reales de la web (no alucinadas).
 - Visualización del progreso de cada etapa en tiempo real.
-- Autenticación de usuarios y artículos guardados por usuario.
+- Registro y autenticación de usuarios (contraseña segura + passkeys opcionales).
+- Artículos guardados por usuario.
 - Historial de artículos: consultar, releer y eliminar.
 - Trazabilidad: cada ejecución registra qué modelo usó cada etapa.
 
 ## f. Usuario y contraseña de prueba
 
-> _Se generan con `npm run db:seed` (disponible a partir de la Fase 2)._
+Por seguridad, **el proyecto no incluye ningún usuario predefinido**: el primer acceso se
+hace **registrándose** en `/register` (registro abierto). Para evaluar la app, crea una
+cuenta con cualquier email y una contraseña que cumpla la política:
 
-| Email             | Contraseña  |
-| ----------------- | ----------- |
-| `demo@postia.app` | `Demo1234!` |
+> Mínimo **12 caracteres**, con **mayúscula, minúscula, número y símbolo** (se rechazan
+> además las contraseñas más comunes). Ejemplo válido: `Tfg-PostIA-2026!`
+
+Opcionalmente, desde **Cuenta** puedes registrar una **passkey** (WebAuthn) para iniciar
+sesión sin contraseña.
 
 ## Scripts
 

@@ -24,13 +24,12 @@ export default async function LoginPage({
 
       <LoginForm callbackUrl={safeCallback} />
 
-      {/* Credenciales de prueba visibles para facilitar la evaluación del TFG. */}
-      <div className="border-muted/20 text-muted rounded-md border border-dashed p-3 text-xs">
-        <p className="font-medium">Usuario de prueba</p>
-        <p>
-          Email: <code>demo@postia.app</code> · Contraseña: <code>Demo1234!</code>
-        </p>
-      </div>
+      <p className="text-muted text-sm">
+        ¿No tienes cuenta?{" "}
+        <Link href="/register" className="text-primary font-medium">
+          Crear cuenta
+        </Link>
+      </p>
     </main>
   );
 }
