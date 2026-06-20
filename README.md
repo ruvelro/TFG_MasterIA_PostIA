@@ -1,36 +1,120 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PostIA — Generador de artículos de blog con IA
 
-## Getting Started
+> Trabajo de Fin de Máster · Curso de desarrollo con IA.
+> Aplicación web que genera artículos de blog mediante un **pipeline de IA multi-etapa**,
+> donde cada etapa puede usar un modelo distinto a través de [OpenRouter](https://openrouter.ai).
 
-First, run the development server:
+[![CI](https://img.shields.io/badge/CI-pending-lightgrey)](#)
+[![Next.js](https://img.shields.io/badge/Next.js-16-black)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org)
+
+---
+
+## a. Descripción general
+
+PostIA convierte un **tema** en un **artículo de blog publicable**. En lugar de una única
+llamada a un modelo, orquesta un pipeline de cinco etapas en el que cada paso está
+especializado y puede ejecutarse con el modelo más adecuado (más barato para tareas
+mecánicas, más potente para validación):
+
+1. **Research** — busca fuentes reales en la web (Tavily / Google CSE). _No usa IA._
+2. **Outline** — genera la estructura del artículo como datos validados.
+3. **Draft** — redacta el borrador a partir del outline y las fuentes.
+4. **Validate** — revisa coherencia y calidad, contrastando con las fuentes.
+5. **Humanize + SEO** — pule el tono y produce metadatos SEO (meta description, slug, keywords).
+
+El usuario ve el progreso de cada etapa en vivo y el artículo final se guarda en su historial.
+
+## b. Stack tecnológico
+
+| Capa          | Tecnología                                                 |
+| ------------- | ---------------------------------------------------------- |
+| Framework     | Next.js 16 (App Router) + React 19                         |
+| Lenguaje      | TypeScript (modo estricto)                                 |
+| Estilos       | Tailwind CSS v4                                            |
+| Persistencia  | Prisma ORM + SQLite                                        |
+| Autenticación | Auth.js (NextAuth) con credenciales + bcrypt               |
+| IA            | Vercel AI SDK + OpenRouter (modelo configurable por etapa) |
+| Búsqueda      | Tavily / Google Custom Search (abstracción intercambiable) |
+| Validación    | Zod v4                                                     |
+| Tests         | Vitest (unit/integration) + Playwright (e2e)               |
+| Calidad       | ESLint + Prettier + Husky + lint-staged                    |
+
+## c. Instalación y ejecución
+
+Requisitos: **Node.js 24+** y npm.
 
 ```bash
+# 1. Instalar dependencias
+npm install
+
+# 2. Configurar el entorno
+cp .env.example .env
+#    Edita .env y añade tus claves (OpenRouter y un proveedor de búsqueda).
+#    Genera el secreto de sesión:  openssl rand -base64 32
+
+# 3. Preparar la base de datos (crea SQLite + usuario de prueba)   [disponible en Fase 2]
+# npm run db:migrate
+# npm run db:seed
+
+# 4. Arrancar en desarrollo
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+La app queda en `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## d. Estructura del proyecto
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+src/
+  app/         Rutas (App Router): páginas, layouts y API (route handlers)
+  components/  Componentes de UI reutilizables
+  lib/
+    config/    Validación de variables de entorno
+    db/        Cliente Prisma
+    auth/      Configuración de Auth.js
+    ai/        Cliente OpenRouter + modelo por etapa
+    search/    Proveedores de búsqueda (Tavily, Google CSE)
+    pipeline/  Orquestador y etapas del pipeline
+    validation/ Esquemas Zod compartidos
+  types/       Tipos compartidos
+tests/         unit / integration / e2e
+docs/          Documentación detallada del proyecto
+prisma/        Esquema, migraciones y seed
+```
 
-## Learn More
+Documentación ampliada en [`docs/`](docs/): arquitectura, pipeline, seguridad, modelo de
+datos, guía de contribución y decisiones de diseño (ADRs).
 
-To learn more about Next.js, take a look at the following resources:
+## e. Funcionalidades principales
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Generación de artículos mediante pipeline multi-etapa con modelo por etapa.
+- Investigación con fuentes reales de la web (no alucinadas).
+- Visualización del progreso de cada etapa en tiempo real.
+- Autenticación de usuarios y artículos guardados por usuario.
+- Historial de artículos: consultar, releer y eliminar.
+- Trazabilidad: cada ejecución registra qué modelo usó cada etapa.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## f. Usuario y contraseña de prueba
 
-## Deploy on Vercel
+> _Se generan con `npm run db:seed` (disponible a partir de la Fase 2)._
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Email             | Contraseña  |
+| ----------------- | ----------- |
+| `demo@postia.app` | `Demo1234!` |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+| Comando             | Descripción            |
+| ------------------- | ---------------------- |
+| `npm run dev`       | Servidor de desarrollo |
+| `npm run build`     | Build de producción    |
+| `npm run typecheck` | Comprobación de tipos  |
+| `npm run lint`      | Linter                 |
+| `npm run format`    | Formateo con Prettier  |
+| `npm run test`      | Tests unit/integration |
+| `npm run test:e2e`  | Tests end-to-end       |
+
+## Licencia
+
+Proyecto académico (TFG). Uso educativo.

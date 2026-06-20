@@ -39,3 +39,19 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# base de datos local (SQLite) — nunca se versiona
+*.db
+*.db-journal
+prisma/*.db
+prisma/*.db-journal
+
+# tests e2e (Playwright)
+/test-results
+/playwright-report
+/playwright/.cache
+
+# IDE / editores
+.idea
+.vscode/*
+!.vscode/extensions.json
