@@ -1,13 +1,20 @@
 /**
  * Catálogo de etapas del pipeline: la ÚNICA fuente de verdad sobre qué etapas existen,
  * en qué orden y cómo se describen. Tanto la UI (landing, vista de progreso) como el
- * orquestador (Fase 4) consumen esta lista, de modo que añadir o reordenar una etapa es
- * un cambio en un solo sitio y nada se desincroniza.
+ * orquestador consumen esta lista, de modo que añadir o reordenar una etapa es un cambio
+ * en un solo sitio y nada se desincroniza.
  *
- * Aquí solo vive la metadata (identidad y textos). La lógica de cada etapa se añade en la
- * Fase 4, asociándola a estos identificadores.
+ * Aquí solo vive la metadata (identidad y textos). La lógica de cada etapa está en
+ * `steps/` y la configuración por defecto (modelo + prompt) en `default-config.ts`.
  */
-export const STAGE_IDS = ["research", "outline", "draft", "validate", "humanize-seo"] as const;
+export const STAGE_IDS = [
+  "research",
+  "extract",
+  "blueprint",
+  "draft",
+  "validate",
+  "fixer",
+] as const;
 
 export type StageId = (typeof STAGE_IDS)[number];
 
@@ -25,31 +32,41 @@ export const PIPELINE_STAGES: readonly PipelineStageMeta[] = [
   {
     id: "research",
     label: "Research",
-    description: "Busca fuentes reales en la web mediante APIs de búsqueda. No usa IA.",
+    description:
+      "Busca y descarga el contenido de varias webs, que serán la fuente de verdad. No usa IA.",
     usesAi: false,
   },
   {
-    id: "outline",
-    label: "Esquema",
-    description: "Genera la estructura del artículo como datos validados.",
+    id: "extract",
+    label: "Extracción",
+    description:
+      "Analiza las fuentes y extrae los hechos clave con su cita. Revisable por el usuario.",
+    usesAi: true,
+  },
+  {
+    id: "blueprint",
+    label: "Estructura",
+    description: "Diseña el esqueleto: titular de trabajo, ángulo, secciones y keyword objetivo.",
     usesAi: true,
   },
   {
     id: "draft",
     label: "Redacción",
-    description: "Escribe el borrador a partir del esquema y las fuentes.",
+    description:
+      "Escribe el artículo con los hechos, la estructura, la voz editorial y las reglas SEO/GEO.",
     usesAi: true,
   },
   {
     id: "validate",
     label: "Validación",
-    description: "Revisa coherencia y calidad contrastando con las fuentes.",
+    description:
+      "Revisa fidelidad a las fuentes, tono humano, reglas editoriales y estándares SEO/GEO.",
     usesAi: true,
   },
   {
-    id: "humanize-seo",
-    label: "Humanización + SEO",
-    description: "Pule el tono y genera los metadatos SEO del artículo.",
+    id: "fixer",
+    label: "Corrección",
+    description: "Corrige lo que marca la validación, aplica formato y genera la meta SEO final.",
     usesAi: true,
   },
 ] as const;

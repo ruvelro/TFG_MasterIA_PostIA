@@ -25,9 +25,12 @@ se promueve a `admin` y puede gestionar la configuración global.
 ## Entidades de dominio (PostIA)
 
 - **Article** — artículo final generado: contenido en Markdown y metadatos SEO.
-- **GenerationRun** — una ejecución del pipeline para un tema dado (estado, tema, fechas).
+- **GenerationRun** — una ejecución del pipeline para un tema dado. `status` recorre
+  `pending → researching → awaiting_review → generating → completed | failed`. `contextJson`
+  guarda un snapshot del contexto para **pausar** tras la extracción y **reanudar** después.
 - **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó,
-  duración y, cuando aplica, tokens. Permite analizar coste y rendimiento por etapa.
+  duración, tokens e `attempt` (el bucle validate↔fixer ejecuta etapas varias veces).
+  Permite analizar coste y rendimiento por etapa.
 
 ## Relaciones (previstas)
 
