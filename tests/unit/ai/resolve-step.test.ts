@@ -5,7 +5,7 @@ import { DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
 
 describe("resolveStepConfig", () => {
   it("usa los valores por defecto cuando no hay nada guardado ni override", () => {
-    expect(resolveStepConfig("outline")).toEqual(DEFAULT_STEP_CONFIG.outline);
+    expect(resolveStepConfig("extract")).toEqual(DEFAULT_STEP_CONFIG.extract);
   });
 
   it("la configuración guardada gana a los valores por defecto", () => {
@@ -25,7 +25,7 @@ describe("resolveStepConfig", () => {
   });
 
   it("ignora valores vacíos o en blanco y cae al siguiente nivel", () => {
-    const result = resolveStepConfig("outline", { model: "   " }, { model: "" });
-    expect(result.model).toBe(DEFAULT_STEP_CONFIG.outline.model);
+    const result = resolveStepConfig("extract", { model: "   " }, { model: "" });
+    expect(result.model).toBe(DEFAULT_STEP_CONFIG.extract.model);
   });
 });

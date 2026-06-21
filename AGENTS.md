@@ -18,11 +18,12 @@ This version has breaking changes — APIs, conventions, and file structure may 
 de Fin de Máster. Su núcleo es un **pipeline multi-etapa** donde cada etapa puede usar
 un modelo distinto a través de **OpenRouter**:
 
-1. **Research** — búsqueda online (Tavily / Google CSE). No usa IA; recupera fuentes.
-2. **Outline** — esquema estructurado del artículo (salida validada con Zod).
-3. **Draft** — redacción del borrador a partir del outline y el research.
-4. **Validate** — revisión de calidad/coherencia (modelo "juez").
-5. **Humanize + SEO** — reduce el tono "IA" y genera metadatos SEO.
+1. **Research** — busca N fuentes y descarga su contenido (fuente de verdad). No usa IA.
+2. **Extract** — extrae los hechos clave con su cita (Zod). Revisable por el usuario (pausa opcional).
+3. **Blueprint** — diseña la estructura: titular, ángulo, secciones, keyword (Zod).
+4. **Draft** — redacta el artículo con hechos + estructura + voz editorial + reglas SEO/GEO.
+5. **Validate** — informe estructurado (fidelidad, tono IA, editorial, SEO/GEO); modelo "juez".
+6. **Fixer** — corrige según el informe, marca negritas y genera la meta SEO final. Bucle con Validate.
 
 El criterio de evaluación del TFG son las **buenas prácticas**, no solo que funcione.
 

@@ -148,8 +148,12 @@ model GenerationRun {
   id        String   @id @default(cuid())
   userId    String
   topic     String
-  // Estado como String porque SQLite no tiene enums nativos: pending | running | completed | failed
+  // Estado como String porque SQLite no tiene enums nativos:
+  // pending | researching | awaiting_review | generating | completed | failed
   status    String   @default("pending")
+  // Snapshot serializado (JSON) del PipelineContext, necesario para PAUSAR tras la
+  // extracción y REANUDAR la generación (posiblemente con los hechos editados por el usuario).
+  contextJson String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -165,9 +169,11 @@ model GenerationRun {
 model GenerationStep {
   id           String   @id @default(cuid())
   runId        String
-  // research | outline | draft | validate | humanize-seo
+  // research | extract | blueprint | draft | validate | fixer
   stageId      String
   status       String   @default("pending")
+  // Número de pasada de la etapa: el bucle validate↔fixer puede ejecutarla varias veces.
+  attempt      Int      @default(1)
   // Modelo de OpenRouter usado; null en la etapa research, que no usa IA.
   model        String?
   durationMs   Int?

@@ -16,6 +16,8 @@ export default defineConfig({
   test: {
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // Prepara una BD de test limpia para los tests de integración que usan Prisma.
+    globalSetup: ["./tests/vitest.global-setup.ts"],
     environment: "node",
     // Entorno controlado para los tests: así la validación fail-fast de `lib/config/env`
     // no obliga a tener un `.env` real para ejecutar la suite. Valores deterministas y

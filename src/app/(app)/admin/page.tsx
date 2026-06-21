@@ -4,11 +4,12 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { getAppSetting } from "@/lib/settings/app-config";
+import { getGenerationConfig } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 
-import { saveIntegrations, saveStepConfig } from "./actions";
+import { saveGenerationConfig, saveIntegrations, saveStepConfig } from "./actions";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
 
@@ -26,7 +27,7 @@ export default async function AdminPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "admin") redirect("/generate");
 
-  const [openRouter, tavily, google, searchProvider, googleEngineId, stepConfigs] =
+  const [openRouter, tavily, google, searchProvider, googleEngineId, stepConfigs, generation] =
     await Promise.all([
       getSecretStatus(SECRET_KEYS.openRouter),
       getSecretStatus(SECRET_KEYS.tavily),
@@ -34,6 +35,7 @@ export default async function AdminPage() {
       getAppSetting(SETTING_KEYS.searchProvider),
       getAppSetting(SETTING_KEYS.googleEngineId),
       getAllStepConfigs(),
+      getGenerationConfig(),
     ]);
 
   const inputClass =
@@ -113,6 +115,65 @@ export default async function AdminPage() {
         </button>
       </form>
 
+      {/* ── Configuración de generación ─────────────────────────────────── */}
+      <form action={saveGenerationConfig} className="flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Configuración de generación</h2>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Voz editorial</span>
+          <textarea
+            name="editorialVoice"
+            rows={4}
+            defaultValue={generation.editorialVoice}
+            className={inputClass}
+            placeholder="Describe el tono y estilo de la publicación…"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Reglas SEO / GEO</span>
+          <textarea
+            name="seoRules"
+            rows={4}
+            defaultValue={generation.seoRules}
+            className={inputClass}
+            placeholder="Directrices SEO/GEO que debe cumplir el artículo…"
+          />
+        </label>
+
+        <div className="flex gap-4">
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            <span className="font-medium">Nº de fuentes (research)</span>
+            <input
+              name="sourceCount"
+              type="number"
+              min={1}
+              max={10}
+              defaultValue={generation.sourceCount}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-1 flex-col gap-1 text-sm">
+            <span className="font-medium">Iteraciones máx. del fixer</span>
+            <input
+              name="maxFixIterations"
+              type="number"
+              min={0}
+              max={5}
+              defaultValue={generation.maxFixIterations}
+              className={inputClass}
+            />
+          </label>
+        </div>
+
+        <button
+          type="submit"
+          className="bg-primary self-start rounded-md px-4 py-2 text-sm font-medium text-white"
+        >
+          Guardar configuración
+        </button>
+      </form>
+
       {/* ── Configuración por etapa del pipeline ────────────────────────── */}
       <div className="flex flex-col gap-6">
         <h2 className="text-lg font-semibold">Pipeline: modelo y prompt por etapa</h2>
@@ -158,7 +219,9 @@ export default async function AdminPage() {
         })}
         <p className="text-muted text-xs">
           Variables disponibles en los prompts: <code>{"{{topic}}"}</code>,{" "}
-          <code>{"{{sources}}"}</code>, <code>{"{{outline}}"}</code>, <code>{"{{draft}}"}</code>.
+          <code>{"{{sources}}"}</code>, <code>{"{{facts}}"}</code>, <code>{"{{blueprint}}"}</code>,{" "}
+          <code>{"{{draft}}"}</code>, <code>{"{{report}}"}</code>,{" "}
+          <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>.
         </p>
       </div>
     </section>

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { PIPELINE_STAGES, STAGE_IDS } from "@/lib/pipeline/stages";
 
 describe("catálogo de etapas del pipeline", () => {
-  it("define las cinco etapas en el orden esperado", () => {
-    expect(STAGE_IDS).toEqual(["research", "outline", "draft", "validate", "humanize-seo"]);
+  it("define las seis etapas en el orden esperado", () => {
+    expect(STAGE_IDS).toEqual(["research", "extract", "blueprint", "draft", "validate", "fixer"]);
   });
 
   it("mantiene la metadata alineada con los identificadores de etapa", () => {

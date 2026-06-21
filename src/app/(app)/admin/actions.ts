@@ -42,6 +42,21 @@ export async function saveIntegrations(formData: FormData): Promise<void> {
   revalidatePath("/admin");
 }
 
+/**
+ * Guarda la configuración de generación: voz editorial y reglas SEO/GEO (texto que se
+ * inyecta en los prompts) y los límites de recursos (nº de fuentes, iteraciones del fixer).
+ */
+export async function saveGenerationConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  await setAppSetting(SETTING_KEYS.editorialVoice, field(formData, "editorialVoice"));
+  await setAppSetting(SETTING_KEYS.seoRules, field(formData, "seoRules"));
+  await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
+  await setAppSetting(SETTING_KEYS.maxFixIterations, field(formData, "maxFixIterations"));
+
+  revalidatePath("/admin");
+}
+
 /** Guarda el modelo y el prompt de una etapa del pipeline. */
 export async function saveStepConfig(formData: FormData): Promise<void> {
   await requireAdmin();
