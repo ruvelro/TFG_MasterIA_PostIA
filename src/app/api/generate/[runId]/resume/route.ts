@@ -48,7 +48,12 @@ export async function POST(
       (event) => emit({ type: "stage", ...event }),
     );
     if (result.context.article) {
-      emit({ type: "completed", runId: result.runId, article: result.context.article });
+      emit({
+        type: "completed",
+        runId: result.runId,
+        articleId: result.articleId,
+        article: result.context.article,
+      });
     }
   });
 }

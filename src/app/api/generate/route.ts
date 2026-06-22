@@ -45,7 +45,12 @@ export async function POST(request: NextRequest): Promise<Response> {
     if (result.status === "awaiting_review" && result.context.facts) {
       emit({ type: "awaiting_review", runId: result.runId, facts: result.context.facts });
     } else if (result.context.article) {
-      emit({ type: "completed", runId: result.runId, article: result.context.article });
+      emit({
+        type: "completed",
+        runId: result.runId,
+        articleId: result.articleId,
+        article: result.context.article,
+      });
     }
   });
 }

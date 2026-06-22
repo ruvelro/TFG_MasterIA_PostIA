@@ -18,7 +18,7 @@ export type GenerationStreamEvent =
       message?: string;
     }
   | { type: "awaiting_review"; runId: string; facts: Facts }
-  | { type: "completed"; runId: string; article: FixerOutput }
+  | { type: "completed"; runId: string; articleId?: string; article: FixerOutput }
   | { type: "error"; message: string };
 
 /** Override por etapa que el formulario puede enviar para una generación concreta. */

@@ -8,7 +8,8 @@ import { useGenerationStream } from "./use-generation-stream";
 
 // Orquesta la experiencia del generador conmutando entre subvistas según la fase del stream.
 export function GeneratorClient() {
-  const { phase, stages, facts, article, error, start, resume, reset } = useGenerationStream();
+  const { phase, stages, facts, article, articleId, error, start, resume, reset } =
+    useGenerationStream();
 
   const busy = phase === "running" || phase === "finalizing";
   const showForm = phase === "idle" || phase === "error";
@@ -31,7 +32,9 @@ export function GeneratorClient() {
         <FactsReview initialFacts={facts} disabled={busy} onContinue={(edited) => resume(edited)} />
       ) : null}
 
-      {phase === "done" && article ? <ArticleResult article={article} onReset={reset} /> : null}
+      {phase === "done" && article ? (
+        <ArticleResult article={article} articleId={articleId} onReset={reset} />
+      ) : null}
     </div>
   );
 }
