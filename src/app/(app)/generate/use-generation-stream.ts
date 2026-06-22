@@ -50,6 +50,7 @@ export function useGenerationStream() {
   const [stages, setStages] = useState<StageMap>(initStages);
   const [facts, setFacts] = useState<Facts | null>(null);
   const [article, setArticle] = useState<FixerOutput | null>(null);
+  const [articleId, setArticleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const runIdRef = useRef<string | null>(null);
 
@@ -68,6 +69,7 @@ export function useGenerationStream() {
         break;
       case "completed":
         setArticle(event.article);
+        setArticleId(event.articleId ?? null);
         setPhase("done");
         break;
       case "error":
@@ -110,6 +112,7 @@ export function useGenerationStream() {
     async (topic: string, options: StartOptions) => {
       setError(null);
       setArticle(null);
+      setArticleId(null);
       setFacts(null);
       setStages(initStages());
       runIdRef.current = null;
@@ -157,9 +160,10 @@ export function useGenerationStream() {
     setStages(initStages());
     setFacts(null);
     setArticle(null);
+    setArticleId(null);
     setError(null);
     runIdRef.current = null;
   }, []);
 
-  return { phase, stages, facts, article, error, start, resume, reset };
+  return { phase, stages, facts, article, articleId, error, start, resume, reset };
 }

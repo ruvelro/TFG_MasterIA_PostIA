@@ -1,11 +1,21 @@
 "use client";
 
+import Link from "next/link";
+
 import { Markdown } from "@/components/markdown";
 import type { FixerOutput } from "@/lib/pipeline/schemas";
 
 // Resultado final: artículo renderizado (Markdown saneado) y sus metadatos SEO, con
 // acciones para copiar o descargar el contenido. El artículo ya quedó guardado en la BD.
-export function ArticleResult({ article, onReset }: { article: FixerOutput; onReset: () => void }) {
+export function ArticleResult({
+  article,
+  articleId,
+  onReset,
+}: {
+  article: FixerOutput;
+  articleId: string | null;
+  onReset: () => void;
+}) {
   function copyMarkdown() {
     void navigator.clipboard.writeText(article.contentMarkdown);
   }
@@ -57,6 +67,11 @@ export function ArticleResult({ article, onReset }: { article: FixerOutput; onRe
         <button type="button" onClick={onReset} className={buttonClass}>
           Nueva generación
         </button>
+        {articleId ? (
+          <Link href={`/articles/${articleId}`} className={buttonClass}>
+            Ver en historial
+          </Link>
+        ) : null}
       </div>
 
       <div className="border-muted/20 rounded-lg border p-6">

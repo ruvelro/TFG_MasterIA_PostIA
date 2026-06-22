@@ -79,6 +79,8 @@ export interface GenerationResult {
   runId: string;
   status: RunStatus;
   context: PipelineContext;
+  /** Id del `Article` creado (solo cuando la generación se completa). */
+  articleId?: string;
 }
 
 export interface StartParams {
@@ -216,7 +218,7 @@ async function runGenerationTail(
   if (!article) throw new Error("El fixer no produjo un artículo");
 
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
-  await prisma.article.create({
+  const created = await prisma.article.create({
     data: {
       userId: run.userId,
       runId,
@@ -226,8 +228,9 @@ async function runGenerationTail(
       metaDescription: article.metaDescription,
       keywords: JSON.stringify(article.keywords),
     },
+    select: { id: true },
   });
 
   await saveContext(runId, ctx, "completed");
-  return { runId, status: "completed", context: ctx };
+  return { runId, status: "completed", context: ctx, articleId: created.id };
 }

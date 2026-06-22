@@ -50,6 +50,7 @@ src/
     http/         Utilidades HTTP (streaming NDJSON, rate limiting)
     db/           Cliente Prisma
     auth/         Better Auth: instancia servidor, cliente, sesión, autorización (roles)
+    articles/     Repositorio de artículos (consultas filtradas por usuario)
     settings/     Repositorios de configuración (secretos cifrados, ajustes, config por paso)
     ai/           Cliente OpenRouter + resolución de modelo/prompt por etapa
     search/       Abstracción de proveedores de búsqueda (Tavily, Google CSE)
