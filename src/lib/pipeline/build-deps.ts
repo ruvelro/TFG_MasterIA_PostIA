@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
 import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
+import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
 import type { PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
 import { createSearchProvider } from "@/lib/search";
 import { fetchReadableText } from "@/lib/search/fetch-content";
@@ -39,6 +40,12 @@ export async function buildPipelineConfig(
  * activo. Falla pronto y con un mensaje claro si no hay clave configurada.
  */
 export async function buildPipelineDeps(): Promise<PipelineDeps> {
+  // Seam de test: en e2e usamos dependencias falsas deterministas (sin red ni clave), lo
+  // que permite probar el flujo completo de la UI sin configurar claves reales.
+  if (process.env.E2E === "true") {
+    return createFakePipelineDeps();
+  }
+
   const apiKey = await getOpenRouterApiKey();
   if (!apiKey) {
     throw new Error("Falta la clave de OpenRouter. Configúrala en el panel de administración.");
