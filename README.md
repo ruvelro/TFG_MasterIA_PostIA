@@ -91,7 +91,9 @@ datos, guía de contribución y decisiones de diseño (ADRs).
 
 - Generación de artículos mediante pipeline multi-etapa con modelo por etapa.
 - Investigación con fuentes reales de la web (no alucinadas).
-- Visualización del progreso de cada etapa en tiempo real.
+- Visualización del progreso de cada etapa en tiempo real (streaming).
+- Revisión humana opcional de los datos extraídos antes de redactar (editar/validar hechos).
+- Overrides de modelo y prompt por etapa para una generación concreta.
 - Registro y autenticación de usuarios (contraseña segura + passkeys opcionales).
 - Panel de administración (rol admin): claves de API cifradas en BD y configuración de
   modelo + prompt por etapa del pipeline.

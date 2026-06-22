@@ -47,6 +47,7 @@ src/
   lib/
     config/       Validación de entorno (env.ts) y constantes
     crypto/       Cifrado de secretos en reposo (AES-256-GCM)
+    http/         Utilidades HTTP (streaming NDJSON, rate limiting)
     db/           Cliente Prisma
     auth/         Better Auth: instancia servidor, cliente, sesión, autorización (roles)
     settings/     Repositorios de configuración (secretos cifrados, ajustes, config por paso)
