@@ -10,6 +10,7 @@
 | [seguridad.md](seguridad.md)       | Modelo de amenazas y controles de seguridad.             |
 | [modelo-datos.md](modelo-datos.md) | Entidades de la base de datos y relaciones.              |
 | [contribucion.md](contribucion.md) | Flujo de Git, ramas, commits y PRs.                      |
+| [despliegue.md](despliegue.md)     | Despliegue con Docker en un VPS.                         |
 | [decisiones/](decisiones/)         | Registro de decisiones de arquitectura (ADRs).           |
 
 El público objetivo es el tribunal del TFG y cualquier persona que vaya a mantener el

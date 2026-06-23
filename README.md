@@ -64,6 +64,18 @@ npm run dev
 
 La app queda en `http://localhost:3000`.
 
+### Despliegue con Docker (VPS)
+
+Forma más sencilla de ejecutar o desplegar; las migraciones se aplican solas al arrancar:
+
+```bash
+cp .env.example .env          # rellena AUTH_SECRET, ENCRYPTION_KEY y APP_URL
+docker compose up -d --build  # app en http://TU_IP:${APP_PORT}  (por defecto 38291)
+```
+
+Imagen multi-stage, usuario no-root y secretos solo en `.env` (nunca en la imagen). Guía
+completa en [docs/despliegue.md](docs/despliegue.md).
+
 ## d. Estructura del proyecto
 
 ```
