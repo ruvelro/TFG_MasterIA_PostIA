@@ -1,0 +1,26 @@
+# Mantiene el contexto de build pequeño y, sobre todo, EVITA filtrar secretos o artefactos
+# al construir la imagen. El cliente de Prisma se regenera dentro del build (reproducible).
+.git
+node_modules
+.next
+out
+build
+coverage
+playwright-report
+test-results
+*.db
+*.db-journal
+# Secretos: nunca deben entrar en la imagen (se inyectan en runtime vía env_file).
+.env
+.env.*
+# Código generado (se regenera en el build) y artefactos de desarrollo.
+src/generated
+tests
+.husky
+.vscode
+.idea
+npm-debug.log*
+# Los propios ficheros de Docker no hacen falta dentro de la imagen.
+Dockerfile
+.dockerignore
+docker-compose.yml
