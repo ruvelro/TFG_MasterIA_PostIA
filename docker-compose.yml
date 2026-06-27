@@ -1,0 +1,50 @@
+# PostIA — despliegue con Docker Compose.
+#
+# Uso: copia `.env.example` a `.env`, rellena los secretos y ejecuta:
+#   docker compose up -d --build
+#
+# Endurecido para producción: usuario no-root (definido en la imagen), sin privilegios
+# nuevos, sin capabilities, /tmp efímero y reinicio automático. Los secretos viven en `.env`
+# (env_file) y NUNCA en la imagen.
+
+services:
+  app:
+    build: .
+    image: postia:latest
+    container_name: postia
+    restart: unless-stopped
+    # Carga TODAS las variables (incluidos los secretos) desde .env.
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      # La base de datos vive en el volumen persistente, no en el sistema de ficheros efímero.
+      DATABASE_URL: "file:/data/postia.db"
+    ports:
+      # Puerto del host fijo pero no estándar (configurable con APP_PORT en .env) → 3000 interno.
+      - "${APP_PORT:-38291}:3000"
+    volumes:
+      - postia-data:/data
+    # Reaper de procesos (PID 1) para una parada limpia.
+    init: true
+    # ── Endurecimiento de seguridad ──────────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+
+volumes:
+  postia-data:

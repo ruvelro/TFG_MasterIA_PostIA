@@ -1,0 +1,44 @@
+# Modelo de datos
+
+> El esquema vive en `prisma/schema.prisma` (se implementa en la Fase 2). Este documento
+> describe las entidades y sus relaciones.
+
+## Entidades de autenticación (gestionadas por Better Auth)
+
+- **User** — usuario registrado. La contraseña **no** vive aquí.
+- **Account** — credenciales del usuario; almacena el **hash de la contraseña** (scrypt).
+- **Session** — sesiones activas (token, expiración, IP/user-agent).
+- **Verification** — tokens temporales (p. ej. verificación de email, si se habilita).
+- **Passkey** — credenciales WebAuthn registradas por el usuario (clave pública, contador…).
+
+> Los nombres de campo de estas tablas los fija Better Auth y no deben renombrarse.
+
+El **rol** del usuario (`user.role`) controla la autorización: el primer usuario registrado
+se promueve a `admin` y puede gestionar la configuración global.
+
+## Configuración global (gestionada por el admin)
+
+- **Secret** — claves de API de terceros **cifradas** (OpenRouter, Tavily, Google CSE).
+- **AppSetting** — ajustes no sensibles (proveedor de búsqueda, id del motor de Google CSE).
+- **PipelineStepConfig** — modelo y prompt por etapa de IA (si falta, se usan los defaults).
+
+## Entidades de dominio (PostIA)
+
+- **Article** — artículo final generado: contenido en Markdown y metadatos SEO.
+- **GenerationRun** — una ejecución del pipeline para un tema dado. `status` recorre
+  `pending → researching → awaiting_review → generating → completed | failed`. `contextJson`
+  guarda un snapshot del contexto para **pausar** tras la extracción y **reanudar** después.
+- **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó,
+  duración, tokens e `attempt` (el bucle validate↔fixer ejecuta etapas varias veces).
+  Permite analizar coste y rendimiento por etapa.
+
+## Relaciones (previstas)
+
+```
+User 1───∞ Article
+User 1───∞ GenerationRun
+GenerationRun 1───∞ GenerationStep
+GenerationRun 1───0..1 Article   (la ejecución que culmina produce un artículo)
+```
+
+Se detallará con los campos exactos al implementar el esquema Prisma.

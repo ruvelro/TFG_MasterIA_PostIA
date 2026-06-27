@@ -1,0 +1,211 @@
+// Esquema de datos de PostIA. Documentación de las entidades en docs/modelo-datos.md.
+// El cliente se genera dentro de src/ (ver .gitignore) para importarlo con el alias @/.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 obtiene la URL de conexión desde prisma.config.ts (CLI) y, en runtime, desde
+// el driver adapter que se pasa al PrismaClient (ver src/lib/db/client.ts).
+datasource db {
+  provider = "sqlite"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modelos de Better Auth.
+//
+// Better Auth gestiona la autenticación: la contraseña (hash scrypt) vive en `Account`,
+// no en `User`. Los nombres de campo siguen exactamente lo que espera Better Auth; no
+// deben renombrarse. Solo añadimos a `User` las relaciones de dominio de PostIA.
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  emailVerified Boolean  @default(false)
+  image         String?
+  // Rol de autorización: "admin" puede gestionar la configuración global (claves de API,
+  // modelos y prompts por paso). El primer usuario registrado se promueve a admin.
+  role          String   @default("user")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  sessions Session[]
+  accounts Account[]
+  passkeys Passkey[]
+
+  // Relaciones de dominio (PostIA).
+  articles Article[]
+  runs     GenerationRun[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  // Hash de la contraseña (scrypt) para el proveedor de credenciales.
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+}
+
+// Passkey (WebAuthn). Campos según el plugin @better-auth/passkey.
+model Passkey {
+  id           String   @id @default(cuid())
+  name         String?
+  publicKey    String
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credentialID String
+  counter      Int
+  deviceType   String
+  backedUp     Boolean
+  transports   String?
+  aaguid       String?
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+  @@index([credentialID])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Configuración global de la app (gestionada por el administrador).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Secretos de terceros cifrados en reposo (AES-256-GCM). El valor NUNCA se guarda en
+// claro ni se devuelve al cliente. La clave (`key`) identifica el secreto, p. ej.
+// "openrouter_api_key", "tavily_api_key", "google_cse_api_key".
+model Secret {
+  key        String   @id
+  ciphertext String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// Ajustes de configuración no sensibles (texto en claro), p. ej. "search_provider"
+// ("tavily" | "google") o "google_cse_engine_id".
+model AppSetting {
+  key       String   @id
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Configuración por etapa del pipeline que usa IA (outline, draft, validate, humanize-seo):
+// qué modelo de OpenRouter usar y la plantilla de prompt (con variables {{...}}).
+model PipelineStepConfig {
+  stageId   String   @id
+  model     String
+  prompt    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Modelos de dominio de PostIA.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Una ejecución del pipeline para un tema concreto. Guarda el estado global y enlaza con
+// la traza por etapa y con el artículo resultante.
+model GenerationRun {
+  id        String   @id @default(cuid())
+  userId    String
+  topic     String
+  // Estado como String porque SQLite no tiene enums nativos:
+  // pending | researching | awaiting_review | generating | completed | failed
+  status    String   @default("pending")
+  // Snapshot serializado (JSON) del PipelineContext, necesario para PAUSAR tras la
+  // extracción y REANUDAR la generación (posiblemente con los hechos editados por el usuario).
+  contextJson String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  steps   GenerationStep[]
+  article Article?
+
+  @@index([userId])
+}
+
+// Traza de cada etapa dentro de una ejecución. Permite analizar coste y rendimiento:
+// qué modelo se usó, cuánto tardó y cuántos tokens consumió.
+model GenerationStep {
+  id           String   @id @default(cuid())
+  runId        String
+  // research | extract | blueprint | draft | validate | fixer
+  stageId      String
+  status       String   @default("pending")
+  // Número de pasada de la etapa: el bucle validate↔fixer puede ejecutarla varias veces.
+  attempt      Int      @default(1)
+  // Modelo de OpenRouter usado; null en la etapa research, que no usa IA.
+  model        String?
+  durationMs   Int?
+  tokensInput  Int?
+  tokensOutput Int?
+  error        String?
+  createdAt    DateTime @default(now())
+
+  run GenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
+}
+
+// Artículo final publicable, propiedad de un usuario. Opcionalmente enlaza con la
+// ejecución que lo produjo.
+model Article {
+  id              String   @id @default(cuid())
+  userId          String
+  runId           String?  @unique
+  title           String
+  slug            String
+  contentMarkdown String
+  metaDescription String
+  // Lista de keywords serializada como JSON: SQLite no soporta arrays nativos.
+  keywords        String   @default("[]")
+  // ArticleEnrichment serializado como JSON (titulares alternativos, tags, FAQ, etc.).
+  metadataJson    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run  GenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+}
