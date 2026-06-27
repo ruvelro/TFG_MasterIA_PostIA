@@ -6,7 +6,7 @@ import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import type { GenerationOverrides } from "@/lib/pipeline/stream-events";
 
-import type { StartOptions } from "./use-generation-stream";
+import type { NewsTypeOption, StartOptions } from "./use-generation-stream";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
 
@@ -36,18 +36,23 @@ function buildOverrides(state: OverridesState): GenerationOverrides | undefined 
 
 export function GeneratorForm({
   disabled,
+  newsTypes,
   onSubmit,
 }: {
   disabled: boolean;
+  newsTypes: NewsTypeOption[];
   onSubmit: (topic: string, options: StartOptions) => void;
 }) {
   const [topic, setTopic] = useState("");
   const [pauseForReview, setPauseForReview] = useState(true);
   const [pauseForBlueprintReview, setPauseForBlueprintReview] = useState(false);
+  const [newsTypeId, setNewsTypeId] = useState(newsTypes[0]?.id ?? "");
   const [overrides, setOverrides] = useState<OverridesState>(EMPTY_OVERRIDES);
 
   const inputClass =
     "border-muted/30 focus:border-primary w-full rounded-md border px-3 py-2 text-sm outline-none";
+
+  const selectedType = newsTypes.find((t) => t.id === newsTypeId);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +60,7 @@ export function GeneratorForm({
     onSubmit(topic.trim(), {
       pauseForReview,
       pauseForBlueprintReview,
+      newsTypeId: newsTypeId || undefined,
       overrides: buildOverrides(overrides),
     });
   }
@@ -73,6 +79,26 @@ export function GeneratorForm({
           maxLength={200}
         />
       </label>
+
+      {newsTypes.length > 0 ? (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Tipo de noticia</span>
+          <select
+            value={newsTypeId}
+            onChange={(event) => setNewsTypeId(event.target.value)}
+            className={inputClass}
+          >
+            {newsTypes.map((type) => (
+              <option key={type.id} value={type.id}>
+                {type.label}
+              </option>
+            ))}
+          </select>
+          {selectedType?.description ? (
+            <span className="text-muted text-xs">{selectedType.description}</span>
+          ) : null}
+        </label>
+      ) : null}
 
       <label className="flex items-center gap-2 text-sm">
         <input

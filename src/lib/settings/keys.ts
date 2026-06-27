@@ -22,6 +22,8 @@ export const SETTING_KEYS = {
   styleAnalyzerModel: "style_analyzer_model",
   // Configuración (JSON) del validador editorial determinista.
   validatorConfig: "editorial_validator_config",
+  // Catálogo (JSON) de tipos de noticia (presets del pipeline).
+  newsTypes: "news_types",
   // Claves heredadas (perfil plano): se usan como semilla del perfil estructurado.
   legacyEditorialVoice: "editorial_voice",
   legacySeoRules: "seo_rules",

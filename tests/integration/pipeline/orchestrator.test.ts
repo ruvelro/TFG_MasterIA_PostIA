@@ -250,6 +250,40 @@ describe("orquestador del pipeline", () => {
     expect(attempts).toEqual([1, 2]);
   });
 
+  it("respeta los toggles del tipo de noticia y omite las etapas desactivadas", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Drones de reparto",
+      pauseForReview: false,
+      newsType: {
+        id: "minimo",
+        label: "Mínimo",
+        description: "Sin fases de calidad",
+        enableHumanize: false,
+        enableFactualReview: false,
+        enableQualityReview: false,
+        sourceStrict: true,
+        structureInstruction: "Nota muy breve",
+        targetWordCount: 200,
+      },
+      cfg: makeConfig(1),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(result.status).toBe("completed");
+    const stageIds = (await prisma.generationStep.findMany({ where: { runId: result.runId } })).map(
+      (s) => s.stageId,
+    );
+    // Etapas opcionales desactivadas por el tipo: no deben haberse ejecutado.
+    expect(stageIds).not.toContain("humanize");
+    expect(stageIds).not.toContain("factual-review");
+    expect(stageIds).not.toContain("quality-review");
+    // Las etapas núcleo sí se ejecutan.
+    expect(stageIds).toEqual(
+      expect.arrayContaining(["research", "extract", "blueprint", "draft", "validate", "enrich"]),
+    );
+  });
+
   it("el validador determinista fuerza una corrección al detectar una palabra prohibida", async () => {
     // La validación IA pasa y aiScore es bajo (sin re-humanización): sin el validador, el bucle
     // terminaría a la primera. Pero "borrador" aparece en el draft falso y está prohibida →

@@ -193,6 +193,35 @@ export const StyleAnalysisResultSchema = StyleProfileSchema.omit({
 });
 export type StyleAnalysisResult = z.infer<typeof StyleAnalysisResultSchema>;
 
+// ── Tipos de noticia (catálogo editable) ──────────────────────────────────────
+
+/**
+ * Un "tipo de noticia" es un preset que adapta el pipeline a un formato editorial concreto
+ * (nota breve, análisis en profundidad, etc.). Decide qué etapas opcionales se ejecutan y
+ * aporta directrices de estructura y longitud. `research` no es desactivable: las fuentes son
+ * la fuente de verdad de PostIA.
+ */
+export const NewsTypeSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
+  label: z.string().min(1),
+  description: z.string(),
+  enableHumanize: z.boolean(),
+  enableFactualReview: z.boolean(),
+  enableQualityReview: z.boolean(),
+  /** Si es true, el artículo debe ceñirse ESTRICTAMENTE a las fuentes (sin conocimiento externo). */
+  sourceStrict: z.boolean(),
+  /** Instrucción extra de estructura que se inyecta en blueprint y draft. */
+  structureInstruction: z.string(),
+  /** Nº de palabras objetivo (0 = sin objetivo). Orientación para el redactor. */
+  targetWordCount: z.number().int().min(0).max(10000),
+});
+export type NewsType = z.infer<typeof NewsTypeSchema>;
+
+export const NewsTypeCatalogSchema = z.array(NewsTypeSchema);
+
 // ── Validador editorial determinista (configurable) ───────────────────────────
 
 /**

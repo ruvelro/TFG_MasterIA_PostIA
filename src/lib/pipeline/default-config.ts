@@ -8,7 +8,7 @@ import type { StageId } from "@/lib/pipeline/stages";
  * desde el panel, y cada generación puede aún hacer un override puntual. Los prompts son
  * plantillas con marcadores `{{...}}` que el pipeline rellena con el contexto acumulado:
  * `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}}
- * {{seoRules}} {{geoRules}} {{targetKeyword}} {{article}}`.
+ * {{seoRules}} {{geoRules}} {{formatDirectives}} {{targetKeyword}} {{article}}`.
  */
 export interface StepConfig {
   /** Identificador de modelo de OpenRouter, p. ej. "google/gemini-2.5-flash". */
@@ -56,8 +56,12 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Eres un editor de contenidos. Con los hechos disponibles, diseña la ESTRUCTURA del",
       "artículo: un titular de trabajo, el ángulo, entre 4 y 7 secciones (con titular y un",
       "resumen de su enfoque) y una keyword objetivo. No escribas el artículo todavía.",
+      "Respeta las directrices de formato del tipo de noticia, si las hay.",
       "",
       "Tema: {{topic}}",
+      "",
+      "Directrices de formato:",
+      "{{formatDirectives}}",
       "",
       "Hechos disponibles:",
       "{{facts}}",
@@ -69,8 +73,12 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Eres un redactor profesional. Escribe el artículo completo en español, en Markdown,",
       "siguiendo la estructura propuesta y apoyándote ÚNICAMENTE en los hechos (no inventes).",
       "Aplica la voz editorial y las reglas SEO/GEO indicadas. Usa encabezados (##) por sección.",
+      "Respeta las directrices de formato (longitud, estilo de pieza, uso de fuentes).",
       "",
       "Tema: {{topic}}",
+      "",
+      "Directrices de formato:",
+      "{{formatDirectives}}",
       "",
       "Estructura:",
       "{{blueprint}}",

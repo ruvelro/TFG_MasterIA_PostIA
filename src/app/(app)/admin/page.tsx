@@ -11,6 +11,7 @@ import {
   serializeScrubPatterns,
 } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
+import { getNewsTypes } from "@/lib/settings/news-types";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 
@@ -21,6 +22,7 @@ import {
   saveValidatorConfig,
 } from "./actions";
 import { EditorialStyleForm } from "./editorial-style-form";
+import { NewsTypesForm } from "./news-types-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
 
@@ -48,6 +50,7 @@ export default async function AdminPage() {
     generation,
     analyzerModel,
     validator,
+    newsTypes,
   ] = await Promise.all([
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
@@ -58,6 +61,7 @@ export default async function AdminPage() {
     getGenerationConfig(),
     getStyleAnalyzerModel(),
     getValidatorConfig(),
+    getNewsTypes(),
   ]);
 
   const inputClass =
@@ -142,6 +146,9 @@ export default async function AdminPage() {
         initialProfile={generation.styleProfile}
         initialAnalyzerModel={analyzerModel}
       />
+
+      {/* ── Tipos de noticia (presets del pipeline) ─────────────────────── */}
+      <NewsTypesForm initialTypes={newsTypes} />
 
       {/* ── Configuración de generación ─────────────────────────────────── */}
       <form action={saveGenerationConfig} className="flex flex-col gap-4">
@@ -379,10 +386,10 @@ export default async function AdminPage() {
           <code>{"{{sources}}"}</code>, <code>{"{{facts}}"}</code>, <code>{"{{blueprint}}"}</code>,{" "}
           <code>{"{{draft}}"}</code>, <code>{"{{report}}"}</code>,{" "}
           <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>,{" "}
-          <code>{"{{geoRules}}"}</code>, <code>{"{{targetKeyword}}"}</code>,{" "}
-          <code>{"{{article}}"}</code>. No todas aplican a cada etapa: el corrector usa{" "}
-          <code>{"{{report}}"}</code> y el enriquecimiento <code>{"{{article}}"}</code> y{" "}
-          <code>{"{{targetKeyword}}"}</code>.
+          <code>{"{{geoRules}}"}</code>, <code>{"{{formatDirectives}}"}</code>,{" "}
+          <code>{"{{targetKeyword}}"}</code>, <code>{"{{article}}"}</code>. No todas aplican a cada
+          etapa: el corrector usa <code>{"{{report}}"}</code> y el enriquecimiento{" "}
+          <code>{"{{article}}"}</code> y <code>{"{{targetKeyword}}"}</code>.
         </p>
       </div>
     </section>

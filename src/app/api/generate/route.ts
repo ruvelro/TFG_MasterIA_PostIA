@@ -34,11 +34,11 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   const userId = session.user.id;
-  const { topic, pauseForReview, pauseForBlueprintReview, overrides } = parsed.data;
+  const { topic, pauseForReview, pauseForBlueprintReview, newsTypeId, overrides } = parsed.data;
 
   return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
     const result = await startGenerationForUser(
-      { userId, topic, pauseForReview, pauseForBlueprintReview, overrides },
+      { userId, topic, pauseForReview, pauseForBlueprintReview, newsTypeId, overrides },
       (event) => emit({ type: "stage", ...event }),
     );
 

@@ -43,9 +43,17 @@ export function splitNdjson(buffer: string): { events: unknown[]; rest: string }
   return { events, rest };
 }
 
+/** Opción de tipo de noticia para el desplegable del formulario. */
+export interface NewsTypeOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
 export interface StartOptions {
   pauseForReview: boolean;
   pauseForBlueprintReview: boolean;
+  newsTypeId?: string;
   overrides?: GenerationOverrides;
 }
 

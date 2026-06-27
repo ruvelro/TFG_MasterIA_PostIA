@@ -4,10 +4,15 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/authorize";
 import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
-import { StyleProfileSchema, ValidatorConfigSchema } from "@/lib/pipeline/schemas";
+import {
+  NewsTypeCatalogSchema,
+  StyleProfileSchema,
+  ValidatorConfigSchema,
+} from "@/lib/pipeline/schemas";
 import { setAppSetting } from "@/lib/settings/app-config";
 import { serializeStyleProfile, serializeValidatorConfig } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
+import { serializeNewsTypes } from "@/lib/settings/news-types";
 import { setStepConfig } from "@/lib/settings/pipeline-config";
 import { setSecret } from "@/lib/settings/secrets";
 
@@ -125,6 +130,31 @@ export async function saveValidatorConfig(formData: FormData): Promise<void> {
 
   await setAppSetting(SETTING_KEYS.validatorConfig, serializeValidatorConfig(parsed.data));
   revalidatePath("/admin");
+}
+
+/**
+ * Guarda el catálogo de tipos de noticia (presets del pipeline). El catálogo llega ya
+ * ensamblado desde el formulario cliente; se valida con Zod (incluida la unicidad de ids)
+ * antes de persistirlo como JSON. Rechaza catálogos vacíos: siempre debe existir un tipo.
+ */
+export async function saveNewsTypes(typesInput: unknown): Promise<void> {
+  await requireAdmin();
+
+  const parsed = NewsTypeCatalogSchema.safeParse(typesInput);
+  if (!parsed.success) {
+    throw new Error("Catálogo de tipos de noticia inválido");
+  }
+  if (parsed.data.length === 0) {
+    throw new Error("Debe existir al menos un tipo de noticia");
+  }
+  const ids = parsed.data.map((t) => t.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Los identificadores de tipo deben ser únicos");
+  }
+
+  await setAppSetting(SETTING_KEYS.newsTypes, serializeNewsTypes(parsed.data));
+  revalidatePath("/admin");
+  revalidatePath("/generate");
 }
 
 /** Guarda el modelo y el prompt de una etapa del pipeline. */
