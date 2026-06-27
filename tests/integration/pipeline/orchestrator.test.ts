@@ -1,14 +1,18 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/client";
-import { DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
+import { DEFAULT_PIPELINE_PARAMS, DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
 import { resumeGeneration, startGeneration } from "@/lib/pipeline/orchestrator";
 import {
   BlueprintSchema,
+  EnrichStepOutputSchema,
+  FactualReviewSchema,
   FactsSchema,
   FixerOutputSchema,
+  QualityReviewSchema,
   ValidationReportSchema,
 } from "@/lib/pipeline/schemas";
+import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 import type { PipelineContext, PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
 
 // Configuración resuelta de prueba (usa los prompts/modelos por defecto, que no se llaman
@@ -20,18 +24,22 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     seoRules: "Usa la keyword en el primer párrafo",
     sourceCount: 2,
     maxFixIterations,
+    maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
+    aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
+    scrubPatterns: [...DEFAULT_SCRUB_PATTERNS],
   };
 }
 
 // Dependencias falsas y deterministas. `runObject` decide la respuesta por IDENTIDAD del
 // esquema (los steps pasan exactamente estos objetos de esquema), lo que evita acoplarse al
-// orden de las llamadas (relevante por el bucle validate↔fixer).
-function makeDeps(options: { validatePasses: boolean }): PipelineDeps {
+// orden de las llamadas.
+function makeDeps(options: { validatePasses: boolean; aiScore?: number }): PipelineDeps {
+  const { validatePasses, aiScore = 30 } = options;
+
   const runObject: PipelineDeps["runObject"] = async ({ schema }) => {
-    // Comparamos por identidad de esquema (cast a unknown porque el genérico T y los
-    // esquemas concretos no se "solapan" para TypeScript, pero en runtime son los mismos objetos).
     const s = schema as unknown;
     let object: unknown;
+
     if (s === FactsSchema) {
       object = { facts: [{ claim: "Un hecho", source: "https://e.example/0" }] };
     } else if (s === BlueprintSchema) {
@@ -42,12 +50,29 @@ function makeDeps(options: { validatePasses: boolean }): PipelineDeps {
         sections: [{ heading: "H", summary: "S" }],
       };
     } else if (s === ValidationReportSchema) {
-      object = options.validatePasses
+      object = validatePasses
         ? { passed: true, issues: [] }
         : {
             passed: false,
             issues: [{ category: "ai-tone", severity: "low", description: "d", suggestion: "s" }],
           };
+    } else if (s === FactualReviewSchema) {
+      object = {
+        riskLevel: "low",
+        claims: [{ claim: "Un hecho", status: "confirmed", reason: "En las fuentes" }],
+        summary: "Sin riesgos.",
+        researchSufficiency: { sufficient: true, reason: "Las fuentes son adecuadas." },
+      };
+    } else if (s === QualityReviewSchema) {
+      object = {
+        structureScore: 85,
+        factualSupportScore: 90,
+        seoScore: 80,
+        wordCount: 300,
+        aiScore,
+        issues: [],
+        suggestions: [],
+      };
     } else if (s === FixerOutputSchema) {
       object = {
         contentMarkdown: "# Final\n**clave**",
@@ -55,6 +80,15 @@ function makeDeps(options: { validatePasses: boolean }): PipelineDeps {
         slug: "final",
         metaDescription: "meta",
         keywords: ["kw"],
+      };
+    } else if (s === EnrichStepOutputSchema) {
+      object = {
+        headlineVariants: ["Titular alternativo"],
+        tags: ["test", "e2e"],
+        faq: [],
+        imageAlt: ["Alt de prueba"],
+        jsonLdNewsArticle: { "@context": "https://schema.org", "@type": "NewsArticle" },
+        featuredImagePrompt: "An example test image prompt.",
       };
     } else {
       throw new Error("esquema inesperado en el test");
@@ -81,7 +115,6 @@ function makeDeps(options: { validatePasses: boolean }): PipelineDeps {
 let userId: string;
 
 beforeAll(async () => {
-  // Better Auth gestiona las credenciales en otra tabla; para el test basta un User mínimo.
   const user = await prisma.user.create({
     data: { name: "Test", email: `orch_${Date.now()}@postia.test` },
   });
@@ -89,7 +122,7 @@ beforeAll(async () => {
 });
 
 describe("orquestador del pipeline", () => {
-  it("recorre las 6 etapas y crea el artículo (sin pausa, validación pasa)", async () => {
+  it("recorre todas las etapas y crea el artículo (sin pausa, validación pasa)", async () => {
     const result = await startGeneration({
       userId,
       topic: "Energía solar",
@@ -103,7 +136,18 @@ describe("orquestador del pipeline", () => {
     const steps = await prisma.generationStep.findMany({ where: { runId: result.runId } });
     const stageIds = steps.map((s) => s.stageId);
     expect(stageIds).toEqual(
-      expect.arrayContaining(["research", "extract", "blueprint", "draft", "validate", "fixer"]),
+      expect.arrayContaining([
+        "research",
+        "extract",
+        "blueprint",
+        "draft",
+        "humanize",
+        "validate",
+        "factual-review",
+        "quality-review",
+        "fixer",
+        "scrub",
+      ]),
     );
 
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
@@ -122,7 +166,6 @@ describe("orquestador del pipeline", () => {
 
     expect(started.status).toBe("awaiting_review");
     expect(started.context.facts).toBeDefined();
-    // Aún no hay artículo mientras está en revisión.
     expect(await prisma.article.findFirst({ where: { runId: started.runId } })).toBeNull();
 
     const editedFacts = {
@@ -139,6 +182,39 @@ describe("orquestador del pipeline", () => {
     const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: started.runId } });
     const savedCtx = JSON.parse(run.contextJson ?? "{}") as PipelineContext;
     expect(savedCtx.facts?.facts[0].claim).toBe("Hecho editado por el usuario");
+  });
+
+  it("se pausa tras el blueprint y se reanuda con la estructura editada", async () => {
+    const started = await startGeneration({
+      userId,
+      topic: "Inteligencia artificial",
+      pauseForReview: false,
+      pauseForBlueprintReview: true,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(started.status).toBe("awaiting_blueprint_review");
+    expect(started.context.blueprint).toBeDefined();
+    expect(await prisma.article.findFirst({ where: { runId: started.runId } })).toBeNull();
+
+    const editedBlueprint = {
+      title: "Titular editado",
+      angle: "Ángulo editado",
+      targetKeyword: "ia",
+      sections: [{ heading: "Intro editada", summary: "Resumen editado" }],
+    };
+    const resumed = await resumeGeneration({
+      runId: started.runId,
+      editedBlueprint,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(resumed.status).toBe("completed");
+    const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: started.runId } });
+    const savedCtx = JSON.parse(run.contextJson ?? "{}") as PipelineContext;
+    expect(savedCtx.blueprint?.title).toBe("Titular editado");
   });
 
   it("itera el bucle validate↔fixer cuando la validación no pasa", async () => {
@@ -158,5 +234,23 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(2);
     const attempts = validateSteps.map((s) => s.attempt).sort();
     expect(attempts).toEqual([1, 2]);
+  });
+
+  it("dispara una re-humanización cuando aiScore supera el umbral", async () => {
+    // aiScore=85 > aiScoreThreshold=70 → debe humanizar 2 veces (1 inicial + 1 reintento).
+    const result = await startGeneration({
+      userId,
+      topic: "Robótica",
+      pauseForReview: false,
+      cfg: makeConfig(2),
+      deps: makeDeps({ validatePasses: true, aiScore: 85 }),
+    });
+
+    expect(result.status).toBe("completed");
+    const humanizeSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "humanize" },
+    });
+    // 1 humanize inicial + 1 re-humanización por aiScore alto.
+    expect(humanizeSteps.length).toBe(2);
   });
 });

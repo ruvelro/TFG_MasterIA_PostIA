@@ -1,11 +1,17 @@
 import { prisma } from "@/lib/db/client";
-import type { Facts } from "@/lib/pipeline/schemas";
+import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
+import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
 import { runDraft } from "@/lib/pipeline/steps/draft";
+import { runEnrich } from "@/lib/pipeline/steps/enrich";
 import { runExtract } from "@/lib/pipeline/steps/extract";
+import { runFactualReview } from "@/lib/pipeline/steps/factual-review";
 import { runFixer } from "@/lib/pipeline/steps/fixer";
+import { runHumanize } from "@/lib/pipeline/steps/humanize";
+import { runQualityReview } from "@/lib/pipeline/steps/quality-review";
 import { runResearch } from "@/lib/pipeline/steps/research";
+import { runScrub } from "@/lib/pipeline/steps/scrub";
 import { runValidate } from "@/lib/pipeline/steps/validate";
 import type {
   PipelineContext,
@@ -86,8 +92,10 @@ export interface GenerationResult {
 export interface StartParams {
   userId: string;
   topic: string;
-  /** Si es true, el pipeline se detiene tras la extracción para revisión humana. */
+  /** Si es true, el pipeline se detiene tras la extracción para revisión humana de los hechos. */
   pauseForReview?: boolean;
+  /** Si es true, el pipeline se detiene tras la estructura para revisión humana del blueprint. */
+  pauseForBlueprintReview?: boolean;
   cfg: ResolvedPipelineConfig;
   deps: PipelineDeps;
   onEvent?: StageEventHandler;
@@ -99,7 +107,15 @@ export interface StartParams {
  * si no, continúa hasta el final.
  */
 export async function startGeneration(params: StartParams): Promise<GenerationResult> {
-  const { userId, topic, pauseForReview = true, cfg, deps, onEvent = noop } = params;
+  const {
+    userId,
+    topic,
+    pauseForReview = true,
+    pauseForBlueprintReview = false,
+    cfg,
+    deps,
+    onEvent = noop,
+  } = params;
   const run = await prisma.generationRun.create({ data: { userId, topic, status: "researching" } });
   const ctx: PipelineContext = { topic, sources: [] };
 
@@ -120,7 +136,7 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     }
 
     await saveContext(run.id, ctx, "generating");
-    return await runGenerationTail(run.id, ctx, cfg, deps, onEvent);
+    return await runGenerationTail(run.id, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
     await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
     throw error;
@@ -131,26 +147,39 @@ export interface ResumeParams {
   runId: string;
   /** Hechos revisados/editados por el usuario; si se omiten, se usan los extraídos. */
   editedFacts?: Facts;
+  /** Blueprint revisado/editado por el usuario tras la pausa de blueprint. */
+  editedBlueprint?: Blueprint;
   cfg: ResolvedPipelineConfig;
   deps: PipelineDeps;
   onEvent?: StageEventHandler;
 }
 
-/** Reanuda una generación pausada en revisión: blueprint → draft → bucle → artículo. */
+/**
+ * Reanuda una generación pausada. Distingue el tipo de pausa según el estado del run:
+ * - `awaiting_review`: pausa tras extracción de hechos.
+ * - `awaiting_blueprint_review`: pausa tras diseño de la estructura.
+ */
 export async function resumeGeneration(params: ResumeParams): Promise<GenerationResult> {
-  const { runId, editedFacts, cfg, deps, onEvent = noop } = params;
+  const { runId, editedFacts, editedBlueprint, cfg, deps, onEvent = noop } = params;
   const run = await prisma.generationRun.findUnique({ where: { id: runId } });
   if (!run) throw new Error("Generación no encontrada");
-  if (run.status !== "awaiting_review")
+  if (run.status !== "awaiting_review" && run.status !== "awaiting_blueprint_review")
     throw new Error("La generación no está pendiente de revisión");
   if (!run.contextJson) throw new Error("Falta el contexto de la generación");
 
   const ctx = JSON.parse(run.contextJson) as PipelineContext;
-  if (editedFacts) ctx.facts = editedFacts;
+
+  if (run.status === "awaiting_review") {
+    if (editedFacts) ctx.facts = editedFacts;
+  } else {
+    // awaiting_blueprint_review
+    if (editedBlueprint) ctx.blueprint = editedBlueprint;
+  }
 
   try {
     await saveContext(runId, ctx, "generating");
-    return await runGenerationTail(runId, ctx, cfg, deps, onEvent);
+    // Al reanudar desde blueprint-review no hay nueva pausa de blueprint.
+    return await runGenerationTail(runId, ctx, cfg, deps, onEvent, false);
   } catch (error) {
     await prisma.generationRun.update({ where: { id: runId }, data: { status: "failed" } });
     throw error;
@@ -158,9 +187,11 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
 }
 
 /**
- * Parte final del pipeline: estructura, redacción y el bucle de calidad validate↔fixer.
- * El fixer corrige y, a la vez, produce el artículo estructurado (con su meta SEO); por eso
- * siempre se ejecuta al menos una vez antes de persistir el `Article`.
+ * Parte final del pipeline: estructura → redacción → humanización → bucle de calidad
+ * (validate + factual-review + quality-review ↔ fixer) → limpieza → artículo guardado.
+ *
+ * Si `pauseForBlueprintReview` es true, el orquestador se detiene justo después de
+ * generar el blueprint para que el usuario lo revise antes de la redacción.
  */
 async function runGenerationTail(
   runId: string,
@@ -168,12 +199,21 @@ async function runGenerationTail(
   cfg: ResolvedPipelineConfig,
   deps: PipelineDeps,
   onEvent: StageEventHandler,
+  pauseForBlueprintReview: boolean,
 ): Promise<GenerationResult> {
-  await executeStage({ runId, stageId: "blueprint", attempt: 1, onEvent }, async () => {
-    const result = await runBlueprint(ctx, cfg, deps);
-    ctx.blueprint = result.blueprint;
-    return { model: result.model, usage: result.usage };
-  });
+  // blueprint — se salta si ya existe (viene del resume de blueprint-review)
+  if (!ctx.blueprint) {
+    await executeStage({ runId, stageId: "blueprint", attempt: 1, onEvent }, async () => {
+      const result = await runBlueprint(ctx, cfg, deps);
+      ctx.blueprint = result.blueprint;
+      return { model: result.model, usage: result.usage };
+    });
+  }
+
+  if (pauseForBlueprintReview) {
+    await saveContext(runId, ctx, "awaiting_blueprint_review");
+    return { runId, status: "awaiting_blueprint_review", context: ctx };
+  }
 
   await executeStage({ runId, stageId: "draft", attempt: 1, onEvent }, async () => {
     const result = await runDraft(ctx, cfg, deps);
@@ -181,7 +221,15 @@ async function runGenerationTail(
     return { model: result.model, usage: result.usage };
   });
 
-  // Bucle acotado: validar y, si no pasa, corregir; re-validar hasta pasar o agotar intentos.
+  // Humanización inicial (attempt 1)
+  ctx.humanizeAttempts = 1;
+  await executeStage({ runId, stageId: "humanize", attempt: 1, onEvent }, async () => {
+    const result = await runHumanize(ctx, cfg, deps);
+    ctx.draft = result.draft;
+    return { model: result.model, usage: result.usage };
+  });
+
+  // Bucle de calidad: validar → revisar → puntuar → corregir si es necesario.
   const maxIterations = Math.max(cfg.maxFixIterations, 1);
   for (let attempt = 1; attempt <= maxIterations; attempt++) {
     await executeStage({ runId, stageId: "validate", attempt, onEvent }, async () => {
@@ -190,18 +238,49 @@ async function runGenerationTail(
       return { model: result.model, usage: result.usage };
     });
 
-    if (ctx.report?.passed) break;
-
-    await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
-      const result = await runFixer(ctx, cfg, deps);
-      ctx.article = result.article;
-      ctx.draft = result.article.contentMarkdown; // el texto corregido se re-valida en la vuelta siguiente
+    await executeStage({ runId, stageId: "factual-review", attempt, onEvent }, async () => {
+      const result = await runFactualReview(ctx, cfg, deps);
+      ctx.factualReport = result.factualReport;
       return { model: result.model, usage: result.usage };
     });
+
+    await executeStage({ runId, stageId: "quality-review", attempt, onEvent }, async () => {
+      const result = await runQualityReview(ctx, cfg, deps);
+      ctx.qualityReport = result.qualityReport;
+      return { model: result.model, usage: result.usage };
+    });
+
+    const aiScore = ctx.qualityReport?.aiScore ?? 0;
+    const needsHumanize =
+      aiScore >= cfg.aiScoreThreshold && (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
+
+    // Si la validación pasa y el texto ya no suena a IA, el bucle puede terminar.
+    if (ctx.report?.passed && !needsHumanize) break;
+
+    if (needsHumanize) {
+      ctx.humanizeAttempts = (ctx.humanizeAttempts ?? 0) + 1;
+      await executeStage(
+        { runId, stageId: "humanize", attempt: ctx.humanizeAttempts, onEvent },
+        async () => {
+          const result = await runHumanize(ctx, cfg, deps);
+          ctx.draft = result.draft;
+          return { model: result.model, usage: result.usage };
+        },
+      );
+    }
+
+    if (!ctx.report?.passed) {
+      await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
+        const result = await runFixer(ctx, cfg, deps);
+        ctx.article = result.article;
+        ctx.draft = result.article.contentMarkdown;
+        return { model: result.model, usage: result.usage };
+      });
+    }
   }
 
-  // Si la validación pasó a la primera, aún no hay artículo estructurado: el fixer lo
-  // produce (formato + meta SEO) sin más correcciones que aplicar.
+  // Si la validación pasó a la primera sin necesidad de fixer, aún falta producir el
+  // artículo estructurado con la meta SEO; el fixer lo hace sin correcciones pendientes.
   if (!ctx.article) {
     await executeStage(
       { runId, stageId: "fixer", attempt: maxIterations + 1, onEvent },
@@ -217,16 +296,48 @@ async function runGenerationTail(
   const article = ctx.article;
   if (!article) throw new Error("El fixer no produjo un artículo");
 
+  // Limpieza determinista: elimina meta-referencias de investigación del texto final.
+  await executeStage({ runId, stageId: "scrub", attempt: 1, onEvent }, async () => {
+    ctx.article = {
+      ...article,
+      contentMarkdown: runScrub(article.contentMarkdown, cfg.scrubPatterns),
+    };
+    return {};
+  });
+
+  const cleanArticle = ctx.article!;
+
+  // Enriquecimiento: primero se calculan las métricas derivadas (sin IA) y luego el step
+  // enrich genera los campos creativos. El orquestador los une en un único objeto.
+  const aiDetection = computeAiDetection(ctx.qualityReport?.aiScore ?? 0);
+  const qualitySummary =
+    ctx.report && ctx.factualReport && ctx.qualityReport
+      ? computeQualitySummary(ctx.report, ctx.factualReport, ctx.qualityReport)
+      : {
+          groundedness: 100,
+          aiDetectionScore: aiDetection.score,
+          factualRisk: "low" as const,
+          qualityRisk: "low" as const,
+          warningsCount: 0,
+        };
+
+  await executeStage({ runId, stageId: "enrich", attempt: 1, onEvent }, async () => {
+    const result = await runEnrich(ctx, cfg, deps);
+    ctx.enrichment = { ...result.enrichStepOutput, aiDetection, qualitySummary };
+    return { model: result.model, usage: result.usage };
+  });
+
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
   const created = await prisma.article.create({
     data: {
       userId: run.userId,
       runId,
-      title: article.title,
-      slug: article.slug,
-      contentMarkdown: article.contentMarkdown,
-      metaDescription: article.metaDescription,
-      keywords: JSON.stringify(article.keywords),
+      title: cleanArticle.title,
+      slug: cleanArticle.slug,
+      contentMarkdown: cleanArticle.contentMarkdown,
+      metaDescription: cleanArticle.metaDescription,
+      keywords: JSON.stringify(cleanArticle.keywords),
+      metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
     },
     select: { id: true },
   });

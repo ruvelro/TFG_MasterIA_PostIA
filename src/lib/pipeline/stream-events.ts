@@ -1,5 +1,5 @@
 import type { AiStageId } from "@/lib/pipeline/default-config";
-import type { Facts, FixerOutput } from "@/lib/pipeline/schemas";
+import type { ArticleEnrichment, Blueprint, Facts, FixerOutput } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import type { StageStatus } from "@/lib/pipeline/types";
 
@@ -18,7 +18,14 @@ export type GenerationStreamEvent =
       message?: string;
     }
   | { type: "awaiting_review"; runId: string; facts: Facts }
-  | { type: "completed"; runId: string; articleId?: string; article: FixerOutput }
+  | { type: "awaiting_blueprint_review"; runId: string; blueprint: Blueprint }
+  | {
+      type: "completed";
+      runId: string;
+      articleId?: string;
+      article: FixerOutput;
+      enrichment?: ArticleEnrichment;
+    }
   | { type: "error"; message: string };
 
 /** Override por etapa que el formulario puede enviar para una generación concreta. */

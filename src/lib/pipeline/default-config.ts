@@ -17,7 +17,17 @@ export interface StepConfig {
 }
 
 /** Etapas que usan IA, en orden. La validación de la app se apoya en este conjunto. */
-export const AI_STAGE_IDS = ["extract", "blueprint", "draft", "validate", "fixer"] as const;
+export const AI_STAGE_IDS = [
+  "extract",
+  "blueprint",
+  "draft",
+  "humanize",
+  "validate",
+  "factual-review",
+  "quality-review",
+  "fixer",
+  "enrich",
+] as const;
 
 export type AiStageId = (typeof AI_STAGE_IDS)[number];
 
@@ -101,21 +111,83 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "{{seoRules}}",
     ].join("\n"),
   },
+  humanize: {
+    model: "google/gemini-2.5-flash",
+    prompt: [
+      "Eres un escritor especializado en estilo natural y directo. El borrador siguiente contiene",
+      "patrones típicos de IA que debes eliminar: muletillas ('es importante destacar', 'en",
+      "conclusión', 'cabe señalar', 'en el panorama actual'), párrafos de longitud uniforme, voz",
+      "pasiva excesiva y transiciones mecánicas.",
+      "",
+      "Reescribe el artículo manteniendo TODOS los hechos, la estructura de secciones y el",
+      "Markdown (encabezados ##, negritas **). No inventes datos nuevos. Varía la longitud de",
+      "las frases y párrafos. Devuelve únicamente el Markdown reescrito, sin explicaciones.",
+      "",
+      "Voz editorial de referencia:",
+      "{{editorialVoice}}",
+      "",
+      "Borrador a humanizar:",
+      "{{draft}}",
+    ].join("\n"),
+  },
+  "factual-review": {
+    // Etapa "juez" factual: modelo capaz para verificar con criterio independiente.
+    model: "anthropic/claude-3.5-sonnet",
+    prompt: [
+      "Eres un verificador de hechos. Para cada afirmación factual relevante del artículo,",
+      "determina si está respaldada por los hechos/fuentes disponibles ('confirmed'), es",
+      "cuestionable o no puedes confirmarla ('doubtful'), o no tiene ningún respaldo y debería",
+      "eliminarse ('discarded'). Emite un nivel de riesgo global: 'low' si la mayoría están",
+      "confirmadas, 'medium' si hay dudas relevantes, 'high' si hay afirmaciones descartables.",
+      "Indica también si las fuentes son suficientes para respaldar el artículo",
+      "('researchSufficiency.sufficient': true/false, 'reason': breve explicación de una frase).",
+      "",
+      "Tema: {{topic}}",
+      "",
+      "Hechos verificados (fuente de verdad):",
+      "{{facts}}",
+      "",
+      "Artículo a revisar:",
+      "{{draft}}",
+    ].join("\n"),
+  },
+  "quality-review": {
+    // Modelo distinto al de validate para reducir sesgo de confirmación.
+    model: "anthropic/claude-3.5-sonnet",
+    prompt: [
+      "Eres un auditor editorial. Puntúa el artículo en las siguientes dimensiones (escala 0-100):",
+      "- structureScore: claridad y coherencia de la estructura y el flujo narrativo.",
+      "- factualSupportScore: porcentaje estimado de afirmaciones con respaldo factual claro.",
+      "- seoScore: cumplimiento de las reglas SEO/GEO proporcionadas.",
+      "- aiScore: sabor a IA del texto (0 = totalmente humano, 100 = totalmente IA).",
+      "Estima también el wordCount. Incluye una lista de issues concretos (description + suggestion)",
+      "y sugerencias generales de mejora.",
+      "",
+      "Tema: {{topic}}",
+      "",
+      "Reglas SEO/GEO:",
+      "{{seoRules}}",
+      "",
+      "Artículo:",
+      "{{draft}}",
+    ].join("\n"),
+  },
   fixer: {
     model: "google/gemini-2.5-flash",
     prompt: [
-      "Eres un editor corrector. Aplica al borrador TODAS las correcciones del informe de",
-      "validación: reescribe las frases marcadas como IA para que suenen humanas, ajusta lo",
-      "que incumpla las fuentes, la voz editorial o el SEO/GEO. Resalta en negrita (**) las",
-      "frases o datos clave. Después, genera la meta SEO final (título, slug, meta description",
-      "<=155 caracteres y keywords). Mantén el formato Markdown y no inventes datos nuevos.",
+      "Eres un editor corrector. Aplica al borrador TODAS las correcciones de los informes de",
+      "revisión: reescribe las frases que suenen a IA, elimina o matiza las afirmaciones marcadas",
+      "como dudosas o descartadas, ajusta lo que incumpla la voz editorial o el SEO/GEO. Resalta",
+      "en negrita (**) las frases o datos clave. Después, genera la meta SEO final (título, slug,",
+      "meta description <=155 caracteres y keywords). Mantén el formato Markdown y no inventes",
+      "datos nuevos.",
       "",
       "Tema: {{topic}}",
       "",
       "Borrador actual:",
       "{{draft}}",
       "",
-      "Informe de validación a corregir:",
+      "Informes de revisión a corregir:",
       "{{report}}",
       "",
       "Voz editorial:",
@@ -125,4 +197,48 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "{{seoRules}}",
     ].join("\n"),
   },
+  enrich: {
+    model: "google/gemini-2.5-flash",
+    prompt: [
+      "Eres un especialista en SEO y distribución de contenidos. A partir del artículo final,",
+      "genera los siguientes elementos. Todo en español SALVO `featuredImagePrompt` que va en inglés:",
+      "",
+      "- headlineVariants: entre 3 y 5 titulares alternativos, variados en tono y estructura.",
+      "  Ninguno debe ser clickbait ni exagerar. El primero debe ser el más directo.",
+      "- tags: entre 4 y 8 etiquetas temáticas breves (1-3 palabras), sin repetir keywords.",
+      "- faq: entre 0 y 6 pares pregunta/respuesta. Solo preguntas que el artículo responde",
+      "  directamente. Respuestas de 1-2 frases, basadas en hechos del artículo.",
+      "- imageAlt: entre 1 y 3 descripciones alt para la imagen destacada. Descriptivas,",
+      "  ≤125 caracteres cada una.",
+      "- jsonLdNewsArticle: objeto JSON-LD Schema.org tipo NewsArticle con al menos:",
+      "  @context, @type, headline, description, keywords, datePublished (ISO hoy).",
+      "- featuredImagePrompt: prompt en inglés para generar la imagen destacada con IA.",
+      "  Describe la imagen visual que mejor ilustraría el artículo (≤200 palabras).",
+      "",
+      "Tema: {{topic}}",
+      "Keyword objetivo: {{targetKeyword}}",
+      "",
+      "Artículo final:",
+      "{{article}}",
+    ].join("\n"),
+  },
 };
+
+/**
+ * Valores de configuración por defecto para los parámetros del pipeline que no
+ * pertenecen a etapas concretas (bucles, umbrales y patrones de limpieza).
+ */
+export const DEFAULT_PIPELINE_PARAMS = {
+  maxFixIterations: 2,
+  maxHumanizeRetries: 2,
+  aiScoreThreshold: 70,
+  scrubPatterns: [
+    { pattern: "seg[uú]n las fuentes consultadas[,.]?", replacement: "" },
+    { pattern: "tras investigar[,.]?", replacement: "" },
+    { pattern: "bas[aá]ndonos en los datos[,.]?", replacement: "" },
+    { pattern: "de acuerdo con la investigaci[oó]n realizada[,.]?", replacement: "" },
+    { pattern: "como se puede observar en las fuentes[,.]?", replacement: "" },
+    { pattern: "los expertos se[nñ]alan que", replacement: "" },
+    { pattern: "nuestro an[aá]lisis (indica|muestra|revela) que", replacement: "" },
+  ],
+} as const;

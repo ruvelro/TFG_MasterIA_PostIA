@@ -43,6 +43,7 @@ export function GeneratorForm({
 }) {
   const [topic, setTopic] = useState("");
   const [pauseForReview, setPauseForReview] = useState(true);
+  const [pauseForBlueprintReview, setPauseForBlueprintReview] = useState(false);
   const [overrides, setOverrides] = useState<OverridesState>(EMPTY_OVERRIDES);
 
   const inputClass =
@@ -51,7 +52,11 @@ export function GeneratorForm({
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (topic.trim().length < 5) return;
-    onSubmit(topic.trim(), { pauseForReview, overrides: buildOverrides(overrides) });
+    onSubmit(topic.trim(), {
+      pauseForReview,
+      pauseForBlueprintReview,
+      overrides: buildOverrides(overrides),
+    });
   }
 
   return (
@@ -76,6 +81,15 @@ export function GeneratorForm({
           onChange={(event) => setPauseForReview(event.target.checked)}
         />
         <span>Revisar los datos extraídos antes de redactar</span>
+      </label>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          checked={pauseForBlueprintReview}
+          onChange={(event) => setPauseForBlueprintReview(event.target.checked)}
+        />
+        <span>Revisar la estructura antes de redactar</span>
       </label>
 
       <details className="border-muted/20 rounded-md border p-3">

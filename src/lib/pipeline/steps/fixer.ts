@@ -1,4 +1,4 @@
-import { reportToText } from "@/lib/pipeline/format";
+import { combinedReviewToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import { FixerOutputSchema, type FixerOutput } from "@/lib/pipeline/schemas";
 import type {
@@ -25,7 +25,7 @@ export async function runFixer(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     draft: ctx.draft,
-    report: reportToText(ctx.report),
+    report: combinedReviewToText(ctx.report, ctx.factualReport, ctx.qualityReport),
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
   });

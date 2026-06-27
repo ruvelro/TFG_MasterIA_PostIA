@@ -34,22 +34,29 @@ export async function POST(request: NextRequest): Promise<Response> {
   }
 
   const userId = session.user.id;
-  const { topic, pauseForReview, overrides } = parsed.data;
+  const { topic, pauseForReview, pauseForBlueprintReview, overrides } = parsed.data;
 
   return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
     const result = await startGenerationForUser(
-      { userId, topic, pauseForReview, overrides },
+      { userId, topic, pauseForReview, pauseForBlueprintReview, overrides },
       (event) => emit({ type: "stage", ...event }),
     );
 
     if (result.status === "awaiting_review" && result.context.facts) {
       emit({ type: "awaiting_review", runId: result.runId, facts: result.context.facts });
+    } else if (result.status === "awaiting_blueprint_review" && result.context.blueprint) {
+      emit({
+        type: "awaiting_blueprint_review",
+        runId: result.runId,
+        blueprint: result.context.blueprint,
+      });
     } else if (result.context.article) {
       emit({
         type: "completed",
         runId: result.runId,
         articleId: result.articleId,
         article: result.context.article,
+        enrichment: result.context.enrichment,
       });
     }
   });

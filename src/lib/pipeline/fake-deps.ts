@@ -1,7 +1,10 @@
 import {
   BlueprintSchema,
+  EnrichStepOutputSchema,
+  FactualReviewSchema,
   FactsSchema,
   FixerOutputSchema,
+  QualityReviewSchema,
   ValidationReportSchema,
 } from "@/lib/pipeline/schemas";
 import type { PipelineDeps } from "@/lib/pipeline/types";
@@ -32,6 +35,45 @@ export function createFakePipelineDeps(): PipelineDeps {
       };
     } else if (s === ValidationReportSchema) {
       object = { passed: true, issues: [] };
+    } else if (s === FactualReviewSchema) {
+      object = {
+        riskLevel: "low",
+        claims: [
+          { claim: "Dato de ejemplo", status: "confirmed", reason: "Presente en las fuentes" },
+        ],
+        summary: "Revisión factual sin riesgos (E2E).",
+        researchSufficiency: {
+          sufficient: true,
+          reason: "Las fuentes cubren el tema adecuadamente.",
+        },
+      };
+    } else if (s === QualityReviewSchema) {
+      object = {
+        structureScore: 85,
+        factualSupportScore: 90,
+        seoScore: 80,
+        wordCount: 350,
+        aiScore: 30,
+        issues: [],
+        suggestions: [],
+      };
+    } else if (s === EnrichStepOutputSchema) {
+      object = {
+        headlineVariants: ["Titular alternativo E2E"],
+        tags: ["ejemplo", "e2e", "test"],
+        faq: [
+          { question: "¿Qué es esto?", answer: "Un artículo de ejemplo generado en modo E2E." },
+        ],
+        imageAlt: ["Ilustración de ejemplo para el artículo E2E"],
+        jsonLdNewsArticle: {
+          "@context": "https://schema.org",
+          "@type": "NewsArticle",
+          headline: "Artículo de ejemplo",
+          datePublished: new Date().toISOString().slice(0, 10),
+        },
+        featuredImagePrompt:
+          "A clean illustration representing an example article in E2E test mode.",
+      };
     } else if (s === FixerOutputSchema) {
       object = {
         contentMarkdown: "## Resumen\n\nContenido **generado** en modo E2E.",

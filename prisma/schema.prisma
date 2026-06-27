@@ -199,6 +199,8 @@ model Article {
   metaDescription String
   // Lista de keywords serializada como JSON: SQLite no soporta arrays nativos.
   keywords        String   @default("[]")
+  // ArticleEnrichment serializado como JSON (titulares alternativos, tags, FAQ, etc.).
+  metadataJson    String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
