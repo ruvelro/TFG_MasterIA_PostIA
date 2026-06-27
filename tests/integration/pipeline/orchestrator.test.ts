@@ -22,6 +22,7 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     steps: DEFAULT_STEP_CONFIG,
     editorialVoice: "Tono cercano",
     seoRules: "Usa la keyword en el primer párrafo",
+    geoRules: "Responde preguntas frecuentes de forma directa",
     sourceCount: 2,
     maxFixIterations,
     maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,

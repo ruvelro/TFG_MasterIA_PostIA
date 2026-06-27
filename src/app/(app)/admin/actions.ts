@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/authorize";
 import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
+import { StyleProfileSchema } from "@/lib/pipeline/schemas";
 import { setAppSetting } from "@/lib/settings/app-config";
+import { serializeStyleProfile } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { setStepConfig } from "@/lib/settings/pipeline-config";
 import { setSecret } from "@/lib/settings/secrets";
@@ -43,21 +45,41 @@ export async function saveIntegrations(formData: FormData): Promise<void> {
 }
 
 /**
- * Guarda la configuración de generación: voz editorial y reglas SEO/GEO (texto que se
- * inyecta en los prompts), los límites de recursos (nº de fuentes, iteraciones del fixer),
- * los parámetros del bucle de calidad (re-humanizaciones y umbral de aiScore) y los patrones
- * de limpieza final. Los rangos se sanean al leer en `getGenerationConfig`.
+ * Guarda la configuración de generación: límites de recursos (nº de fuentes, iteraciones del
+ * fixer), parámetros del bucle de calidad (re-humanizaciones y umbral de aiScore) y patrones
+ * de limpieza final. La identidad editorial se gestiona aparte (`saveStyleProfile`). Los
+ * rangos se sanean al leer en `getGenerationConfig`.
  */
 export async function saveGenerationConfig(formData: FormData): Promise<void> {
   await requireAdmin();
 
-  await setAppSetting(SETTING_KEYS.editorialVoice, field(formData, "editorialVoice"));
-  await setAppSetting(SETTING_KEYS.seoRules, field(formData, "seoRules"));
   await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
   await setAppSetting(SETTING_KEYS.maxFixIterations, field(formData, "maxFixIterations"));
   await setAppSetting(SETTING_KEYS.maxHumanizeRetries, field(formData, "maxHumanizeRetries"));
   await setAppSetting(SETTING_KEYS.aiScoreThreshold, field(formData, "aiScoreThreshold"));
   await setAppSetting(SETTING_KEYS.scrubPatterns, field(formData, "scrubPatterns"));
+
+  revalidatePath("/admin");
+}
+
+/**
+ * Guarda el perfil de estilo editorial (voz, reglas, autoridad, SEO/GEO, palabras prohibidas
+ * y ejemplos) y el modelo del analizador. El perfil llega ya ensamblado desde el formulario
+ * cliente y se valida con Zod antes de persistirlo como JSON.
+ */
+export async function saveStyleProfile(
+  profileInput: unknown,
+  analyzerModel: string,
+): Promise<void> {
+  await requireAdmin();
+
+  const parsed = StyleProfileSchema.safeParse(profileInput);
+  if (!parsed.success) {
+    throw new Error("Perfil de estilo inválido");
+  }
+
+  await setAppSetting(SETTING_KEYS.styleProfile, serializeStyleProfile(parsed.data));
+  await setAppSetting(SETTING_KEYS.styleAnalyzerModel, analyzerModel.trim());
 
   revalidatePath("/admin");
 }

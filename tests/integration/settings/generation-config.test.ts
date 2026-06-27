@@ -3,8 +3,14 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { DEFAULT_PIPELINE_PARAMS } from "@/lib/pipeline/default-config";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
+import { EMPTY_STYLE_PROFILE } from "@/lib/settings/generation-config";
 import { setAppSetting } from "@/lib/settings/app-config";
-import { getGenerationConfig, serializeScrubPatterns } from "@/lib/settings/generation-config";
+import {
+  getGenerationConfig,
+  getStyleProfile,
+  serializeScrubPatterns,
+  serializeStyleProfile,
+} from "@/lib/settings/generation-config";
 import { SETTING_KEYS } from "@/lib/settings/keys";
 
 // Las claves implicadas en estas pruebas, para limpiarlas entre casos.
@@ -12,6 +18,9 @@ const KEYS = [
   SETTING_KEYS.maxHumanizeRetries,
   SETTING_KEYS.aiScoreThreshold,
   SETTING_KEYS.scrubPatterns,
+  SETTING_KEYS.styleProfile,
+  SETTING_KEYS.legacyEditorialVoice,
+  SETTING_KEYS.legacySeoRules,
 ];
 
 afterEach(async () => {
@@ -54,5 +63,38 @@ describe("getGenerationConfig — parámetros del bucle de calidad y limpieza", 
     await setAppSetting(SETTING_KEYS.scrubPatterns, text);
     const cfg = await getGenerationConfig();
     expect(cfg.scrubPatterns).toEqual([...DEFAULT_SCRUB_PATTERNS]);
+  });
+});
+
+describe("getStyleProfile — perfil de estilo editorial", () => {
+  it("siembra el perfil con las claves heredadas (voz plana + reglas SEO)", async () => {
+    await setAppSetting(SETTING_KEYS.legacyEditorialVoice, "Tono histórico");
+    await setAppSetting(SETTING_KEYS.legacySeoRules, "Keyword en el H1");
+    const profile = await getStyleProfile();
+    expect(profile.brandVoice).toBe("Tono histórico");
+    expect(profile.seoRules).toBe("Keyword en el H1");
+    expect(profile.geoRules).toBe("");
+  });
+
+  it("hace el viaje de ida y vuelta del perfil estructurado", async () => {
+    const profile = {
+      ...EMPTY_STYLE_PROFILE,
+      brandVoice: "Cercano",
+      geoRules: "Responde preguntas directas",
+      forbiddenWords: ["en conclusión"],
+      fewShotExamples: ["Un ejemplo."],
+    };
+    await setAppSetting(SETTING_KEYS.styleProfile, serializeStyleProfile(profile));
+    expect(await getStyleProfile()).toEqual(profile);
+  });
+
+  it("el perfil estructurado tiene prioridad sobre las claves heredadas", async () => {
+    await setAppSetting(SETTING_KEYS.legacyEditorialVoice, "Vieja voz");
+    await setAppSetting(
+      SETTING_KEYS.styleProfile,
+      serializeStyleProfile({ ...EMPTY_STYLE_PROFILE, brandVoice: "Voz nueva" }),
+    );
+    const profile = await getStyleProfile();
+    expect(profile.brandVoice).toBe("Voz nueva");
   });
 });

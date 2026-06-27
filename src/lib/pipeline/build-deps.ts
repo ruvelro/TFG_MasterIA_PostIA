@@ -4,6 +4,7 @@ import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
 import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
+import { styleProfileToText } from "@/lib/pipeline/format";
 import type { PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
 import { createSearchProvider } from "@/lib/search";
 import { fetchReadableText } from "@/lib/search/fetch-content";
@@ -27,8 +28,11 @@ export async function buildPipelineConfig(
 
   return {
     steps,
-    editorialVoice: generation.editorialVoice,
-    seoRules: generation.seoRules,
+    // La identidad editorial se renderiza a texto para los prompts; SEO y GEO viajan aparte
+    // por ser la palanca de optimización (cada prompt los inyecta donde corresponde).
+    editorialVoice: styleProfileToText(generation.styleProfile),
+    seoRules: generation.styleProfile.seoRules,
+    geoRules: generation.styleProfile.geoRules,
     sourceCount: generation.sourceCount,
     maxFixIterations: generation.maxFixIterations,
     maxHumanizeRetries: generation.maxHumanizeRetries,

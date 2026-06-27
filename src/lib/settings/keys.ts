@@ -10,13 +10,17 @@ export const SECRET_KEYS = {
 export const SETTING_KEYS = {
   searchProvider: "search_provider",
   googleEngineId: "google_cse_engine_id",
-  // Configuración de generación (se diseñará a fondo más adelante; por ahora texto/número).
-  editorialVoice: "editorial_voice",
-  seoRules: "seo_rules",
+  // Configuración de generación.
   sourceCount: "research_source_count",
   maxFixIterations: "max_fix_iterations",
   // Parámetros del bucle de calidad y de la limpieza final.
   maxHumanizeRetries: "max_humanize_retries",
   aiScoreThreshold: "ai_score_threshold",
   scrubPatterns: "scrub_patterns",
+  // Estilo editorial estructurado (JSON) y modelo del analizador de estilo.
+  styleProfile: "editorial_style_profile",
+  styleAnalyzerModel: "style_analyzer_model",
+  // Claves heredadas (perfil plano): se usan como semilla del perfil estructurado.
+  legacyEditorialVoice: "editorial_voice",
+  legacySeoRules: "seo_rules",
 } as const;

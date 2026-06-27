@@ -4,12 +4,17 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { getAppSetting } from "@/lib/settings/app-config";
-import { getGenerationConfig, serializeScrubPatterns } from "@/lib/settings/generation-config";
+import {
+  getGenerationConfig,
+  getStyleAnalyzerModel,
+  serializeScrubPatterns,
+} from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 
 import { saveGenerationConfig, saveIntegrations, saveStepConfig } from "./actions";
+import { EditorialStyleForm } from "./editorial-style-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
 
@@ -27,16 +32,25 @@ export default async function AdminPage() {
   if (!session?.user) redirect("/login");
   if (session.user.role !== "admin") redirect("/generate");
 
-  const [openRouter, tavily, google, searchProvider, googleEngineId, stepConfigs, generation] =
-    await Promise.all([
-      getSecretStatus(SECRET_KEYS.openRouter),
-      getSecretStatus(SECRET_KEYS.tavily),
-      getSecretStatus(SECRET_KEYS.googleCse),
-      getAppSetting(SETTING_KEYS.searchProvider),
-      getAppSetting(SETTING_KEYS.googleEngineId),
-      getAllStepConfigs(),
-      getGenerationConfig(),
-    ]);
+  const [
+    openRouter,
+    tavily,
+    google,
+    searchProvider,
+    googleEngineId,
+    stepConfigs,
+    generation,
+    analyzerModel,
+  ] = await Promise.all([
+    getSecretStatus(SECRET_KEYS.openRouter),
+    getSecretStatus(SECRET_KEYS.tavily),
+    getSecretStatus(SECRET_KEYS.googleCse),
+    getAppSetting(SETTING_KEYS.searchProvider),
+    getAppSetting(SETTING_KEYS.googleEngineId),
+    getAllStepConfigs(),
+    getGenerationConfig(),
+    getStyleAnalyzerModel(),
+  ]);
 
   const inputClass =
     "border-muted/30 focus:border-primary w-full rounded-md border px-3 py-2 text-sm outline-none";
@@ -115,31 +129,15 @@ export default async function AdminPage() {
         </button>
       </form>
 
+      {/* ── Estilo editorial (perfil de marca: manual o entrenado por URLs) ── */}
+      <EditorialStyleForm
+        initialProfile={generation.styleProfile}
+        initialAnalyzerModel={analyzerModel}
+      />
+
       {/* ── Configuración de generación ─────────────────────────────────── */}
       <form action={saveGenerationConfig} className="flex flex-col gap-4">
         <h2 className="text-lg font-semibold">Configuración de generación</h2>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Voz editorial</span>
-          <textarea
-            name="editorialVoice"
-            rows={4}
-            defaultValue={generation.editorialVoice}
-            className={inputClass}
-            placeholder="Describe el tono y estilo de la publicación…"
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Reglas SEO / GEO</span>
-          <textarea
-            name="seoRules"
-            rows={4}
-            defaultValue={generation.seoRules}
-            className={inputClass}
-            placeholder="Directrices SEO/GEO que debe cumplir el artículo…"
-          />
-        </label>
 
         <div className="grid grid-cols-2 gap-4">
           <label className="flex flex-col gap-1 text-sm">
@@ -259,9 +257,10 @@ export default async function AdminPage() {
           <code>{"{{sources}}"}</code>, <code>{"{{facts}}"}</code>, <code>{"{{blueprint}}"}</code>,{" "}
           <code>{"{{draft}}"}</code>, <code>{"{{report}}"}</code>,{" "}
           <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>,{" "}
-          <code>{"{{targetKeyword}}"}</code>, <code>{"{{article}}"}</code>. No todas aplican a cada
-          etapa: el corrector usa <code>{"{{report}}"}</code> y el enriquecimiento{" "}
-          <code>{"{{article}}"}</code> y <code>{"{{targetKeyword}}"}</code>.
+          <code>{"{{geoRules}}"}</code>, <code>{"{{targetKeyword}}"}</code>,{" "}
+          <code>{"{{article}}"}</code>. No todas aplican a cada etapa: el corrector usa{" "}
+          <code>{"{{report}}"}</code> y el enriquecimiento <code>{"{{article}}"}</code> y{" "}
+          <code>{"{{targetKeyword}}"}</code>.
         </p>
       </div>
     </section>

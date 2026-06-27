@@ -1,6 +1,24 @@
 import { describe, expect, it } from "vitest";
 
-import { blueprintToText, factsToText, reportToText, sourcesToText } from "@/lib/pipeline/format";
+import {
+  blueprintToText,
+  factsToText,
+  reportToText,
+  sourcesToText,
+  styleProfileToText,
+} from "@/lib/pipeline/format";
+import type { StyleProfile } from "@/lib/pipeline/schemas";
+
+const EMPTY_PROFILE: StyleProfile = {
+  brandVoice: "",
+  houseRules: "",
+  eeatAuthor: "",
+  seoRules: "",
+  geoRules: "",
+  languageRegion: "",
+  forbiddenWords: [],
+  fewShotExamples: [],
+};
 
 describe("formateadores de contexto", () => {
   it("sourcesToText incluye título, url y contenido", () => {
@@ -48,5 +66,24 @@ describe("formateadores de contexto", () => {
     });
     expect(text).toContain("ai-tone");
     expect(text).toContain("reescribe");
+  });
+
+  it("styleProfileToText avisa cuando el perfil está vacío", () => {
+    expect(styleProfileToText(EMPTY_PROFILE)).toBe("(sin perfil de estilo configurado)");
+  });
+
+  it("styleProfileToText incluye voz, palabras prohibidas y ejemplos; omite SEO/GEO", () => {
+    const text = styleProfileToText({
+      ...EMPTY_PROFILE,
+      brandVoice: "Cercano y directo",
+      seoRules: "NO debe aparecer aquí",
+      forbiddenWords: ["en conclusión", "cabe destacar"],
+      fewShotExamples: ["Un párrafo de muestra."],
+    });
+    expect(text).toContain("Cercano y directo");
+    expect(text).toContain("en conclusión, cabe destacar");
+    expect(text).toContain("Un párrafo de muestra.");
+    // SEO/GEO viajan por separado, no en el render de la voz.
+    expect(text).not.toContain("NO debe aparecer aquí");
   });
 });

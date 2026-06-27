@@ -158,3 +158,36 @@ export const ScrubPatternSchema = z.object({
   replacement: z.string().default(""),
 });
 export type ScrubPattern = z.infer<typeof ScrubPatternSchema>;
+
+// ── Estilo editorial de la marca ──────────────────────────────────────────────
+
+/**
+ * Perfil de estilo editorial: define CÓMO escribe la publicación. Sustituye a la antigua
+ * "voz editorial" plana. Se puede editar a mano o entrenar desde URLs con IA (el analizador
+ * produce exactamente esta forma). Los campos `seoRules`/`geoRules` son la palanca de
+ * optimización (hacia buscadores o hacia motores generativos); el resto es voz y autoridad.
+ */
+export const StyleProfileSchema = z.object({
+  brandVoice: z.string().describe("Tono y personalidad de la marca"),
+  houseRules: z.string().describe("Reglas de casa: qué hacer y qué evitar al redactar"),
+  eeatAuthor: z.string().describe("Credenciales E-E-A-T del autor o del medio"),
+  seoRules: z.string().describe("Directrices de optimización para buscadores (SEO)"),
+  geoRules: z.string().describe("Directrices de optimización para motores generativos (GEO)"),
+  languageRegion: z.string().describe("Idioma, variedad y registro (p. ej. español de España)"),
+  forbiddenWords: z.array(z.string()).describe("Palabras o frases vetadas (muletillas de IA)"),
+  fewShotExamples: z
+    .array(z.string())
+    .describe("Párrafos de referencia que ejemplifican el estilo"),
+});
+export type StyleProfile = z.infer<typeof StyleProfileSchema>;
+
+/**
+ * Salida del analizador de estilo (entrenamiento desde URLs). Es un subconjunto del perfil:
+ * las reglas SEO/GEO NO se infieren de artículos sueltos (son política editorial), así que el
+ * analizador las deja vacías y el admin las completa a mano.
+ */
+export const StyleAnalysisResultSchema = StyleProfileSchema.omit({
+  seoRules: true,
+  geoRules: true,
+});
+export type StyleAnalysisResult = z.infer<typeof StyleAnalysisResultSchema>;

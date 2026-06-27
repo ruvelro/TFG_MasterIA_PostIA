@@ -23,6 +23,7 @@ export async function runQualityReview(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     seoRules: cfg.seoRules,
+    geoRules: cfg.geoRules,
     draft: ctx.draft,
   });
 

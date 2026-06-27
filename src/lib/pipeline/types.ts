@@ -66,8 +66,12 @@ export interface PipelineDeps {
 /** Configuración resuelta de la generación (modelo+prompt por etapa ya con overrides aplicados). */
 export interface ResolvedPipelineConfig {
   steps: Record<AiStageId, StepConfig>;
+  /** Perfil de estilo ya renderizado a texto (voz, reglas de casa, autoridad, ejemplos…). */
   editorialVoice: string;
+  /** Reglas de optimización para buscadores (SEO). */
   seoRules: string;
+  /** Reglas de optimización para motores generativos (GEO). */
+  geoRules: string;
   sourceCount: number;
   maxFixIterations: number;
   /** Máximo de re-humanizaciones automáticas cuando aiScore supera el umbral. */
