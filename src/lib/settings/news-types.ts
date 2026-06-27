@@ -21,6 +21,9 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     sourceStrict: false,
     structureInstruction: "",
     targetWordCount: 0,
+    voiceBrand: "",
+    voiceHouseRules: "",
+    voiceExamples: [],
   },
   {
     id: "nota-breve",
@@ -33,6 +36,9 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     structureInstruction:
       "Redacta una nota informativa breve: entradilla con lo esencial y 2-3 párrafos de desarrollo. Sin secciones largas.",
     targetWordCount: 350,
+    voiceBrand: "",
+    voiceHouseRules: "",
+    voiceExamples: [],
   },
   {
     id: "analisis",
@@ -45,6 +51,9 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     structureInstruction:
       "Desarrolla un análisis extenso: contexto, varias secciones temáticas con subtítulos y un cierre con conclusiones.",
     targetWordCount: 1200,
+    voiceBrand: "",
+    voiceHouseRules: "",
+    voiceExamples: [],
   },
 ];
 

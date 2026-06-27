@@ -16,6 +16,17 @@ export function renderTemplate(template: string, context: TemplateContext): stri
   return template.replace(PLACEHOLDER_REGEX, (_match, key: string) => context[key] ?? "");
 }
 
+/**
+ * Garantiza que el contexto adicional del usuario llegue al prompt aunque la plantilla (editable
+ * por el admin) no incluya el marcador `{{context}}`: si la plantilla no lo usa pero hay contexto,
+ * lo anexa al final. Si la plantilla ya lo referencia, se respeta su posición y no se duplica.
+ */
+export function appendUserContext(prompt: string, template: string, context?: string): string {
+  const text = context?.trim();
+  if (!text || template.includes("{{context}}")) return prompt;
+  return `${prompt}\n\nContexto adicional aportado por el usuario:\n${text}`;
+}
+
 /** Lista los nombres de marcador presentes en una plantilla (sin duplicados). Útil para la UI. */
 export function findPlaceholders(template: string): string[] {
   const found = new Set<string>();

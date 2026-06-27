@@ -217,6 +217,15 @@ export const NewsTypeSchema = z.object({
   structureInstruction: z.string(),
   /** Nº de palabras objetivo (0 = sin objetivo). Orientación para el redactor. */
   targetWordCount: z.number().int().min(0).max(10000),
+  /**
+   * Voz editorial ESPECÍFICA de este tipo de contenido. COMPLEMENTA (no reemplaza) al perfil de
+   * estilo global del portal: una noticia rápida, un tutorial o una oferta comparten la voz de la
+   * marca pero tienen su propio enfoque y forma de redactar. Se puede editar a mano o entrenar
+   * desde URLs de ese tipo. Campos opcionales con default para no romper catálogos ya guardados.
+   */
+  voiceBrand: z.string().default(""),
+  voiceHouseRules: z.string().default(""),
+  voiceExamples: z.array(z.string()).default([]),
 });
 export type NewsType = z.infer<typeof NewsTypeSchema>;
 

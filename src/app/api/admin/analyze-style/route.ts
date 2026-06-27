@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { ForbiddenError, requireAdmin, UnauthenticatedError } from "@/lib/auth/authorize";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { logError } from "@/lib/observability/error-log";
 import type { StyleAnalysisResult } from "@/lib/pipeline/schemas";
 import { fetchReadableText } from "@/lib/search/fetch-content";
 import { getStyleAnalyzerModel } from "@/lib/settings/generation-config";
@@ -51,22 +52,33 @@ export async function POST(request: NextRequest): Promise<Response> {
   const model = await getStyleAnalyzerModel();
 
   return streamJsonEvents<StyleAnalysisEvent>(async (emit) => {
-    const profile = await analyzeEditorialStyle({
-      urls: parsed.data.urls,
-      model,
-      deps: {
-        fetchContent: (url) => fetchReadableText(url),
-        runText: ({ modelId, prompt }) => runTextGeneration({ apiKey, modelId, prompt }),
-        runObject: <T>(p: { modelId: string; prompt: string; schema: z.ZodType<T> }) =>
-          runObjectGeneration<T>({
-            apiKey,
-            modelId: p.modelId,
-            prompt: p.prompt,
-            schema: p.schema,
-          }),
-      },
-      onProgress: (progress) => emit({ type: "progress", ...progress }),
-    });
-    emit({ type: "result", profile });
+    try {
+      const profile = await analyzeEditorialStyle({
+        urls: parsed.data.urls,
+        model,
+        deps: {
+          fetchContent: (url) => fetchReadableText(url),
+          runText: ({ modelId, prompt }) => runTextGeneration({ apiKey, modelId, prompt }),
+          runObject: <T>(p: { modelId: string; prompt: string; schema: z.ZodType<T> }) =>
+            runObjectGeneration<T>({
+              apiKey,
+              modelId: p.modelId,
+              prompt: p.prompt,
+              schema: p.schema,
+            }),
+        },
+        onProgress: (progress) => emit({ type: "progress", ...progress }),
+      });
+      emit({ type: "result", profile });
+    } catch (error) {
+      // Registramos el fallo (modelo/IA o descarga) para el panel y lo re-lanzamos: el stream lo
+      // convierte en un evento de error para el cliente.
+      await logError({
+        category: "server",
+        message: `Análisis de estilo fallido: ${error instanceof Error ? error.message : String(error)}`,
+        detail: `modelo: ${model}`,
+      });
+      throw error;
+    }
   });
 }

@@ -1,5 +1,5 @@
 import { sourcesToText } from "@/lib/pipeline/format";
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import { appendUserContext, renderTemplate } from "@/lib/pipeline/render-template";
 import { FactsSchema, type Facts } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -15,10 +15,15 @@ export async function runExtract(
   deps: PipelineDeps,
 ): Promise<{ facts: Facts; model: string; usage: TokenUsage }> {
   const step = cfg.steps.extract;
-  const prompt = renderTemplate(step.prompt, {
-    topic: ctx.topic,
-    sources: sourcesToText(ctx.sources),
-  });
+  const prompt = appendUserContext(
+    renderTemplate(step.prompt, {
+      topic: ctx.topic,
+      sources: sourcesToText(ctx.sources),
+      context: ctx.context ?? "",
+    }),
+    step.prompt,
+    ctx.context,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,

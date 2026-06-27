@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   blueprintToText,
+  composeEditorialVoice,
   factsToText,
   newsTypeDirectivesToText,
   reportToText,
@@ -9,6 +10,21 @@ import {
   styleProfileToText,
 } from "@/lib/pipeline/format";
 import type { NewsType, StyleProfile } from "@/lib/pipeline/schemas";
+
+const BASE_TYPE: NewsType = {
+  id: "t",
+  label: "Noticia",
+  description: "",
+  enableHumanize: true,
+  enableFactualReview: true,
+  enableQualityReview: true,
+  sourceStrict: false,
+  structureInstruction: "",
+  targetWordCount: 0,
+  voiceBrand: "",
+  voiceHouseRules: "",
+  voiceExamples: [],
+};
 
 const EMPTY_PROFILE: StyleProfile = {
   brandVoice: "",
@@ -103,6 +119,9 @@ describe("formateadores de contexto", () => {
       sourceStrict: true,
       structureInstruction: "Nota breve",
       targetWordCount: 300,
+      voiceBrand: "",
+      voiceHouseRules: "",
+      voiceExamples: [],
     };
     const withType = newsTypeDirectivesToText(newsType);
     expect(withType).toContain("aproximadamente 300 palabras");
@@ -118,5 +137,31 @@ describe("formateadores de contexto", () => {
     expect(withPreset).toContain("entre 1200 y 1800 palabras");
     // El targetWordCount del tipo NO aparece cuando hay preset.
     expect(withPreset).not.toContain("aproximadamente 300 palabras");
+  });
+
+  describe("composeEditorialVoice", () => {
+    it("devuelve la voz global tal cual cuando no hay tipo", () => {
+      expect(composeEditorialVoice("VOZ GLOBAL")).toBe("VOZ GLOBAL");
+    });
+
+    it("devuelve la voz global cuando el tipo no aporta complemento", () => {
+      expect(composeEditorialVoice("VOZ GLOBAL", BASE_TYPE)).toBe("VOZ GLOBAL");
+    });
+
+    it("anexa la voz del tipo SIN reemplazar la global", () => {
+      const result = composeEditorialVoice("VOZ GLOBAL", {
+        ...BASE_TYPE,
+        voiceBrand: "Ágil y directo",
+        voiceHouseRules: "Frases cortas",
+        voiceExamples: ["Ejemplo de párrafo"],
+      });
+      expect(result).toContain("VOZ GLOBAL");
+      expect(result).toContain("Ágil y directo");
+      expect(result).toContain("Frases cortas");
+      expect(result).toContain("Ejemplo de párrafo");
+      expect(result).toContain(BASE_TYPE.label);
+      // La voz global va primero (el complemento se añade después).
+      expect(result.indexOf("VOZ GLOBAL")).toBeLessThan(result.indexOf("Ágil y directo"));
+    });
   });
 });

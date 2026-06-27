@@ -7,8 +7,10 @@ import type { StageId } from "@/lib/pipeline/stages";
  * son los predeterminados de fábrica: el administrador puede sobreescribir modelo y prompt
  * desde el panel, y cada generación puede aún hacer un override puntual. Los prompts son
  * plantillas con marcadores `{{...}}` que el pipeline rellena con el contexto acumulado:
- * `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}}
+ * `{{topic}} {{context}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}}
  * {{seoRules}} {{geoRules}} {{formatDirectives}} {{revisionInstructions}} {{targetKeyword}} {{article}}`.
+ * Nota: aunque una plantilla no incluya `{{context}}`, el contexto adicional del usuario se anexa
+ * automáticamente en extract/blueprint/draft (ver `appendUserContext`), así que nunca se pierde.
  */
 export interface StepConfig {
   /** Identificador de modelo de OpenRouter, p. ej. "google/gemini-2.5-flash". */
@@ -46,6 +48,9 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "",
       "Tema: {{topic}}",
       "",
+      "Contexto adicional aportado por el usuario (si lo hay):",
+      "{{context}}",
+      "",
       "Fuentes (contenido descargado):",
       "{{sources}}",
     ].join("\n"),
@@ -59,6 +64,9 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Respeta las directrices de formato del tipo de noticia, si las hay.",
       "",
       "Tema: {{topic}}",
+      "",
+      "Contexto adicional aportado por el usuario (si lo hay):",
+      "{{context}}",
       "",
       "Directrices de formato:",
       "{{formatDirectives}}",
@@ -76,6 +84,9 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Respeta las directrices de formato (longitud, estilo de pieza, uso de fuentes).",
       "",
       "Tema: {{topic}}",
+      "",
+      "Contexto adicional aportado por el usuario (si lo hay):",
+      "{{context}}",
       "",
       "Directrices de formato:",
       "{{formatDirectives}}",

@@ -59,6 +59,7 @@ export interface LengthPresetOption {
 }
 
 export interface StartOptions {
+  context?: string;
   pauseForReview: boolean;
   pauseForBlueprintReview: boolean;
   newsTypeId?: string;
@@ -74,6 +75,8 @@ export interface StartOptions {
 export function useGenerationStream() {
   const [phase, setPhase] = useState<GeneratorPhase>("idle");
   const [stages, setStages] = useState<StageMap>(initStages);
+  // Salida de cada etapa (fuentes, hechos, informes…) para mostrarla en los desplegables de detalle.
+  const [stageData, setStageData] = useState<Partial<Record<StageId, unknown>>>({});
   const [facts, setFacts] = useState<Facts | null>(null);
   const [blueprint, setBlueprint] = useState<Blueprint | null>(null);
   const [article, setArticle] = useState<FixerOutput | null>(null);
@@ -89,6 +92,10 @@ export function useGenerationStream() {
           ...prev,
           [event.stageId]: { status: event.status, attempt: event.attempt, model: event.model },
         }));
+        // Al terminar una etapa puede traer su salida; la guardamos para el desplegable de detalle.
+        if (event.data !== undefined) {
+          setStageData((prev) => ({ ...prev, [event.stageId]: event.data }));
+        }
         break;
       case "awaiting_review":
         runIdRef.current = event.runId;
@@ -150,6 +157,7 @@ export function useGenerationStream() {
       setFacts(null);
       setBlueprint(null);
       setStages(initStages());
+      setStageData({});
       runIdRef.current = null;
       setPhase("running");
 
@@ -215,6 +223,7 @@ export function useGenerationStream() {
   const reset = useCallback(() => {
     setPhase("idle");
     setStages(initStages());
+    setStageData({});
     setFacts(null);
     setBlueprint(null);
     setArticle(null);
@@ -227,6 +236,7 @@ export function useGenerationStream() {
   return {
     phase,
     stages,
+    stageData,
     facts,
     blueprint,
     article,

@@ -46,6 +46,7 @@ export function GeneratorForm({
   onSubmit: (topic: string, options: StartOptions) => void;
 }) {
   const [topic, setTopic] = useState("");
+  const [context, setContext] = useState("");
   const [pauseForReview, setPauseForReview] = useState(true);
   const [pauseForBlueprintReview, setPauseForBlueprintReview] = useState(false);
   const [newsTypeId, setNewsTypeId] = useState(newsTypes[0]?.id ?? "");
@@ -61,6 +62,7 @@ export function GeneratorForm({
     event.preventDefault();
     if (topic.trim().length < 5) return;
     onSubmit(topic.trim(), {
+      context: context.trim() || undefined,
       pauseForReview,
       pauseForBlueprintReview,
       newsTypeId: newsTypeId || undefined,
@@ -82,6 +84,22 @@ export function GeneratorForm({
           minLength={5}
           maxLength={200}
         />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Contexto adicional (opcional)</span>
+        <textarea
+          value={context}
+          onChange={(event) => setContext(event.target.value)}
+          placeholder="Datos, enlaces, matices o ángulo que quieras que la IA tenga en cuenta…"
+          className={inputClass}
+          rows={4}
+          maxLength={4000}
+        />
+        <span className="text-muted text-xs">
+          Se inyecta en la investigación y la redacción. Útil para aportar cifras, fuentes propias o
+          el enfoque deseado sin saturar el campo de tema.
+        </span>
       </label>
 
       {newsTypes.length > 0 ? (

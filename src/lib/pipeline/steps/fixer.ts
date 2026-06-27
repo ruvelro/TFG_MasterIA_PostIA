@@ -1,4 +1,4 @@
-import { combinedReviewToText } from "@/lib/pipeline/format";
+import { combinedReviewToText, composeEditorialVoice } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import { FixerOutputSchema, type FixerOutput } from "@/lib/pipeline/schemas";
 import type {
@@ -26,7 +26,7 @@ export async function runFixer(
     topic: ctx.topic,
     draft: ctx.draft,
     report: combinedReviewToText(ctx.report, ctx.factualReport, ctx.qualityReport),
-    editorialVoice: cfg.editorialVoice,
+    editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
     revisionInstructions: ctx.revisionInstructions ?? "",

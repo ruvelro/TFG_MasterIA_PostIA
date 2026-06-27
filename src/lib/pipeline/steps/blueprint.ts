@@ -1,5 +1,5 @@
 import { factsToText, newsTypeDirectivesToText } from "@/lib/pipeline/format";
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import { appendUserContext, renderTemplate } from "@/lib/pipeline/render-template";
 import { BlueprintSchema, type Blueprint } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -17,11 +17,16 @@ export async function runBlueprint(
   if (!ctx.facts) throw new Error("blueprint requiere los hechos de la etapa extract");
 
   const step = cfg.steps.blueprint;
-  const prompt = renderTemplate(step.prompt, {
-    topic: ctx.topic,
-    facts: factsToText(ctx.facts),
-    formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
-  });
+  const prompt = appendUserContext(
+    renderTemplate(step.prompt, {
+      topic: ctx.topic,
+      facts: factsToText(ctx.facts),
+      formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
+      context: ctx.context ?? "",
+    }),
+    step.prompt,
+    ctx.context,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,

@@ -138,6 +138,24 @@ model PipelineStepConfig {
   updatedAt DateTime @updatedAt
 }
 
+// Registro unificado de errores para monitorización desde el panel de administración:
+// fallos de autenticación, errores de modelo/IA en el pipeline y errores de servidor. Es
+// best-effort (registrarlo nunca debe tumbar el flujo que falló). `userId` es opcional porque
+// no todos los errores tienen usuario conocido (p. ej. un login fallido).
+model ErrorLog {
+  id        String   @id @default(cuid())
+  // Categoría como String (SQLite no tiene enums): "auth" | "pipeline" | "server".
+  category  String
+  message   String
+  // Detalle adicional serializado (etapa, runId, stack, etc.). Opcional.
+  detail    String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@index([createdAt])
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Modelos de dominio de PostIA.
 // ─────────────────────────────────────────────────────────────────────────────

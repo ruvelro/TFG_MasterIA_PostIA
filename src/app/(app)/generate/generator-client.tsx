@@ -22,6 +22,7 @@ export function GeneratorClient({
   const {
     phase,
     stages,
+    stageData,
     facts,
     blueprint,
     article,
@@ -60,7 +61,7 @@ export function GeneratorClient({
         </p>
       ) : null}
 
-      {showProgress ? <ProgressView stages={stages} /> : null}
+      {showProgress ? <ProgressView stages={stages} stageData={stageData} /> : null}
 
       {phase === "review" && facts ? (
         <FactsReview initialFacts={facts} disabled={busy} onContinue={(edited) => resume(edited)} />

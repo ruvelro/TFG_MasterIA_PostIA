@@ -5,14 +5,7 @@ import { useState } from "react";
 import type { StyleAnalysisResult, StyleProfile } from "@/lib/pipeline/schemas";
 
 import { saveStyleProfile } from "./actions";
-
-// Evento del stream del analizador (espejo del tipo del route handler, para no importar
-// código de servidor en el cliente).
-type AnalysisEvent =
-  | { type: "progress"; phase: "fetch" | "analyze"; done: number; total: number }
-  | { type: "progress"; phase: "consolidate" }
-  | { type: "result"; profile: StyleAnalysisResult }
-  | { type: "error"; message: string };
+import { useStyleAnalyzer } from "./use-style-analyzer";
 
 const inputClass =
   "border-muted/30 focus:border-primary w-full rounded-md border px-3 py-2 text-sm outline-none";
@@ -46,11 +39,8 @@ export function EditorialStyleForm({
   // Entrenamiento.
   const [analyzerModel, setAnalyzerModel] = useState(initialAnalyzerModel);
   const [urls, setUrls] = useState("");
-  const [status, setStatus] = useState<"idle" | "analyzing" | "saving">("idle");
-  const [progress, setProgress] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-
-  const busy = status !== "idle";
 
   function assembleProfile(): StyleProfile {
     return {
@@ -78,74 +68,27 @@ export function EditorialStyleForm({
     setExamples(profile.fewShotExamples.length > 0 ? profile.fewShotExamples : [""]);
   }
 
-  function handleEvent(event: AnalysisEvent) {
-    switch (event.type) {
-      case "progress":
-        if (event.phase === "fetch") setProgress(`Descargando ${event.done}/${event.total} URLs…`);
-        else if (event.phase === "analyze")
-          setProgress(`Analizando lote ${event.done}/${event.total}…`);
-        else setProgress("Consolidando el perfil…");
-        break;
-      case "result":
-        applyAnalysis(event.profile);
-        setProgress(null);
-        setMessage("Perfil generado. Revísalo y guárdalo.");
-        setMode("manual");
-        break;
-      case "error":
-        setProgress(null);
-        setMessage(`Error: ${event.message}`);
-        break;
-    }
-  }
+  // Vuelca el resultado del analizador en los campos y vuelve al modo manual para revisarlo.
+  const { analyze, analyzing, progress, error } = useStyleAnalyzer((profile) => {
+    applyAnalysis(profile);
+    setMessage("Perfil generado. Revísalo y guárdalo.");
+    setMode("manual");
+  });
 
-  async function analyze() {
-    const urlList = urls
-      .split("\n")
-      .map((u) => u.trim())
-      .filter(Boolean);
-    if (urlList.length === 0) {
-      setMessage("Pega al menos una URL.");
-      return;
-    }
+  const busy = saving || analyzing;
 
-    setStatus("analyzing");
+  function runAnalysis() {
     setMessage(null);
-    setProgress("Iniciando…");
-    try {
-      const response = await fetch("/api/admin/analyze-style", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ urls: urlList }),
-      });
-      if (!response.ok || !response.body) {
-        setMessage(`Error: ${(await response.text()) || "no se pudo iniciar el análisis"}`);
-        return;
-      }
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (line.trim()) handleEvent(JSON.parse(line) as AnalysisEvent);
-        }
-      }
-      if (buffer.trim()) handleEvent(JSON.parse(buffer) as AnalysisEvent);
-    } catch {
-      setMessage("Error de red durante el análisis.");
-    } finally {
-      setStatus("idle");
-    }
+    void analyze(
+      urls
+        .split("\n")
+        .map((u) => u.trim())
+        .filter(Boolean),
+    );
   }
 
   async function save() {
-    setStatus("saving");
+    setSaving(true);
     setMessage(null);
     try {
       await saveStyleProfile(assembleProfile(), analyzerModel);
@@ -153,7 +96,7 @@ export function EditorialStyleForm({
     } catch {
       setMessage("No se pudo guardar el perfil.");
     } finally {
-      setStatus("idle");
+      setSaving(false);
     }
   }
 
@@ -190,6 +133,7 @@ export function EditorialStyleForm({
       </div>
 
       {message ? <p className="text-muted text-sm">{message}</p> : null}
+      {error ? <p className="text-sm text-red-600">Error: {error}</p> : null}
 
       {mode === "manual" ? (
         <div className="flex flex-col gap-4">
@@ -304,7 +248,7 @@ export function EditorialStyleForm({
             disabled={busy}
             className="bg-primary self-start rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {status === "saving" ? "Guardando…" : "Guardar perfil"}
+            {saving ? "Guardando…" : "Guardar perfil"}
           </button>
         </div>
       ) : (
@@ -340,11 +284,11 @@ export function EditorialStyleForm({
 
           <button
             type="button"
-            onClick={analyze}
+            onClick={runAnalysis}
             disabled={busy}
             className="bg-primary self-start rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
           >
-            {status === "analyzing" ? "Analizando…" : "Analizar y generar perfil"}
+            {analyzing ? "Analizando…" : "Analizar y generar perfil"}
           </button>
         </div>
       )}

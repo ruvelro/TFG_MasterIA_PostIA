@@ -20,6 +20,12 @@ export const startGenerationSchema = z.object({
     .trim()
     .min(5, { error: "El tema debe tener al menos 5 caracteres" })
     .max(200, { error: "El tema es demasiado largo (máx. 200)" }),
+  /** Contexto adicional opcional (datos, enlaces, matices) para enfocar la generación. */
+  context: z
+    .string()
+    .trim()
+    .max(4000, { error: "El contexto es demasiado largo (máx. 4000)" })
+    .optional(),
   pauseForReview: z.boolean().default(true),
   pauseForBlueprintReview: z.boolean().default(false),
   /** Id del tipo de noticia elegido; si falta o no existe, se usa el predeterminado. */

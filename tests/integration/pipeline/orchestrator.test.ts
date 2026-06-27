@@ -231,6 +231,37 @@ describe("orquestador del pipeline", () => {
     expect(savedCtx.blueprint?.title).toBe("Titular editado");
   });
 
+  it("con ambas revisiones activas pausa primero en hechos y LUEGO en la estructura", async () => {
+    // Regresión: el flag pauseForBlueprintReview debe sobrevivir a la pausa de extracción. Antes
+    // se perdía al reanudar y la revisión de estructura nunca se ofrecía.
+    const started = await startGeneration({
+      userId,
+      topic: "Energía nuclear",
+      pauseForReview: true,
+      pauseForBlueprintReview: true,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+    expect(started.status).toBe("awaiting_review");
+
+    // Reanudar desde la pausa de hechos NO debe completar: debe pausar en la estructura.
+    const afterFacts = await resumeGeneration({
+      runId: started.runId,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+    expect(afterFacts.status).toBe("awaiting_blueprint_review");
+    expect(afterFacts.context.blueprint).toBeDefined();
+
+    // Y reanudar desde la estructura sí completa.
+    const completed = await resumeGeneration({
+      runId: started.runId,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+    expect(completed.status).toBe("completed");
+  });
+
   it("itera el bucle validate↔fixer cuando la validación no pasa", async () => {
     const result = await startGeneration({
       userId,
@@ -265,6 +296,9 @@ describe("orquestador del pipeline", () => {
         sourceStrict: true,
         structureInstruction: "Nota muy breve",
         targetWordCount: 200,
+        voiceBrand: "",
+        voiceHouseRules: "",
+        voiceExamples: [],
       },
       cfg: makeConfig(1),
       deps: makeDeps({ validatePasses: true }),
