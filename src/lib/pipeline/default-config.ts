@@ -7,7 +7,8 @@ import type { StageId } from "@/lib/pipeline/stages";
  * son los predeterminados de fábrica: el administrador puede sobreescribir modelo y prompt
  * desde el panel, y cada generación puede aún hacer un override puntual. Los prompts son
  * plantillas con marcadores `{{...}}` que el pipeline rellena con el contexto acumulado:
- * `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}} {{seoRules}}`.
+ * `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}}
+ * {{seoRules}} {{geoRules}} {{targetKeyword}} {{article}}`.
  */
 export interface StepConfig {
   /** Identificador de modelo de OpenRouter, p. ej. "google/gemini-2.5-flash". */
@@ -77,11 +78,14 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Hechos (fuente de verdad):",
       "{{facts}}",
       "",
-      "Voz editorial:",
+      "Voz editorial (respeta también las palabras prohibidas que incluya):",
       "{{editorialVoice}}",
       "",
-      "Reglas SEO/GEO:",
+      "Reglas SEO (optimización para buscadores):",
       "{{seoRules}}",
+      "",
+      "Reglas GEO (optimización para motores generativos):",
+      "{{geoRules}}",
     ].join("\n"),
   },
   validate: {
@@ -92,8 +96,8 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "encuentres, clasificados por categoría:",
       "- faithfulness: afirmaciones que no se apoyan en los hechos/fuentes o están inventadas.",
       "- ai-tone: frases que suenan a IA o genéricas (objetivo: 0% IA, 100% humano).",
-      "- editorial: incumplimientos de la voz editorial.",
-      "- seo: incumplimientos de las reglas SEO/GEO.",
+      "- editorial: incumplimientos de la voz editorial o uso de palabras prohibidas.",
+      "- seo: incumplimientos de las reglas SEO o GEO.",
       "Marca `passed` como verdadero solo si no hay problemas relevantes.",
       "",
       "Tema: {{topic}}",
@@ -107,8 +111,11 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Voz editorial:",
       "{{editorialVoice}}",
       "",
-      "Reglas SEO/GEO:",
+      "Reglas SEO:",
       "{{seoRules}}",
+      "",
+      "Reglas GEO:",
+      "{{geoRules}}",
     ].join("\n"),
   },
   humanize: {
@@ -158,15 +165,18 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Eres un auditor editorial. Puntúa el artículo en las siguientes dimensiones (escala 0-100):",
       "- structureScore: claridad y coherencia de la estructura y el flujo narrativo.",
       "- factualSupportScore: porcentaje estimado de afirmaciones con respaldo factual claro.",
-      "- seoScore: cumplimiento de las reglas SEO/GEO proporcionadas.",
+      "- seoScore: cumplimiento de las reglas SEO y GEO proporcionadas.",
       "- aiScore: sabor a IA del texto (0 = totalmente humano, 100 = totalmente IA).",
       "Estima también el wordCount. Incluye una lista de issues concretos (description + suggestion)",
       "y sugerencias generales de mejora.",
       "",
       "Tema: {{topic}}",
       "",
-      "Reglas SEO/GEO:",
+      "Reglas SEO (buscadores):",
       "{{seoRules}}",
+      "",
+      "Reglas GEO (motores generativos):",
+      "{{geoRules}}",
       "",
       "Artículo:",
       "{{draft}}",
@@ -190,11 +200,14 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "Informes de revisión a corregir:",
       "{{report}}",
       "",
-      "Voz editorial:",
+      "Voz editorial (respeta también las palabras prohibidas que incluya):",
       "{{editorialVoice}}",
       "",
-      "Reglas SEO/GEO:",
+      "Reglas SEO (buscadores):",
       "{{seoRules}}",
+      "",
+      "Reglas GEO (motores generativos):",
+      "{{geoRules}}",
     ].join("\n"),
   },
   enrich: {

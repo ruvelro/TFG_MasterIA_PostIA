@@ -28,6 +28,7 @@ export async function runFixer(
     report: combinedReviewToText(ctx.report, ctx.factualReport, ctx.qualityReport),
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
+    geoRules: cfg.geoRules,
   });
 
   const { object, usage } = await deps.runObject({

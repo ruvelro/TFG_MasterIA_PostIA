@@ -26,6 +26,7 @@ export async function runDraft(
     blueprint: blueprintToText(ctx.blueprint),
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
+    geoRules: cfg.geoRules,
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

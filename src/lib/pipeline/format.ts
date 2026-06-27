@@ -4,6 +4,7 @@ import type {
   Facts,
   FactualReview,
   QualityReview,
+  StyleProfile,
   ValidationReport,
 } from "@/lib/pipeline/schemas";
 import type { PipelineSource } from "@/lib/pipeline/types";
@@ -24,6 +25,34 @@ export function sourcesToText(sources: PipelineSource[]): string {
 export function factsToText(facts: Facts): string {
   if (facts.facts.length === 0) return "(sin hechos)";
   return facts.facts.map((fact) => `- ${fact.claim} (fuente: ${fact.source})`).join("\n");
+}
+
+/**
+ * Renderiza el perfil de estilo a texto para inyectarlo en `{{editorialVoice}}`. Incluye voz,
+ * reglas de casa, autoridad, idioma, palabras prohibidas y ejemplos de referencia. Las reglas
+ * SEO/GEO se inyectan por separado (`{{seoRules}}` / `{{geoRules}}`), por ser la palanca de
+ * optimización. Las secciones vacías se omiten para no ensuciar el prompt.
+ */
+export function styleProfileToText(profile: StyleProfile): string {
+  const parts: string[] = [];
+  if (profile.brandVoice.trim()) parts.push(`VOZ DE MARCA:\n${profile.brandVoice.trim()}`);
+  if (profile.houseRules.trim()) parts.push(`REGLAS DE CASA:\n${profile.houseRules.trim()}`);
+  if (profile.eeatAuthor.trim()) parts.push(`AUTORIDAD (E-E-A-T):\n${profile.eeatAuthor.trim()}`);
+  if (profile.languageRegion.trim())
+    parts.push(`IDIOMA Y REGIÓN: ${profile.languageRegion.trim()}`);
+
+  const forbidden = profile.forbiddenWords.map((w) => w.trim()).filter(Boolean);
+  if (forbidden.length > 0) {
+    parts.push(`PALABRAS PROHIBIDAS (no usar nunca): ${forbidden.join(", ")}`);
+  }
+
+  const examples = profile.fewShotExamples.map((e) => e.trim()).filter(Boolean);
+  if (examples.length > 0) {
+    const rendered = examples.map((e) => `"""\n${e}\n"""`).join("\n");
+    parts.push(`EJEMPLOS DE ESTILO DE REFERENCIA (imita su tono y ritmo):\n${rendered}`);
+  }
+
+  return parts.length > 0 ? parts.join("\n\n") : "(sin perfil de estilo configurado)";
 }
 
 export function blueprintToText(blueprint: Blueprint): string {
