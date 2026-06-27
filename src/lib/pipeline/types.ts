@@ -7,6 +7,7 @@ import type {
   Facts,
   FactualReview,
   FixerOutput,
+  LengthPreset,
   NewsType,
   QualityReview,
   ScrubPattern,
@@ -31,6 +32,8 @@ export interface PipelineContext {
   sources: PipelineSource[];
   /** Tipo de noticia seleccionado (presets del pipeline). Si falta, se usa el comportamiento completo. */
   newsType?: NewsType;
+  /** Preset de longitud seleccionado; tiene prioridad sobre el targetWordCount del tipo. */
+  lengthPreset?: LengthPreset;
   facts?: Facts;
   blueprint?: Blueprint;
   draft?: string;

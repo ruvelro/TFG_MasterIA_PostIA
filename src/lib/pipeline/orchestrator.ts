@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import type { Blueprint, Facts, NewsType } from "@/lib/pipeline/schemas";
+import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
@@ -99,6 +99,8 @@ export interface StartParams {
   pauseForBlueprintReview?: boolean;
   /** Tipo de noticia seleccionado (preset del pipeline). */
   newsType?: NewsType;
+  /** Preset de longitud seleccionado. */
+  lengthPreset?: LengthPreset;
   cfg: ResolvedPipelineConfig;
   deps: PipelineDeps;
   onEvent?: StageEventHandler;
@@ -116,14 +118,15 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     pauseForReview = true,
     pauseForBlueprintReview = false,
     newsType,
+    lengthPreset,
     cfg,
     deps,
     onEvent = noop,
   } = params;
   const run = await prisma.generationRun.create({ data: { userId, topic, status: "researching" } });
-  // El tipo de noticia viaja en el contexto: así sobrevive a las pausas (se serializa) y rige
-  // los toggles del pipeline tanto al arrancar como al reanudar.
-  const ctx: PipelineContext = { topic, sources: [], newsType };
+  // El tipo de noticia y el preset de longitud viajan en el contexto: así sobreviven a las pausas
+  // (se serializan) y rigen el pipeline tanto al arrancar como al reanudar.
+  const ctx: PipelineContext = { topic, sources: [], newsType, lengthPreset };
 
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {

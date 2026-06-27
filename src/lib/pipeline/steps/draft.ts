@@ -27,7 +27,7 @@ export async function runDraft(
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
-    formatDirectives: newsTypeDirectivesToText(ctx.newsType),
+    formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

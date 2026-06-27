@@ -11,6 +11,7 @@ import {
   serializeScrubPatterns,
 } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
+import { getLengthPresets } from "@/lib/settings/length-presets";
 import { getNewsTypes } from "@/lib/settings/news-types";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
@@ -22,6 +23,7 @@ import {
   saveValidatorConfig,
 } from "./actions";
 import { EditorialStyleForm } from "./editorial-style-form";
+import { LengthPresetsForm } from "./length-presets-form";
 import { NewsTypesForm } from "./news-types-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
@@ -51,6 +53,7 @@ export default async function AdminPage() {
     analyzerModel,
     validator,
     newsTypes,
+    lengthPresets,
   ] = await Promise.all([
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
@@ -62,6 +65,7 @@ export default async function AdminPage() {
     getStyleAnalyzerModel(),
     getValidatorConfig(),
     getNewsTypes(),
+    getLengthPresets(),
   ]);
 
   const inputClass =
@@ -149,6 +153,9 @@ export default async function AdminPage() {
 
       {/* ── Tipos de noticia (presets del pipeline) ─────────────────────── */}
       <NewsTypesForm initialTypes={newsTypes} />
+
+      {/* ── Presets de longitud ─────────────────────────────────────────── */}
+      <LengthPresetsForm initialPresets={lengthPresets} />
 
       {/* ── Configuración de generación ─────────────────────────────────── */}
       <form action={saveGenerationConfig} className="flex flex-col gap-4">

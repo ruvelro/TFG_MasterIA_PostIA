@@ -222,6 +222,31 @@ export type NewsType = z.infer<typeof NewsTypeSchema>;
 
 export const NewsTypeCatalogSchema = z.array(NewsTypeSchema);
 
+// ── Presets de longitud (catálogo editable) ───────────────────────────────────
+
+/**
+ * Un preset de longitud define un rango de palabras objetivo (p. ej. "Breve", "Estándar",
+ * "Extenso"). Se elige por generación e instruye al redactor sobre la extensión. Tiene
+ * prioridad sobre el `targetWordCount` del tipo de noticia cuando ambos están presentes.
+ */
+export const LengthPresetSchema = z
+  .object({
+    id: z
+      .string()
+      .min(1)
+      .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
+    label: z.string().min(1),
+    minWords: z.number().int().min(0).max(20000),
+    maxWords: z.number().int().min(1).max(20000),
+  })
+  .refine((p) => p.maxWords >= p.minWords, {
+    error: "El máximo de palabras no puede ser menor que el mínimo",
+    path: ["maxWords"],
+  });
+export type LengthPreset = z.infer<typeof LengthPresetSchema>;
+
+export const LengthPresetCatalogSchema = z.array(LengthPresetSchema);
+
 // ── Validador editorial determinista (configurable) ───────────────────────────
 
 /**

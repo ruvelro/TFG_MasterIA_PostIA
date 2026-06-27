@@ -24,6 +24,8 @@ export const SETTING_KEYS = {
   validatorConfig: "editorial_validator_config",
   // Catálogo (JSON) de tipos de noticia (presets del pipeline).
   newsTypes: "news_types",
+  // Catálogo (JSON) de presets de longitud.
+  lengthPresets: "length_presets",
   // Claves heredadas (perfil plano): se usan como semilla del perfil estructurado.
   legacyEditorialVoice: "editorial_voice",
   legacySeoRules: "seo_rules",

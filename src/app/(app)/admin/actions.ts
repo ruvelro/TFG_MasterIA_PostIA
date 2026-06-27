@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/authorize";
 import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
 import {
+  LengthPresetCatalogSchema,
   NewsTypeCatalogSchema,
   StyleProfileSchema,
   ValidatorConfigSchema,
@@ -12,6 +13,7 @@ import {
 import { setAppSetting } from "@/lib/settings/app-config";
 import { serializeStyleProfile, serializeValidatorConfig } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
+import { serializeLengthPresets } from "@/lib/settings/length-presets";
 import { serializeNewsTypes } from "@/lib/settings/news-types";
 import { setStepConfig } from "@/lib/settings/pipeline-config";
 import { setSecret } from "@/lib/settings/secrets";
@@ -153,6 +155,30 @@ export async function saveNewsTypes(typesInput: unknown): Promise<void> {
   }
 
   await setAppSetting(SETTING_KEYS.newsTypes, serializeNewsTypes(parsed.data));
+  revalidatePath("/admin");
+  revalidatePath("/generate");
+}
+
+/**
+ * Guarda el catálogo de presets de longitud. Llega ensamblado desde el formulario cliente y se
+ * valida con Zod (incluida la unicidad de ids y el rango min≤max) antes de persistirlo como JSON.
+ */
+export async function saveLengthPresets(presetsInput: unknown): Promise<void> {
+  await requireAdmin();
+
+  const parsed = LengthPresetCatalogSchema.safeParse(presetsInput);
+  if (!parsed.success) {
+    throw new Error("Catálogo de presets de longitud inválido");
+  }
+  if (parsed.data.length === 0) {
+    throw new Error("Debe existir al menos un preset de longitud");
+  }
+  const ids = parsed.data.map((p) => p.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Los identificadores de preset deben ser únicos");
+  }
+
+  await setAppSetting(SETTING_KEYS.lengthPresets, serializeLengthPresets(parsed.data));
   revalidatePath("/admin");
   revalidatePath("/generate");
 }

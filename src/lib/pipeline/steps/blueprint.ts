@@ -20,7 +20,7 @@ export async function runBlueprint(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     facts: factsToText(ctx.facts),
-    formatDirectives: newsTypeDirectivesToText(ctx.newsType),
+    formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
   });
 
   const { object, usage } = await deps.runObject({
