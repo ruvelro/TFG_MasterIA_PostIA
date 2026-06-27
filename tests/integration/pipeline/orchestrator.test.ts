@@ -3,7 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { DEFAULT_PIPELINE_PARAMS, DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
 import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
-import { resumeGeneration, startGeneration } from "@/lib/pipeline/orchestrator";
+import { resumeGeneration, reviseGeneration, startGeneration } from "@/lib/pipeline/orchestrator";
 import {
   BlueprintSchema,
   EnrichStepOutputSchema,
@@ -319,5 +319,39 @@ describe("orquestador del pipeline", () => {
     });
     // 1 humanize inicial + 1 re-humanización por aiScore alto.
     expect(humanizeSteps.length).toBe(2);
+  });
+
+  it("reviseGeneration regenera desde un borrador existente sin investigar", async () => {
+    const result = await reviseGeneration({
+      userId,
+      topic: "Tema original",
+      sourceContext: {
+        topic: "Tema original",
+        sources: [],
+        facts: { facts: [{ claim: "Hecho previo", source: "https://e.example/0" }] },
+        blueprint: { title: "T", angle: "A", targetKeyword: "kw", sections: [] },
+      },
+      sourceArticleMarkdown: "# Artículo original\nContenido a revisar.",
+      instructions: "Acorta la introducción.",
+      cfg: makeConfig(1),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(result.status).toBe("completed");
+    // El contexto reutilizado lleva las instrucciones de revisión.
+    expect(result.context.revisionInstructions).toBe("Acorta la introducción.");
+
+    const stageIds = (await prisma.generationStep.findMany({ where: { runId: result.runId } })).map(
+      (s) => s.stageId,
+    );
+    // NO se vuelve a investigar ni a diseñar la estructura: solo el bucle de calidad y el cierre.
+    expect(stageIds).not.toContain("research");
+    expect(stageIds).not.toContain("extract");
+    expect(stageIds).not.toContain("blueprint");
+    expect(stageIds).toEqual(expect.arrayContaining(["validate", "fixer", "scrub", "enrich"]));
+
+    // Produce un artículo nuevo en un run nuevo.
+    const article = await prisma.article.findFirst({ where: { runId: result.runId } });
+    expect(article).not.toBeNull();
   });
 });

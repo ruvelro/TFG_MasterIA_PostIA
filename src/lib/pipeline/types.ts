@@ -34,6 +34,8 @@ export interface PipelineContext {
   newsType?: NewsType;
   /** Preset de longitud seleccionado; tiene prioridad sobre el targetWordCount del tipo. */
   lengthPreset?: LengthPreset;
+  /** Instrucciones de revisión (reenvío dirigido): se inyectan en validate y fixer. */
+  revisionInstructions?: string;
   facts?: Facts;
   blueprint?: Blueprint;
   draft?: string;

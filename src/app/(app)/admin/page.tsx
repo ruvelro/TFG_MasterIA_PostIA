@@ -394,9 +394,10 @@ export default async function AdminPage() {
           <code>{"{{draft}}"}</code>, <code>{"{{report}}"}</code>,{" "}
           <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>,{" "}
           <code>{"{{geoRules}}"}</code>, <code>{"{{formatDirectives}}"}</code>,{" "}
-          <code>{"{{targetKeyword}}"}</code>, <code>{"{{article}}"}</code>. No todas aplican a cada
-          etapa: el corrector usa <code>{"{{report}}"}</code> y el enriquecimiento{" "}
-          <code>{"{{article}}"}</code> y <code>{"{{targetKeyword}}"}</code>.
+          <code>{"{{revisionInstructions}}"}</code>, <code>{"{{targetKeyword}}"}</code>,{" "}
+          <code>{"{{article}}"}</code>. No todas aplican a cada etapa: el corrector usa{" "}
+          <code>{"{{report}}"}</code> y el enriquecimiento <code>{"{{article}}"}</code> y{" "}
+          <code>{"{{targetKeyword}}"}</code>.
         </p>
       </div>
     </section>

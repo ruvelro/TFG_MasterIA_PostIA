@@ -8,7 +8,7 @@ import type { StageId } from "@/lib/pipeline/stages";
  * desde el panel, y cada generación puede aún hacer un override puntual. Los prompts son
  * plantillas con marcadores `{{...}}` que el pipeline rellena con el contexto acumulado:
  * `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}} {{editorialVoice}}
- * {{seoRules}} {{geoRules}} {{formatDirectives}} {{targetKeyword}} {{article}}`.
+ * {{seoRules}} {{geoRules}} {{formatDirectives}} {{revisionInstructions}} {{targetKeyword}} {{article}}`.
  */
 export interface StepConfig {
   /** Identificador de modelo de OpenRouter, p. ej. "google/gemini-2.5-flash". */
@@ -106,9 +106,13 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "- ai-tone: frases que suenan a IA o genéricas (objetivo: 0% IA, 100% humano).",
       "- editorial: incumplimientos de la voz editorial o uso de palabras prohibidas.",
       "- seo: incumplimientos de las reglas SEO o GEO.",
+      "Si hay instrucciones de revisión, comprueba también que el artículo las cumple.",
       "Marca `passed` como verdadero solo si no hay problemas relevantes.",
       "",
       "Tema: {{topic}}",
+      "",
+      "Instrucciones de revisión (si las hay):",
+      "{{revisionInstructions}}",
       "",
       "Borrador:",
       "{{draft}}",
@@ -195,12 +199,15 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
     prompt: [
       "Eres un editor corrector. Aplica al borrador TODAS las correcciones de los informes de",
       "revisión: reescribe las frases que suenen a IA, elimina o matiza las afirmaciones marcadas",
-      "como dudosas o descartadas, ajusta lo que incumpla la voz editorial o el SEO/GEO. Resalta",
-      "en negrita (**) las frases o datos clave. Después, genera la meta SEO final (título, slug,",
-      "meta description <=155 caracteres y keywords). Mantén el formato Markdown y no inventes",
-      "datos nuevos.",
+      "como dudosas o descartadas, ajusta lo que incumpla la voz editorial o el SEO/GEO. Si hay",
+      "instrucciones de revisión, aplícalas con prioridad. Resalta en negrita (**) las frases o",
+      "datos clave. Después, genera la meta SEO final (título, slug, meta description <=155",
+      "caracteres y keywords). Mantén el formato Markdown y no inventes datos nuevos.",
       "",
       "Tema: {{topic}}",
+      "",
+      "Instrucciones de revisión (si las hay, tienen prioridad):",
+      "{{revisionInstructions}}",
       "",
       "Borrador actual:",
       "{{draft}}",

@@ -195,6 +195,62 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
   }
 }
 
+export interface ReviseParams {
+  userId: string;
+  topic: string;
+  /** Contexto del run original (hechos, estructura, fuentes, tipo, longitud). */
+  sourceContext: PipelineContext;
+  /** Markdown del artículo original, que se toma como borrador de partida. */
+  sourceArticleMarkdown: string;
+  /** Instrucciones de revisión que el corrector debe aplicar. */
+  instructions: string;
+  cfg: ResolvedPipelineConfig;
+  deps: PipelineDeps;
+  onEvent?: StageEventHandler;
+}
+
+/**
+ * Reenvío dirigido (Revision Mode): regenera un artículo a partir de uno existente y unas
+ * instrucciones, SIN volver a investigar. Reutiliza los hechos, la estructura y las fuentes del
+ * run original; el borrador de partida es el artículo previo. Produce un artículo NUEVO.
+ */
+export async function reviseGeneration(params: ReviseParams): Promise<GenerationResult> {
+  const {
+    userId,
+    topic,
+    sourceContext,
+    sourceArticleMarkdown,
+    instructions,
+    cfg,
+    deps,
+    onEvent = noop,
+  } = params;
+
+  if (!sourceContext.facts) {
+    throw new Error("No se puede revisar: falta el contexto (hechos) de la generación original");
+  }
+
+  const run = await prisma.generationRun.create({ data: { userId, topic, status: "generating" } });
+  const ctx: PipelineContext = {
+    topic,
+    sources: sourceContext.sources ?? [],
+    facts: sourceContext.facts,
+    blueprint: sourceContext.blueprint,
+    newsType: sourceContext.newsType,
+    lengthPreset: sourceContext.lengthPreset,
+    draft: sourceArticleMarkdown,
+    revisionInstructions: instructions,
+  };
+
+  try {
+    await saveContext(run.id, ctx, "generating");
+    return await runQualityAndFinalize(run.id, ctx, cfg, deps, onEvent);
+  } catch (error) {
+    await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
+    throw error;
+  }
+}
+
 /**
  * Parte final del pipeline: estructura → redacción → humanización → bucle de calidad
  * (validate + factual-review + quality-review ↔ fixer) → limpieza → artículo guardado.
@@ -230,14 +286,8 @@ async function runGenerationTail(
     return { model: result.model, usage: result.usage };
   });
 
-  // Toggles del tipo de noticia: si no hay tipo, se ejecutan todas las etapas (comportamiento
-  // por defecto, retrocompatible). `research` nunca es opcional (fuente de verdad).
-  const runHumanizeStage = ctx.newsType?.enableHumanize ?? true;
-  const runFactualReviewStage = ctx.newsType?.enableFactualReview ?? true;
-  const runQualityReviewStage = ctx.newsType?.enableQualityReview ?? true;
-
   // Humanización inicial (attempt 1), solo si el tipo la activa.
-  if (runHumanizeStage) {
+  if (ctx.newsType?.enableHumanize ?? true) {
     ctx.humanizeAttempts = 1;
     await executeStage({ runId, stageId: "humanize", attempt: 1, onEvent }, async () => {
       const result = await runHumanize(ctx, cfg, deps);
@@ -245,6 +295,28 @@ async function runGenerationTail(
       return { model: result.model, usage: result.usage };
     });
   }
+
+  return runQualityAndFinalize(runId, ctx, cfg, deps, onEvent);
+}
+
+/**
+ * Bucle de calidad (validate + validador determinista + factual-review + quality-review ↔
+ * fixer) seguido de la finalización (limpieza, métricas, enriquecimiento y guardado del
+ * artículo). Se extrae aparte porque lo reutilizan tanto la generación normal como el reenvío
+ * dirigido (Revision Mode), que parte de un borrador ya existente. Requiere `ctx.draft` listo.
+ */
+async function runQualityAndFinalize(
+  runId: string,
+  ctx: PipelineContext,
+  cfg: ResolvedPipelineConfig,
+  deps: PipelineDeps,
+  onEvent: StageEventHandler,
+): Promise<GenerationResult> {
+  // Toggles del tipo de noticia: si no hay tipo, se ejecutan todas las etapas (comportamiento
+  // por defecto, retrocompatible). `research` nunca es opcional (fuente de verdad).
+  const runHumanizeStage = ctx.newsType?.enableHumanize ?? true;
+  const runFactualReviewStage = ctx.newsType?.enableFactualReview ?? true;
+  const runQualityReviewStage = ctx.newsType?.enableQualityReview ?? true;
 
   // Bucle de calidad: validar → revisar → puntuar → corregir si es necesario.
   const maxIterations = Math.max(cfg.maxFixIterations, 1);
