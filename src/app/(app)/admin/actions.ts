@@ -18,6 +18,13 @@ import { serializeNewsTypes } from "@/lib/settings/news-types";
 import { setStepConfig } from "@/lib/settings/pipeline-config";
 import { setSecret } from "@/lib/settings/secrets";
 
+/**
+ * Estado que devuelven las acciones de formulario del panel para alimentar `useActionState`:
+ * permite mostrar un indicador de "guardado" (o de error) junto al botón. `null` es el estado
+ * inicial (todavía no se ha enviado el formulario).
+ */
+export type AdminActionState = { ok: boolean; message: string };
+
 function field(formData: FormData, name: string): string {
   const value = formData.get(name);
   return typeof value === "string" ? value.trim() : "";
@@ -31,7 +38,10 @@ function field(formData: FormData, name: string): string {
  * Los campos de secreto vacíos se ignoran a propósito: así guardar el formulario sin volver
  * a escribir la clave no la borra (no podemos mostrar la clave actual en el input).
  */
-export async function saveIntegrations(formData: FormData): Promise<void> {
+export async function saveIntegrations(
+  _prev: AdminActionState | null,
+  formData: FormData,
+): Promise<AdminActionState> {
   await requireAdmin();
 
   const openrouter = field(formData, "openrouter");
@@ -49,6 +59,7 @@ export async function saveIntegrations(formData: FormData): Promise<void> {
   }
 
   revalidatePath("/admin");
+  return { ok: true, message: "Claves guardadas." };
 }
 
 /**
@@ -57,7 +68,10 @@ export async function saveIntegrations(formData: FormData): Promise<void> {
  * de limpieza final. La identidad editorial se gestiona aparte (`saveStyleProfile`). Los
  * rangos se sanean al leer en `getGenerationConfig`.
  */
-export async function saveGenerationConfig(formData: FormData): Promise<void> {
+export async function saveGenerationConfig(
+  _prev: AdminActionState | null,
+  formData: FormData,
+): Promise<AdminActionState> {
   await requireAdmin();
 
   await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
@@ -67,6 +81,7 @@ export async function saveGenerationConfig(formData: FormData): Promise<void> {
   await setAppSetting(SETTING_KEYS.scrubPatterns, field(formData, "scrubPatterns"));
 
   revalidatePath("/admin");
+  return { ok: true, message: "Configuración guardada." };
 }
 
 /**
@@ -101,7 +116,10 @@ function severityField(formData: FormData, name: string): "error" | "warning" {
  * y con qué severidad; además, los patrones de IA y el mínimo de palabras para el solapamiento
  * con fuentes. Se valida con Zod antes de persistir.
  */
-export async function saveValidatorConfig(formData: FormData): Promise<void> {
+export async function saveValidatorConfig(
+  _prev: AdminActionState | null,
+  formData: FormData,
+): Promise<AdminActionState> {
   await requireAdmin();
 
   const minPhraseWords = Number.parseInt(field(formData, "sourceOverlap.minPhraseWords"), 10);
@@ -127,11 +145,12 @@ export async function saveValidatorConfig(formData: FormData): Promise<void> {
 
   const parsed = ValidatorConfigSchema.safeParse(config);
   if (!parsed.success) {
-    throw new Error("Configuración del validador inválida");
+    return { ok: false, message: "Configuración del validador inválida." };
   }
 
   await setAppSetting(SETTING_KEYS.validatorConfig, serializeValidatorConfig(parsed.data));
   revalidatePath("/admin");
+  return { ok: true, message: "Validador guardado." };
 }
 
 /**
@@ -184,7 +203,10 @@ export async function saveLengthPresets(presetsInput: unknown): Promise<void> {
 }
 
 /** Guarda el modelo y el prompt de una etapa del pipeline. */
-export async function saveStepConfig(formData: FormData): Promise<void> {
+export async function saveStepConfig(
+  _prev: AdminActionState | null,
+  formData: FormData,
+): Promise<AdminActionState> {
   await requireAdmin();
 
   const stageId = field(formData, "stageId");
@@ -192,12 +214,13 @@ export async function saveStepConfig(formData: FormData): Promise<void> {
   const prompt = field(formData, "prompt");
 
   if (!(AI_STAGE_IDS as readonly string[]).includes(stageId)) {
-    throw new Error("Etapa de pipeline desconocida");
+    return { ok: false, message: "Etapa de pipeline desconocida." };
   }
   if (!model || !prompt) {
-    throw new Error("El modelo y el prompt son obligatorios");
+    return { ok: false, message: "El modelo y el prompt son obligatorios." };
   }
 
   await setStepConfig(stageId as AiStageId, { model, prompt });
   revalidatePath("/admin");
+  return { ok: true, message: "Etapa guardada." };
 }

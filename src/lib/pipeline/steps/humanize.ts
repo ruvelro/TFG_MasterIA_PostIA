@@ -1,3 +1,4 @@
+import { composeEditorialVoice } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
@@ -21,7 +22,7 @@ export async function runHumanize(
   const step = cfg.steps.humanize;
   const prompt = renderTemplate(step.prompt, {
     draft: ctx.draft,
-    editorialVoice: cfg.editorialVoice,
+    editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

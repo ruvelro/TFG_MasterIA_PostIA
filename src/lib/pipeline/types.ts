@@ -36,6 +36,14 @@ export interface PipelineContext {
   lengthPreset?: LengthPreset;
   /** Instrucciones de revisión (reenvío dirigido): se inyectan en validate y fixer. */
   revisionInstructions?: string;
+  /** Contexto adicional aportado por el usuario (datos, enlaces, matices); se inyecta en los prompts. */
+  context?: string;
+  /**
+   * Si el usuario pidió revisar la estructura antes de redactar. Se persiste en el contexto para
+   * sobrevivir a la pausa de extracción: al reanudar desde `awaiting_review` el orquestador lo
+   * relee y vuelve a pausar tras el blueprint (de lo contrario el flag se perdería).
+   */
+  pauseForBlueprintReview?: boolean;
   facts?: Facts;
   blueprint?: Blueprint;
   draft?: string;
@@ -113,6 +121,8 @@ export interface StageEvent {
   attempt: number;
   model?: string;
   message?: string;
+  /** Salida de la etapa (al terminar) para el desplegable de detalle de la UI. */
+  data?: unknown;
 }
 
 export type StageEventHandler = (event: StageEvent) => void;

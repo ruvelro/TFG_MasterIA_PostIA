@@ -6,6 +6,7 @@ import { nextCookies } from "better-auth/next-js";
 
 import { env } from "@/lib/config/env";
 import { prisma } from "@/lib/db/client";
+import { logError } from "@/lib/observability/error-log";
 import { passwordSchema } from "@/lib/validation/password";
 
 // Derivamos el dominio (rpID) y el origen para WebAuthn desde APP_URL: en local serán
@@ -63,6 +64,25 @@ export const auth = betterAuth({
           }
         },
       },
+    },
+  },
+  // Registramos los errores de la API de auth (fallos de login, validaciones rechazadas, etc.)
+  // en el log unificado para monitorizarlos desde el panel. `onError` se invoca para cualquier
+  // error capturado en el borde de la API, incluido un sign-in con credenciales incorrectas.
+  onAPIError: {
+    onError: async (error) => {
+      if (error instanceof APIError) {
+        await logError({
+          category: "auth",
+          message: `${error.status}: ${error.message}`,
+          detail: typeof error.body?.message === "string" ? error.body.message : undefined,
+        });
+      } else {
+        await logError({
+          category: "auth",
+          message: error instanceof Error ? error.message : "Error de autenticación desconocido",
+        });
+      }
     },
   },
   hooks: {

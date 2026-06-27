@@ -85,6 +85,36 @@ export function styleProfileToText(profile: StyleProfile): string {
   return parts.length > 0 ? parts.join("\n\n") : "(sin perfil de estilo configurado)";
 }
 
+/**
+ * Compone la voz editorial final que recibe el redactor: la voz GLOBAL del portal y, si el tipo
+ * de noticia trae complemento propio, una sección añadida con su voz, reglas y ejemplos. El tipo
+ * NO reemplaza la voz global: la matiza ("complementa"). Si el tipo no aporta complemento, devuelve
+ * la voz global tal cual. `newsType` es opcional para los flujos que no fijan tipo (retrocompat).
+ */
+export function composeEditorialVoice(globalVoice: string, newsType?: NewsType): string {
+  if (!newsType) return globalVoice;
+
+  const parts: string[] = [];
+  const brand = newsType.voiceBrand?.trim();
+  const rules = newsType.voiceHouseRules?.trim();
+  if (brand) parts.push(`VOZ DE ESTE TIPO:\n${brand}`);
+  if (rules) parts.push(`REGLAS DE CASA DE ESTE TIPO:\n${rules}`);
+
+  const examples = (newsType.voiceExamples ?? []).map((e) => e.trim()).filter(Boolean);
+  if (examples.length > 0) {
+    const rendered = examples.map((e) => `"""\n${e}\n"""`).join("\n");
+    parts.push(`EJEMPLOS DE REFERENCIA DE ESTE TIPO (imita su tono y ritmo):\n${rendered}`);
+  }
+
+  if (parts.length === 0) return globalVoice;
+
+  const typeBlock = [
+    `── Enfoque específico para "${newsType.label}" (complementa la voz del portal) ──`,
+    ...parts,
+  ].join("\n\n");
+  return `${globalVoice}\n\n${typeBlock}`;
+}
+
 export function blueprintToText(blueprint: Blueprint): string {
   const sections = blueprint.sections
     .map((section, index) => `${index + 1}. ${section.heading} — ${section.summary}`)

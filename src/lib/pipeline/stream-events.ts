@@ -16,6 +16,8 @@ export type GenerationStreamEvent =
       attempt: number;
       model?: string;
       message?: string;
+      /** Salida de la etapa (al terminar) para el desplegable de detalle de la UI. */
+      data?: unknown;
     }
   | { type: "awaiting_review"; runId: string; facts: Facts }
   | { type: "awaiting_blueprint_review"; runId: string; blueprint: Blueprint }

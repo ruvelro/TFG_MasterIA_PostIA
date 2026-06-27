@@ -1,4 +1,4 @@
-import { factsToText } from "@/lib/pipeline/format";
+import { composeEditorialVoice, factsToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import { ValidationReportSchema, type ValidationReport } from "@/lib/pipeline/schemas";
 import type {
@@ -25,7 +25,7 @@ export async function runValidate(
     topic: ctx.topic,
     draft: ctx.draft,
     facts: factsToText(ctx.facts),
-    editorialVoice: cfg.editorialVoice,
+    editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
     revisionInstructions: ctx.revisionInstructions ?? "",

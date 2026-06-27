@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { logError } from "@/lib/observability/error-log";
 import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
@@ -28,6 +29,8 @@ const noop: StageEventHandler = () => {};
 interface StageMeta {
   model?: string;
   usage?: TokenUsage;
+  /** Salida de la etapa para mostrarla en el desplegable de detalle de la UI (fuentes, hechos…). */
+  data?: unknown;
 }
 
 /**
@@ -57,7 +60,7 @@ async function executeStage(
         tokensOutput: meta.usage?.outputTokens ?? null,
       },
     });
-    onEvent({ stageId, status: "done", attempt, model: meta.model });
+    onEvent({ stageId, status: "done", attempt, model: meta.model, data: meta.data });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await prisma.generationStep.create({
@@ -69,6 +72,14 @@ async function executeStage(
         error: message,
         durationMs: Date.now() - startedAt,
       },
+    });
+    // Registro unificado para el panel de monitorización (best-effort, además de la fila de traza).
+    await logError({
+      category: "pipeline",
+      message: `Fallo en la etapa "${stageId}": ${message}`,
+      detail: `runId: ${runId} · intento: ${attempt}${
+        error instanceof Error && error.stack ? `\n${error.stack}` : ""
+      }`,
     });
     onEvent({ stageId, status: "error", attempt, message });
     throw error;
@@ -93,6 +104,8 @@ export interface GenerationResult {
 export interface StartParams {
   userId: string;
   topic: string;
+  /** Contexto adicional del usuario (datos, enlaces, matices) que se inyecta en los prompts. */
+  context?: string;
   /** Si es true, el pipeline se detiene tras la extracción para revisión humana de los hechos. */
   pauseForReview?: boolean;
   /** Si es true, el pipeline se detiene tras la estructura para revisión humana del blueprint. */
@@ -115,6 +128,7 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
   const {
     userId,
     topic,
+    context,
     pauseForReview = true,
     pauseForBlueprintReview = false,
     newsType,
@@ -125,18 +139,26 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
   } = params;
   const run = await prisma.generationRun.create({ data: { userId, topic, status: "researching" } });
   // El tipo de noticia y el preset de longitud viajan en el contexto: así sobreviven a las pausas
-  // (se serializan) y rigen el pipeline tanto al arrancar como al reanudar.
-  const ctx: PipelineContext = { topic, sources: [], newsType, lengthPreset };
+  // (se serializan) y rigen el pipeline tanto al arrancar como al reanudar. El flag de revisión de
+  // estructura también se persiste para que sobreviva a la pausa de extracción.
+  const ctx: PipelineContext = {
+    topic,
+    sources: [],
+    newsType,
+    lengthPreset,
+    context,
+    pauseForBlueprintReview,
+  };
 
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
       ctx.sources = await runResearch(ctx, cfg, deps);
-      return {};
+      return { data: ctx.sources };
     });
     await executeStage({ runId: run.id, stageId: "extract", attempt: 1, onEvent }, async () => {
       const result = await runExtract(ctx, cfg, deps);
       ctx.facts = result.facts;
-      return { model: result.model, usage: result.usage };
+      return { model: result.model, usage: result.usage, data: result.facts };
     });
 
     if (pauseForReview) {
@@ -178,8 +200,12 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
 
   const ctx = JSON.parse(run.contextJson) as PipelineContext;
 
+  // Al reanudar desde la pausa de extracción, el flag de revisión de estructura (persistido en el
+  // contexto) sigue vigente; desde la pausa de blueprint ya no hay nueva pausa que aplicar.
+  let pauseForBlueprintReview = false;
   if (run.status === "awaiting_review") {
     if (editedFacts) ctx.facts = editedFacts;
+    pauseForBlueprintReview = ctx.pauseForBlueprintReview ?? false;
   } else {
     // awaiting_blueprint_review
     if (editedBlueprint) ctx.blueprint = editedBlueprint;
@@ -187,8 +213,7 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
 
   try {
     await saveContext(runId, ctx, "generating");
-    // Al reanudar desde blueprint-review no hay nueva pausa de blueprint.
-    return await runGenerationTail(runId, ctx, cfg, deps, onEvent, false);
+    return await runGenerationTail(runId, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
     await prisma.generationRun.update({ where: { id: runId }, data: { status: "failed" } });
     throw error;
@@ -271,7 +296,7 @@ async function runGenerationTail(
     await executeStage({ runId, stageId: "blueprint", attempt: 1, onEvent }, async () => {
       const result = await runBlueprint(ctx, cfg, deps);
       ctx.blueprint = result.blueprint;
-      return { model: result.model, usage: result.usage };
+      return { model: result.model, usage: result.usage, data: result.blueprint };
     });
   }
 
@@ -324,7 +349,7 @@ async function runQualityAndFinalize(
     await executeStage({ runId, stageId: "validate", attempt, onEvent }, async () => {
       const result = await runValidate(ctx, cfg, deps);
       ctx.report = result.report;
-      return { model: result.model, usage: result.usage };
+      return { model: result.model, usage: result.usage, data: result.report };
     });
 
     // Capa determinista (sin IA): fusiona sus hallazgos en el informe de validación. Los de
@@ -349,7 +374,7 @@ async function runQualityAndFinalize(
       await executeStage({ runId, stageId: "factual-review", attempt, onEvent }, async () => {
         const result = await runFactualReview(ctx, cfg, deps);
         ctx.factualReport = result.factualReport;
-        return { model: result.model, usage: result.usage };
+        return { model: result.model, usage: result.usage, data: result.factualReport };
       });
     }
 
@@ -357,7 +382,7 @@ async function runQualityAndFinalize(
       await executeStage({ runId, stageId: "quality-review", attempt, onEvent }, async () => {
         const result = await runQualityReview(ctx, cfg, deps);
         ctx.qualityReport = result.qualityReport;
-        return { model: result.model, usage: result.usage };
+        return { model: result.model, usage: result.usage, data: result.qualityReport };
       });
     }
 
@@ -439,7 +464,7 @@ async function runQualityAndFinalize(
   await executeStage({ runId, stageId: "enrich", attempt: 1, onEvent }, async () => {
     const result = await runEnrich(ctx, cfg, deps);
     ctx.enrichment = { ...result.enrichStepOutput, aiDetection, qualitySummary };
-    return { model: result.model, usage: result.usage };
+    return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
 
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });

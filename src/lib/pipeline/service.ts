@@ -22,6 +22,7 @@ import type { PipelineContext, StageEventHandler } from "@/lib/pipeline/types";
 export interface StartGenerationInput {
   userId: string;
   topic: string;
+  context?: string;
   pauseForReview?: boolean;
   pauseForBlueprintReview?: boolean;
   newsTypeId?: string;
@@ -42,6 +43,7 @@ export async function startGenerationForUser(
   return startGeneration({
     userId: input.userId,
     topic: input.topic,
+    context: input.context,
     pauseForReview: input.pauseForReview,
     pauseForBlueprintReview: input.pauseForBlueprintReview,
     newsType,
