@@ -50,10 +50,19 @@ export interface NewsTypeOption {
   description: string;
 }
 
+/** Opción de preset de longitud para el desplegable del formulario. */
+export interface LengthPresetOption {
+  id: string;
+  label: string;
+  minWords: number;
+  maxWords: number;
+}
+
 export interface StartOptions {
   pauseForReview: boolean;
   pauseForBlueprintReview: boolean;
   newsTypeId?: string;
+  lengthPresetId?: string;
   overrides?: GenerationOverrides;
 }
 

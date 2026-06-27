@@ -6,7 +6,7 @@ import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import type { GenerationOverrides } from "@/lib/pipeline/stream-events";
 
-import type { NewsTypeOption, StartOptions } from "./use-generation-stream";
+import type { LengthPresetOption, NewsTypeOption, StartOptions } from "./use-generation-stream";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
 
@@ -37,16 +37,19 @@ function buildOverrides(state: OverridesState): GenerationOverrides | undefined 
 export function GeneratorForm({
   disabled,
   newsTypes,
+  lengthPresets,
   onSubmit,
 }: {
   disabled: boolean;
   newsTypes: NewsTypeOption[];
+  lengthPresets: LengthPresetOption[];
   onSubmit: (topic: string, options: StartOptions) => void;
 }) {
   const [topic, setTopic] = useState("");
   const [pauseForReview, setPauseForReview] = useState(true);
   const [pauseForBlueprintReview, setPauseForBlueprintReview] = useState(false);
   const [newsTypeId, setNewsTypeId] = useState(newsTypes[0]?.id ?? "");
+  const [lengthPresetId, setLengthPresetId] = useState(lengthPresets[0]?.id ?? "");
   const [overrides, setOverrides] = useState<OverridesState>(EMPTY_OVERRIDES);
 
   const inputClass =
@@ -61,6 +64,7 @@ export function GeneratorForm({
       pauseForReview,
       pauseForBlueprintReview,
       newsTypeId: newsTypeId || undefined,
+      lengthPresetId: lengthPresetId || undefined,
       overrides: buildOverrides(overrides),
     });
   }
@@ -97,6 +101,23 @@ export function GeneratorForm({
           {selectedType?.description ? (
             <span className="text-muted text-xs">{selectedType.description}</span>
           ) : null}
+        </label>
+      ) : null}
+
+      {lengthPresets.length > 0 ? (
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Longitud</span>
+          <select
+            value={lengthPresetId}
+            onChange={(event) => setLengthPresetId(event.target.value)}
+            className={inputClass}
+          >
+            {lengthPresets.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label} ({preset.minWords}–{preset.maxWords} palabras)
+              </option>
+            ))}
+          </select>
         </label>
       ) : null}
 

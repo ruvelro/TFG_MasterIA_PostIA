@@ -3,6 +3,7 @@ import type {
   Blueprint,
   Facts,
   FactualReview,
+  LengthPreset,
   NewsType,
   QualityReview,
   StyleProfile,
@@ -29,20 +30,26 @@ export function factsToText(facts: Facts): string {
 }
 
 /**
- * Renderiza las directrices del tipo de noticia (formato, longitud objetivo y modo de fuentes)
- * para inyectarlas en los prompts de blueprint y draft vía `{{formatDirectives}}`. Devuelve
- * cadena vacía si no hay tipo o no aporta directrices, sin ensuciar el prompt.
+ * Renderiza las directrices de formato (estructura, longitud y modo de fuentes) para inyectarlas
+ * en los prompts de blueprint y draft vía `{{formatDirectives}}`. Combina el tipo de noticia y el
+ * preset de longitud: el preset MANDA sobre el `targetWordCount` del tipo cuando ambos existen.
+ * Devuelve cadena vacía si no hay nada que indicar, sin ensuciar el prompt.
  */
-export function newsTypeDirectivesToText(newsType: NewsType | undefined): string {
-  if (!newsType) return "";
+export function newsTypeDirectivesToText(
+  newsType: NewsType | undefined,
+  lengthPreset?: LengthPreset,
+): string {
   const parts: string[] = [];
-  if (newsType.structureInstruction.trim()) {
+  if (newsType?.structureInstruction.trim()) {
     parts.push(`Formato: ${newsType.structureInstruction.trim()}`);
   }
-  if (newsType.targetWordCount > 0) {
+  // Prioridad de la longitud: preset seleccionado > targetWordCount del tipo.
+  if (lengthPreset) {
+    parts.push(`Longitud: entre ${lengthPreset.minWords} y ${lengthPreset.maxWords} palabras.`);
+  } else if (newsType && newsType.targetWordCount > 0) {
     parts.push(`Longitud objetivo: aproximadamente ${newsType.targetWordCount} palabras.`);
   }
-  if (newsType.sourceStrict) {
+  if (newsType?.sourceStrict) {
     parts.push(
       "Cíñete ESTRICTAMENTE a los hechos de las fuentes: no añadas conocimiento externo ni datos sin respaldo.",
     );

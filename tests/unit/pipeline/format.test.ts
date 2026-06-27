@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   blueprintToText,
   factsToText,
+  newsTypeDirectivesToText,
   reportToText,
   sourcesToText,
   styleProfileToText,
 } from "@/lib/pipeline/format";
-import type { StyleProfile } from "@/lib/pipeline/schemas";
+import type { NewsType, StyleProfile } from "@/lib/pipeline/schemas";
 
 const EMPTY_PROFILE: StyleProfile = {
   brandVoice: "",
@@ -85,5 +86,37 @@ describe("formateadores de contexto", () => {
     expect(text).toContain("Un párrafo de muestra.");
     // SEO/GEO viajan por separado, no en el render de la voz.
     expect(text).not.toContain("NO debe aparecer aquí");
+  });
+
+  it("newsTypeDirectivesToText es vacío sin tipo ni preset", () => {
+    expect(newsTypeDirectivesToText(undefined)).toBe("");
+  });
+
+  it("newsTypeDirectivesToText: el preset de longitud manda sobre el targetWordCount del tipo", () => {
+    const newsType: NewsType = {
+      id: "t",
+      label: "T",
+      description: "",
+      enableHumanize: true,
+      enableFactualReview: true,
+      enableQualityReview: true,
+      sourceStrict: true,
+      structureInstruction: "Nota breve",
+      targetWordCount: 300,
+    };
+    const withType = newsTypeDirectivesToText(newsType);
+    expect(withType).toContain("aproximadamente 300 palabras");
+    expect(withType).toContain("Nota breve");
+    expect(withType).toContain("ESTRICTAMENTE");
+
+    const withPreset = newsTypeDirectivesToText(newsType, {
+      id: "extenso",
+      label: "Extenso",
+      minWords: 1200,
+      maxWords: 1800,
+    });
+    expect(withPreset).toContain("entre 1200 y 1800 palabras");
+    // El targetWordCount del tipo NO aparece cuando hay preset.
+    expect(withPreset).not.toContain("aproximadamente 300 palabras");
   });
 });
