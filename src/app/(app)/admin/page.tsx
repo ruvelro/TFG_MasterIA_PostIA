@@ -7,13 +7,19 @@ import { getAppSetting } from "@/lib/settings/app-config";
 import {
   getGenerationConfig,
   getStyleAnalyzerModel,
+  getValidatorConfig,
   serializeScrubPatterns,
 } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 
-import { saveGenerationConfig, saveIntegrations, saveStepConfig } from "./actions";
+import {
+  saveGenerationConfig,
+  saveIntegrations,
+  saveStepConfig,
+  saveValidatorConfig,
+} from "./actions";
 import { EditorialStyleForm } from "./editorial-style-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
@@ -41,6 +47,7 @@ export default async function AdminPage() {
     stepConfigs,
     generation,
     analyzerModel,
+    validator,
   ] = await Promise.all([
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
@@ -50,6 +57,7 @@ export default async function AdminPage() {
     getAllStepConfigs(),
     getGenerationConfig(),
     getStyleAnalyzerModel(),
+    getValidatorConfig(),
   ]);
 
   const inputClass =
@@ -206,6 +214,120 @@ export default async function AdminPage() {
           className="bg-primary self-start rounded-md px-4 py-2 text-sm font-medium text-white"
         >
           Guardar configuración
+        </button>
+      </form>
+
+      {/* ── Validador editorial determinista ────────────────────────────── */}
+      <form action={saveValidatorConfig} className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-lg font-semibold">Validador editorial (determinista)</h2>
+          <p className="text-muted text-sm">
+            Reglas sin IA que complementan la validación: detectan problemas de forma reproducible.
+            Las de severidad <strong>error</strong> obligan a una corrección; las de{" "}
+            <strong>aviso</strong> solo informan.
+          </p>
+        </div>
+
+        {/* Regla: palabras prohibidas */}
+        <fieldset className="border-muted/20 flex flex-col gap-2 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-semibold">Palabras prohibidas</legend>
+          <p className="text-muted text-xs">
+            Detecta en el artículo las palabras vetadas del perfil de estilo.
+          </p>
+          <div className="flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="forbiddenWords.enabled"
+                defaultChecked={validator.forbiddenWords.enabled}
+              />
+              <span>Activa</span>
+            </label>
+            <select
+              name="forbiddenWords.severity"
+              defaultValue={validator.forbiddenWords.severity}
+              className={inputClass}
+            >
+              <option value="error">Error (bloquea)</option>
+              <option value="warning">Aviso</option>
+            </select>
+          </div>
+        </fieldset>
+
+        {/* Regla: patrones de IA */}
+        <fieldset className="border-muted/20 flex flex-col gap-2 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-semibold">Patrones de redacción IA</legend>
+          <div className="flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="aiPatterns.enabled"
+                defaultChecked={validator.aiPatterns.enabled}
+              />
+              <span>Activa</span>
+            </label>
+            <select
+              name="aiPatterns.severity"
+              defaultValue={validator.aiPatterns.severity}
+              className={inputClass}
+            >
+              <option value="error">Error (bloquea)</option>
+              <option value="warning">Aviso</option>
+            </select>
+          </div>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Patrones (una expresión regular por línea)</span>
+            <textarea
+              name="aiPatterns.patterns"
+              rows={5}
+              defaultValue={validator.aiPatterns.patterns.join("\n")}
+              className={`${inputClass} font-mono`}
+            />
+          </label>
+        </fieldset>
+
+        {/* Regla: copia literal de fuentes */}
+        <fieldset className="border-muted/20 flex flex-col gap-2 rounded-lg border p-4">
+          <legend className="px-1 text-sm font-semibold">Copia literal de fuentes</legend>
+          <p className="text-muted text-xs">
+            Detecta fragmentos copiados textualmente de las fuentes (a partir de N palabras).
+          </p>
+          <div className="flex items-center gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                name="sourceOverlap.enabled"
+                defaultChecked={validator.sourceOverlap.enabled}
+              />
+              <span>Activa</span>
+            </label>
+            <select
+              name="sourceOverlap.severity"
+              defaultValue={validator.sourceOverlap.severity}
+              className={inputClass}
+            >
+              <option value="error">Error (bloquea)</option>
+              <option value="warning">Aviso</option>
+            </select>
+            <label className="flex items-center gap-2">
+              <span>Mín. palabras</span>
+              <input
+                name="sourceOverlap.minPhraseWords"
+                type="number"
+                min={3}
+                max={30}
+                defaultValue={validator.sourceOverlap.minPhraseWords}
+                className={inputClass}
+              />
+            </label>
+          </div>
+        </fieldset>
+
+        <button
+          type="submit"
+          className="bg-primary self-start rounded-md px-4 py-2 text-sm font-medium text-white"
+        >
+          Guardar validador
         </button>
       </form>
 

@@ -38,6 +38,8 @@ export async function buildPipelineConfig(
     maxHumanizeRetries: generation.maxHumanizeRetries,
     aiScoreThreshold: generation.aiScoreThreshold,
     scrubPatterns: generation.scrubPatterns,
+    forbiddenWords: generation.styleProfile.forbiddenWords,
+    validatorConfig: generation.validatorConfig,
   };
 }
 

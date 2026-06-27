@@ -38,6 +38,7 @@ export const ValidationIssueSchema = z.object({
   description: z.string(),
   suggestion: z.string(),
 });
+export type ValidationIssue = z.infer<typeof ValidationIssueSchema>;
 
 export const ValidationReportSchema = z.object({
   passed: z.boolean().describe("Verdadero solo si no hay problemas relevantes"),
@@ -191,3 +192,25 @@ export const StyleAnalysisResultSchema = StyleProfileSchema.omit({
   geoRules: true,
 });
 export type StyleAnalysisResult = z.infer<typeof StyleAnalysisResultSchema>;
+
+// ── Validador editorial determinista (configurable) ───────────────────────────
+
+/**
+ * Una regla del validador editorial determinista. `enabled` la activa; `severity` decide si
+ * un hallazgo bloquea la generación (`error` → fuerza una pasada del corrector) o solo informa
+ * (`warning`). Es una capa complementaria al `validate` por IA, sin coste de tokens.
+ */
+export const ValidatorRuleSchema = z.object({
+  enabled: z.boolean(),
+  severity: z.enum(["error", "warning"]),
+});
+
+export const ValidatorConfigSchema = z.object({
+  /** Detecta las palabras prohibidas del perfil de estilo en el borrador. */
+  forbiddenWords: ValidatorRuleSchema,
+  /** Detecta patrones (regex) típicos de redacción IA. */
+  aiPatterns: ValidatorRuleSchema.extend({ patterns: z.array(z.string()) }),
+  /** Detecta copia literal extensa desde las fuentes (mínimo de palabras del fragmento). */
+  sourceOverlap: ValidatorRuleSchema.extend({ minPhraseWords: z.number().int().min(3).max(30) }),
+});
+export type ValidatorConfig = z.infer<typeof ValidatorConfigSchema>;

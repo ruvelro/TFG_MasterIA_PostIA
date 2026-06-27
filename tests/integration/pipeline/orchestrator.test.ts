@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/client";
 import { DEFAULT_PIPELINE_PARAMS, DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
+import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
 import { resumeGeneration, startGeneration } from "@/lib/pipeline/orchestrator";
 import {
   BlueprintSchema,
@@ -28,6 +29,8 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
     aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
     scrubPatterns: [...DEFAULT_SCRUB_PATTERNS],
+    forbiddenWords: [],
+    validatorConfig: DEFAULT_VALIDATOR_CONFIG,
   };
 }
 
@@ -245,6 +248,25 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(2);
     const attempts = validateSteps.map((s) => s.attempt).sort();
     expect(attempts).toEqual([1, 2]);
+  });
+
+  it("el validador determinista fuerza una corrección al detectar una palabra prohibida", async () => {
+    // La validación IA pasa y aiScore es bajo (sin re-humanización): sin el validador, el bucle
+    // terminaría a la primera. Pero "borrador" aparece en el draft falso y está prohibida →
+    // el informe se marca como no superado y el corrector debe intervenir (2.ª validación).
+    const result = await startGeneration({
+      userId,
+      topic: "Domótica",
+      pauseForReview: false,
+      cfg: { ...makeConfig(2), forbiddenWords: ["borrador"] },
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(result.status).toBe("completed");
+    const validateSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "validate" },
+    });
+    expect(validateSteps.length).toBe(2);
   });
 
   it("dispara una re-humanización cuando aiScore supera el umbral", async () => {

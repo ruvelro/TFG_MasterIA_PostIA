@@ -1,5 +1,12 @@
 import { DEFAULT_PIPELINE_PARAMS } from "@/lib/pipeline/default-config";
-import { StyleProfileSchema, type ScrubPattern, type StyleProfile } from "@/lib/pipeline/schemas";
+import {
+  StyleProfileSchema,
+  ValidatorConfigSchema,
+  type ScrubPattern,
+  type StyleProfile,
+  type ValidatorConfig,
+} from "@/lib/pipeline/schemas";
+import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 
 import { getAppSetting } from "./app-config";
@@ -18,6 +25,7 @@ export interface GenerationConfig {
   maxHumanizeRetries: number;
   aiScoreThreshold: number;
   scrubPatterns: ScrubPattern[];
+  validatorConfig: ValidatorConfig;
 }
 
 /** Perfil de estilo vacío: punto de partida cuando no hay nada configurado. */
@@ -83,6 +91,25 @@ export async function getStyleAnalyzerModel(): Promise<string> {
   return model?.trim() || DEFAULT_STYLE_ANALYZER_MODEL;
 }
 
+/** Serializa la configuración del validador editorial para persistirla como JSON. */
+export function serializeValidatorConfig(config: ValidatorConfig): string {
+  return JSON.stringify(config);
+}
+
+/** Configuración del validador editorial determinista, o la de fábrica si no hay/es inválida. */
+export async function getValidatorConfig(): Promise<ValidatorConfig> {
+  const raw = await getAppSetting(SETTING_KEYS.validatorConfig);
+  if (raw) {
+    try {
+      const parsed = ValidatorConfigSchema.safeParse(JSON.parse(raw));
+      if (parsed.success) return parsed.data;
+    } catch {
+      // JSON corrupto: caemos a la configuración de fábrica en lugar de romper.
+    }
+  }
+  return DEFAULT_VALIDATOR_CONFIG;
+}
+
 /** Serializa los patrones de limpieza para el textarea del admin: uno por línea. */
 export function serializeScrubPatterns(patterns: ScrubPattern[]): string {
   return patterns.map((p) => p.pattern).join("\n");
@@ -102,6 +129,7 @@ function parseScrubPatterns(raw: string | null): ScrubPattern[] {
 export async function getGenerationConfig(): Promise<GenerationConfig> {
   const [
     styleProfile,
+    validatorConfig,
     sourceCount,
     maxFixIterations,
     maxHumanizeRetries,
@@ -109,6 +137,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     scrubPatterns,
   ] = await Promise.all([
     getStyleProfile(),
+    getValidatorConfig(),
     getAppSetting(SETTING_KEYS.sourceCount),
     getAppSetting(SETTING_KEYS.maxFixIterations),
     getAppSetting(SETTING_KEYS.maxHumanizeRetries),
@@ -118,6 +147,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
 
   return {
     styleProfile,
+    validatorConfig,
     // Límites defensivos: descargar demasiadas webs o iterar sin fin dispara coste y latencia.
     sourceCount: parseBoundedInt(sourceCount, SOURCE_COUNT_DEFAULT, 1, 10),
     maxFixIterations: parseBoundedInt(

@@ -10,6 +10,7 @@ import type {
   QualityReview,
   ScrubPattern,
   ValidationReport,
+  ValidatorConfig,
 } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import type { SearchResult } from "@/lib/search";
@@ -80,6 +81,10 @@ export interface ResolvedPipelineConfig {
   aiScoreThreshold: number;
   /** Patrones de expresiones regulares para la limpieza final del artículo. */
   scrubPatterns: ScrubPattern[];
+  /** Palabras prohibidas del perfil de estilo (las usa el validador determinista). */
+  forbiddenWords: string[];
+  /** Configuración del validador editorial determinista. */
+  validatorConfig: ValidatorConfig;
 }
 
 export type RunStatus =

@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "@/lib/auth/authorize";
 import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
-import { StyleProfileSchema } from "@/lib/pipeline/schemas";
+import { StyleProfileSchema, ValidatorConfigSchema } from "@/lib/pipeline/schemas";
 import { setAppSetting } from "@/lib/settings/app-config";
-import { serializeStyleProfile } from "@/lib/settings/generation-config";
+import { serializeStyleProfile, serializeValidatorConfig } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { setStepConfig } from "@/lib/settings/pipeline-config";
 import { setSecret } from "@/lib/settings/secrets";
@@ -81,6 +81,49 @@ export async function saveStyleProfile(
   await setAppSetting(SETTING_KEYS.styleProfile, serializeStyleProfile(parsed.data));
   await setAppSetting(SETTING_KEYS.styleAnalyzerModel, analyzerModel.trim());
 
+  revalidatePath("/admin");
+}
+
+/** Lee una severidad del formulario, cayendo a "warning" si el valor no es válido. */
+function severityField(formData: FormData, name: string): "error" | "warning" {
+  return field(formData, name) === "error" ? "error" : "warning";
+}
+
+/**
+ * Guarda la configuración del validador editorial determinista: por cada regla, si está activa
+ * y con qué severidad; además, los patrones de IA y el mínimo de palabras para el solapamiento
+ * con fuentes. Se valida con Zod antes de persistir.
+ */
+export async function saveValidatorConfig(formData: FormData): Promise<void> {
+  await requireAdmin();
+
+  const minPhraseWords = Number.parseInt(field(formData, "sourceOverlap.minPhraseWords"), 10);
+  const config = {
+    forbiddenWords: {
+      enabled: formData.get("forbiddenWords.enabled") === "on",
+      severity: severityField(formData, "forbiddenWords.severity"),
+    },
+    aiPatterns: {
+      enabled: formData.get("aiPatterns.enabled") === "on",
+      severity: severityField(formData, "aiPatterns.severity"),
+      patterns: field(formData, "aiPatterns.patterns")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+    },
+    sourceOverlap: {
+      enabled: formData.get("sourceOverlap.enabled") === "on",
+      severity: severityField(formData, "sourceOverlap.severity"),
+      minPhraseWords: Number.isNaN(minPhraseWords) ? 8 : Math.min(Math.max(minPhraseWords, 3), 30),
+    },
+  };
+
+  const parsed = ValidatorConfigSchema.safeParse(config);
+  if (!parsed.success) {
+    throw new Error("Configuración del validador inválida");
+  }
+
+  await setAppSetting(SETTING_KEYS.validatorConfig, serializeValidatorConfig(parsed.data));
   revalidatePath("/admin");
 }
 

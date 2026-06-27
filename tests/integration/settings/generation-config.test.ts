@@ -3,13 +3,16 @@ import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db/client";
 import { DEFAULT_PIPELINE_PARAMS } from "@/lib/pipeline/default-config";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
-import { EMPTY_STYLE_PROFILE } from "@/lib/settings/generation-config";
+import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
 import { setAppSetting } from "@/lib/settings/app-config";
 import {
+  EMPTY_STYLE_PROFILE,
   getGenerationConfig,
   getStyleProfile,
+  getValidatorConfig,
   serializeScrubPatterns,
   serializeStyleProfile,
+  serializeValidatorConfig,
 } from "@/lib/settings/generation-config";
 import { SETTING_KEYS } from "@/lib/settings/keys";
 
@@ -21,6 +24,7 @@ const KEYS = [
   SETTING_KEYS.styleProfile,
   SETTING_KEYS.legacyEditorialVoice,
   SETTING_KEYS.legacySeoRules,
+  SETTING_KEYS.validatorConfig,
 ];
 
 afterEach(async () => {
@@ -96,5 +100,26 @@ describe("getStyleProfile — perfil de estilo editorial", () => {
     );
     const profile = await getStyleProfile();
     expect(profile.brandVoice).toBe("Voz nueva");
+  });
+});
+
+describe("getValidatorConfig — validador editorial determinista", () => {
+  it("devuelve la configuración de fábrica cuando no hay nada guardado", async () => {
+    expect(await getValidatorConfig()).toEqual(DEFAULT_VALIDATOR_CONFIG);
+  });
+
+  it("hace el viaje de ida y vuelta de la configuración guardada", async () => {
+    const config = {
+      forbiddenWords: { enabled: false, severity: "warning" as const },
+      aiPatterns: { enabled: true, severity: "error" as const, patterns: ["foo"] },
+      sourceOverlap: { enabled: true, severity: "warning" as const, minPhraseWords: 10 },
+    };
+    await setAppSetting(SETTING_KEYS.validatorConfig, serializeValidatorConfig(config));
+    expect(await getValidatorConfig()).toEqual(config);
+  });
+
+  it("cae a la configuración de fábrica si el JSON es inválido", async () => {
+    await setAppSetting(SETTING_KEYS.validatorConfig, "no es json");
+    expect(await getValidatorConfig()).toEqual(DEFAULT_VALIDATOR_CONFIG);
   });
 });
