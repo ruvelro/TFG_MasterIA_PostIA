@@ -30,12 +30,24 @@ describe("startGenerationSchema", () => {
 });
 
 describe("resumeGenerationSchema", () => {
-  it("requiere los hechos editados con su forma", () => {
+  it("acepta editedFacts con su forma correcta", () => {
     expect(
       resumeGenerationSchema.safeParse({
         editedFacts: { facts: [{ claim: "c", source: "https://x" }] },
       }).success,
     ).toBe(true);
-    expect(resumeGenerationSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("acepta objeto vacío (la pausa de blueprint no requiere hechos)", () => {
+    // El orquestador discrimina el tipo de pausa por run.status en BD, no por los campos presentes.
+    expect(resumeGenerationSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("rechaza editedFacts con hechos que no tienen claim", () => {
+    expect(
+      resumeGenerationSchema.safeParse({
+        editedFacts: { facts: [{ source: "https://x.example" }] },
+      }).success,
+    ).toBe(false);
   });
 });

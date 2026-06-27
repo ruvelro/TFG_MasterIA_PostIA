@@ -12,8 +12,13 @@ export const STAGE_IDS = [
   "extract",
   "blueprint",
   "draft",
+  "humanize",
   "validate",
+  "factual-review",
+  "quality-review",
   "fixer",
+  "scrub",
+  "enrich",
 ] as const;
 
 export type StageId = (typeof STAGE_IDS)[number];
@@ -57,6 +62,13 @@ export const PIPELINE_STAGES: readonly PipelineStageMeta[] = [
     usesAi: true,
   },
   {
+    id: "humanize",
+    label: "Humanización",
+    description:
+      "Reescribe el borrador para eliminar patrones de IA: muletillas, estructura repetitiva y voz genérica.",
+    usesAi: true,
+  },
+  {
     id: "validate",
     label: "Validación",
     description:
@@ -64,9 +76,37 @@ export const PIPELINE_STAGES: readonly PipelineStageMeta[] = [
     usesAi: true,
   },
   {
+    id: "factual-review",
+    label: "Revisión factual",
+    description:
+      "Clasifica cada afirmación del artículo como confirmada, dudosa o descartada. Emite un nivel de riesgo global.",
+    usesAi: true,
+  },
+  {
+    id: "quality-review",
+    label: "Control de calidad",
+    description:
+      "Puntúa estructura, soporte factual, SEO y sabor a IA. Sus hallazgos alimentan al corrector.",
+    usesAi: true,
+  },
+  {
     id: "fixer",
     label: "Corrección",
-    description: "Corrige lo que marca la validación, aplica formato y genera la meta SEO final.",
+    description: "Corrige lo que marcan las revisiones, aplica formato y genera la meta SEO final.",
+    usesAi: true,
+  },
+  {
+    id: "scrub",
+    label: "Limpieza",
+    description:
+      "Elimina meta-referencias de investigación del artículo final mediante expresiones regulares. No usa IA.",
+    usesAi: false,
+  },
+  {
+    id: "enrich",
+    label: "Enriquecimiento",
+    description:
+      "Genera titulares alternativos, etiquetas, FAQ, texto alt de imagen, Schema.org y prompt de imagen.",
     usesAi: true,
   },
 ] as const;

@@ -5,7 +5,7 @@ import {
   startGeneration,
   type GenerationResult,
 } from "@/lib/pipeline/orchestrator";
-import type { Facts } from "@/lib/pipeline/schemas";
+import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
 import type { AiStageId } from "@/lib/pipeline/default-config";
 import type { StageEventHandler } from "@/lib/pipeline/types";
 
@@ -19,6 +19,7 @@ export interface StartGenerationInput {
   userId: string;
   topic: string;
   pauseForReview?: boolean;
+  pauseForBlueprintReview?: boolean;
   overrides?: Partial<Record<AiStageId, StepOverride>>;
 }
 
@@ -34,6 +35,7 @@ export async function startGenerationForUser(
     userId: input.userId,
     topic: input.topic,
     pauseForReview: input.pauseForReview,
+    pauseForBlueprintReview: input.pauseForBlueprintReview,
     cfg,
     deps,
     onEvent,
@@ -43,6 +45,7 @@ export async function startGenerationForUser(
 export interface ResumeGenerationInput {
   runId: string;
   editedFacts?: Facts;
+  editedBlueprint?: Blueprint;
   overrides?: Partial<Record<AiStageId, StepOverride>>;
 }
 
@@ -57,6 +60,7 @@ export async function resumeGenerationForRun(
   return resumeGeneration({
     runId: input.runId,
     editedFacts: input.editedFacts,
+    editedBlueprint: input.editedBlueprint,
     cfg,
     deps,
     onEvent,

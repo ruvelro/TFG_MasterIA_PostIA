@@ -1,7 +1,16 @@
 import type { z } from "zod";
 
 import type { AiStageId, StepConfig } from "@/lib/pipeline/default-config";
-import type { Blueprint, Facts, FixerOutput, ValidationReport } from "@/lib/pipeline/schemas";
+import type {
+  ArticleEnrichment,
+  Blueprint,
+  Facts,
+  FactualReview,
+  FixerOutput,
+  QualityReview,
+  ScrubPattern,
+  ValidationReport,
+} from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import type { SearchResult } from "@/lib/search";
 
@@ -22,7 +31,12 @@ export interface PipelineContext {
   blueprint?: Blueprint;
   draft?: string;
   report?: ValidationReport;
+  factualReport?: FactualReview;
+  qualityReport?: QualityReview;
+  /** Número de veces que se ha ejecutado humanize en esta generación. */
+  humanizeAttempts?: number;
   article?: FixerOutput;
+  enrichment?: ArticleEnrichment;
 }
 
 export interface TokenUsage {
@@ -56,12 +70,19 @@ export interface ResolvedPipelineConfig {
   seoRules: string;
   sourceCount: number;
   maxFixIterations: number;
+  /** Máximo de re-humanizaciones automáticas cuando aiScore supera el umbral. */
+  maxHumanizeRetries: number;
+  /** Umbral de aiScore (0-100) a partir del cual se re-humaniza el borrador. */
+  aiScoreThreshold: number;
+  /** Patrones de expresiones regulares para la limpieza final del artículo. */
+  scrubPatterns: ScrubPattern[];
 }
 
 export type RunStatus =
   | "pending"
   | "researching"
   | "awaiting_review"
+  | "awaiting_blueprint_review"
   | "generating"
   | "completed"
   | "failed";

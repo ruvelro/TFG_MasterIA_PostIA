@@ -44,7 +44,12 @@ export async function POST(
 
   return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
     const result = await resumeGenerationForRun(
-      { runId, editedFacts: parsed.data.editedFacts, overrides: parsed.data.overrides },
+      {
+        runId,
+        editedFacts: parsed.data.editedFacts,
+        editedBlueprint: parsed.data.editedBlueprint,
+        overrides: parsed.data.overrides,
+      },
       (event) => emit({ type: "stage", ...event }),
     );
     if (result.context.article) {
@@ -53,6 +58,7 @@ export async function POST(
         runId: result.runId,
         articleId: result.articleId,
         article: result.context.article,
+        enrichment: result.context.enrichment,
       });
     }
   });

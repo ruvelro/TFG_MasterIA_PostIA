@@ -53,3 +53,108 @@ export const FixerOutputSchema = z.object({
   keywords: z.array(z.string()),
 });
 export type FixerOutput = z.infer<typeof FixerOutputSchema>;
+
+// ── Revisión factual ──────────────────────────────────────────────────────────
+
+export const FactualClaimSchema = z.object({
+  claim: z.string().describe("Afirmación tal y como aparece en el artículo"),
+  status: z
+    .enum(["confirmed", "doubtful", "discarded"])
+    .describe("confirmed: respaldada por fuentes; doubtful: cuestionable; discarded: sin respaldo"),
+  reason: z.string().describe("Breve explicación del estado asignado"),
+});
+
+export const FactualReviewSchema = z.object({
+  riskLevel: z.enum(["low", "medium", "high"]).describe("Nivel de riesgo global del artículo"),
+  claims: z.array(FactualClaimSchema),
+  summary: z.string().describe("Resumen ejecutivo de la revisión factual"),
+  researchSufficiency: z
+    .object({
+      sufficient: z.boolean().describe("¿Son las fuentes suficientes para respaldar el artículo?"),
+      reason: z.string().describe("Breve explicación"),
+    })
+    .describe("Evaluación de si las fuentes consultadas bastan para respaldar el contenido"),
+});
+export type FactualReview = z.infer<typeof FactualReviewSchema>;
+
+// ── Control de calidad ────────────────────────────────────────────────────────
+
+export const QualityReviewSchema = z.object({
+  structureScore: z.number().min(0).max(100).describe("Claridad y coherencia de la estructura"),
+  factualSupportScore: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Porcentaje de afirmaciones con respaldo factual"),
+  seoScore: z.number().min(0).max(100).describe("Cumplimiento de reglas SEO/GEO"),
+  wordCount: z.number().int().describe("Recuento de palabras del artículo"),
+  aiScore: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe("Sabor a IA: 0 = totalmente humano, 100 = totalmente IA"),
+  issues: z.array(
+    z.object({
+      description: z.string(),
+      suggestion: z.string(),
+    }),
+  ),
+  suggestions: z.array(z.string()),
+});
+export type QualityReview = z.infer<typeof QualityReviewSchema>;
+
+// ── Enriquecimiento del artículo ──────────────────────────────────────────────
+
+/** Campos generados por IA en el step `enrich` (ítems 7-12). */
+export const EnrichStepOutputSchema = z.object({
+  headlineVariants: z
+    .array(z.string())
+    .describe("3-5 titulares alternativos al principal, variados en tono y estructura"),
+  tags: z.array(z.string()).describe("4-8 etiquetas temáticas breves"),
+  faq: z
+    .array(z.object({ question: z.string(), answer: z.string() }))
+    .describe("0-6 pares pregunta/respuesta basados en hechos del artículo"),
+  imageAlt: z
+    .array(z.string())
+    .describe("1-3 textos alt descriptivos para la imagen destacada (≤125 chars cada uno)"),
+  jsonLdNewsArticle: z
+    .record(z.string(), z.unknown())
+    .describe("Objeto Schema.org NewsArticle completo para SEO estructurado"),
+  featuredImagePrompt: z
+    .string()
+    .describe("Prompt en inglés para generar la imagen destacada con IA (≤200 palabras)"),
+});
+export type EnrichStepOutput = z.infer<typeof EnrichStepOutputSchema>;
+
+/**
+ * Output de enriquecimiento completo: los 6 campos creativos del step `enrich` más
+ * `aiDetection` y `qualitySummary`, que el orquestador computa sin llamadas IA adicionales
+ * a partir de los reportes ya existentes.
+ */
+export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
+  aiDetection: z.object({
+    score: z.number().min(0).max(100).describe("0=totalmente humano, 100=totalmente IA"),
+    label: z.enum(["humano", "mixto", "ia"]),
+  }),
+  qualitySummary: z.object({
+    groundedness: z
+      .number()
+      .min(0)
+      .max(100)
+      .describe("Porcentaje de afirmaciones confirmadas por las fuentes"),
+    aiDetectionScore: z.number().min(0).max(100),
+    factualRisk: z.enum(["low", "medium", "high"]),
+    qualityRisk: z.enum(["low", "medium", "high"]),
+    warningsCount: z.number().int().describe("Total de issues detectados en todos los informes"),
+  }),
+});
+export type ArticleEnrichment = z.infer<typeof ArticleEnrichmentSchema>;
+
+// ── Patrones de limpieza (scrub) ──────────────────────────────────────────────
+
+export const ScrubPatternSchema = z.object({
+  /** Expresión regular (se aplica con flags gi). */
+  pattern: z.string(),
+  replacement: z.string().default(""),
+});
+export type ScrubPattern = z.infer<typeof ScrubPatternSchema>;
