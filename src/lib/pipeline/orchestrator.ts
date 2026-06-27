@@ -4,6 +4,7 @@ import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
 import { runDraft } from "@/lib/pipeline/steps/draft";
+import { runEditorialValidator } from "@/lib/pipeline/steps/editorial-validator";
 import { runEnrich } from "@/lib/pipeline/steps/enrich";
 import { runExtract } from "@/lib/pipeline/steps/extract";
 import { runFactualReview } from "@/lib/pipeline/steps/factual-review";
@@ -237,6 +238,24 @@ async function runGenerationTail(
       ctx.report = result.report;
       return { model: result.model, usage: result.usage };
     });
+
+    // Capa determinista (sin IA): fusiona sus hallazgos en el informe de validación. Los de
+    // severidad alta marcan el informe como NO superado para que el corrector los resuelva.
+    if (ctx.draft && ctx.report) {
+      const editorialIssues = runEditorialValidator({
+        draft: ctx.draft,
+        sources: ctx.sources,
+        forbiddenWords: cfg.forbiddenWords,
+        config: cfg.validatorConfig,
+      });
+      if (editorialIssues.length > 0) {
+        const hasBlocking = editorialIssues.some((issue) => issue.severity === "high");
+        ctx.report = {
+          passed: ctx.report.passed && !hasBlocking,
+          issues: [...ctx.report.issues, ...editorialIssues],
+        };
+      }
+    }
 
     await executeStage({ runId, stageId: "factual-review", attempt, onEvent }, async () => {
       const result = await runFactualReview(ctx, cfg, deps);

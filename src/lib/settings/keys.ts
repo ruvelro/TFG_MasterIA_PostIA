@@ -20,6 +20,8 @@ export const SETTING_KEYS = {
   // Estilo editorial estructurado (JSON) y modelo del analizador de estilo.
   styleProfile: "editorial_style_profile",
   styleAnalyzerModel: "style_analyzer_model",
+  // Configuración (JSON) del validador editorial determinista.
+  validatorConfig: "editorial_validator_config",
   // Claves heredadas (perfil plano): se usan como semilla del perfil estructurado.
   legacyEditorialVoice: "editorial_voice",
   legacySeoRules: "seo_rules",
