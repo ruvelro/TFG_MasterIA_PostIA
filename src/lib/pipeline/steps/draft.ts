@@ -1,4 +1,4 @@
-import { blueprintToText, factsToText } from "@/lib/pipeline/format";
+import { blueprintToText, factsToText, newsTypeDirectivesToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
@@ -27,6 +27,7 @@ export async function runDraft(
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
+    formatDirectives: newsTypeDirectivesToText(ctx.newsType),
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

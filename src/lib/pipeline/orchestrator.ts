@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/client";
-import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
+import type { Blueprint, Facts, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
@@ -97,6 +97,8 @@ export interface StartParams {
   pauseForReview?: boolean;
   /** Si es true, el pipeline se detiene tras la estructura para revisión humana del blueprint. */
   pauseForBlueprintReview?: boolean;
+  /** Tipo de noticia seleccionado (preset del pipeline). */
+  newsType?: NewsType;
   cfg: ResolvedPipelineConfig;
   deps: PipelineDeps;
   onEvent?: StageEventHandler;
@@ -113,12 +115,15 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     topic,
     pauseForReview = true,
     pauseForBlueprintReview = false,
+    newsType,
     cfg,
     deps,
     onEvent = noop,
   } = params;
   const run = await prisma.generationRun.create({ data: { userId, topic, status: "researching" } });
-  const ctx: PipelineContext = { topic, sources: [] };
+  // El tipo de noticia viaja en el contexto: así sobrevive a las pausas (se serializa) y rige
+  // los toggles del pipeline tanto al arrancar como al reanudar.
+  const ctx: PipelineContext = { topic, sources: [], newsType };
 
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
@@ -222,13 +227,21 @@ async function runGenerationTail(
     return { model: result.model, usage: result.usage };
   });
 
-  // Humanización inicial (attempt 1)
-  ctx.humanizeAttempts = 1;
-  await executeStage({ runId, stageId: "humanize", attempt: 1, onEvent }, async () => {
-    const result = await runHumanize(ctx, cfg, deps);
-    ctx.draft = result.draft;
-    return { model: result.model, usage: result.usage };
-  });
+  // Toggles del tipo de noticia: si no hay tipo, se ejecutan todas las etapas (comportamiento
+  // por defecto, retrocompatible). `research` nunca es opcional (fuente de verdad).
+  const runHumanizeStage = ctx.newsType?.enableHumanize ?? true;
+  const runFactualReviewStage = ctx.newsType?.enableFactualReview ?? true;
+  const runQualityReviewStage = ctx.newsType?.enableQualityReview ?? true;
+
+  // Humanización inicial (attempt 1), solo si el tipo la activa.
+  if (runHumanizeStage) {
+    ctx.humanizeAttempts = 1;
+    await executeStage({ runId, stageId: "humanize", attempt: 1, onEvent }, async () => {
+      const result = await runHumanize(ctx, cfg, deps);
+      ctx.draft = result.draft;
+      return { model: result.model, usage: result.usage };
+    });
+  }
 
   // Bucle de calidad: validar → revisar → puntuar → corregir si es necesario.
   const maxIterations = Math.max(cfg.maxFixIterations, 1);
@@ -257,21 +270,29 @@ async function runGenerationTail(
       }
     }
 
-    await executeStage({ runId, stageId: "factual-review", attempt, onEvent }, async () => {
-      const result = await runFactualReview(ctx, cfg, deps);
-      ctx.factualReport = result.factualReport;
-      return { model: result.model, usage: result.usage };
-    });
+    if (runFactualReviewStage) {
+      await executeStage({ runId, stageId: "factual-review", attempt, onEvent }, async () => {
+        const result = await runFactualReview(ctx, cfg, deps);
+        ctx.factualReport = result.factualReport;
+        return { model: result.model, usage: result.usage };
+      });
+    }
 
-    await executeStage({ runId, stageId: "quality-review", attempt, onEvent }, async () => {
-      const result = await runQualityReview(ctx, cfg, deps);
-      ctx.qualityReport = result.qualityReport;
-      return { model: result.model, usage: result.usage };
-    });
+    if (runQualityReviewStage) {
+      await executeStage({ runId, stageId: "quality-review", attempt, onEvent }, async () => {
+        const result = await runQualityReview(ctx, cfg, deps);
+        ctx.qualityReport = result.qualityReport;
+        return { model: result.model, usage: result.usage };
+      });
+    }
 
+    // Re-humanización: solo si el tipo activa humanize Y quality-review (necesita el aiScore).
     const aiScore = ctx.qualityReport?.aiScore ?? 0;
     const needsHumanize =
-      aiScore >= cfg.aiScoreThreshold && (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
+      runHumanizeStage &&
+      runQualityReviewStage &&
+      aiScore >= cfg.aiScoreThreshold &&
+      (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
 
     // Si la validación pasa y el texto ya no suena a IA, el bucle puede terminar.
     if (ctx.report?.passed && !needsHumanize) break;

@@ -7,6 +7,7 @@ import {
 } from "@/lib/pipeline/orchestrator";
 import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
 import type { AiStageId } from "@/lib/pipeline/default-config";
+import { resolveNewsType } from "@/lib/settings/news-types";
 import type { StageEventHandler } from "@/lib/pipeline/types";
 
 /**
@@ -20,6 +21,7 @@ export interface StartGenerationInput {
   topic: string;
   pauseForReview?: boolean;
   pauseForBlueprintReview?: boolean;
+  newsTypeId?: string;
   overrides?: Partial<Record<AiStageId, StepOverride>>;
 }
 
@@ -27,15 +29,17 @@ export async function startGenerationForUser(
   input: StartGenerationInput,
   onEvent?: StageEventHandler,
 ): Promise<GenerationResult> {
-  const [cfg, deps] = await Promise.all([
+  const [cfg, deps, newsType] = await Promise.all([
     buildPipelineConfig(input.overrides),
     buildPipelineDeps(),
+    resolveNewsType(input.newsTypeId),
   ]);
   return startGeneration({
     userId: input.userId,
     topic: input.topic,
     pauseForReview: input.pauseForReview,
     pauseForBlueprintReview: input.pauseForBlueprintReview,
+    newsType,
     cfg,
     deps,
     onEvent,

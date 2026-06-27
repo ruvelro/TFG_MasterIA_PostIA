@@ -5,10 +5,10 @@ import { BlueprintReview } from "./blueprint-review";
 import { FactsReview } from "./facts-review";
 import { GeneratorForm } from "./generator-form";
 import { ProgressView } from "./progress-view";
-import { useGenerationStream } from "./use-generation-stream";
+import { useGenerationStream, type NewsTypeOption } from "./use-generation-stream";
 
 // Orquesta la experiencia del generador conmutando entre subvistas según la fase del stream.
-export function GeneratorClient() {
+export function GeneratorClient({ newsTypes }: { newsTypes: NewsTypeOption[] }) {
   const {
     phase,
     stages,
@@ -35,7 +35,7 @@ export function GeneratorClient() {
 
   return (
     <div className="flex flex-col gap-8">
-      {showForm ? <GeneratorForm disabled={busy} onSubmit={start} /> : null}
+      {showForm ? <GeneratorForm disabled={busy} newsTypes={newsTypes} onSubmit={start} /> : null}
 
       {error ? (
         <p role="alert" className="text-sm text-red-600">

@@ -22,6 +22,8 @@ export const startGenerationSchema = z.object({
     .max(200, { error: "El tema es demasiado largo (máx. 200)" }),
   pauseForReview: z.boolean().default(true),
   pauseForBlueprintReview: z.boolean().default(false),
+  /** Id del tipo de noticia elegido; si falta o no existe, se usa el predeterminado. */
+  newsTypeId: z.string().max(50).optional(),
   overrides: overridesSchema,
 });
 

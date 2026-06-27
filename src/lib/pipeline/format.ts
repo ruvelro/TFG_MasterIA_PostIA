@@ -3,6 +3,7 @@ import type {
   Blueprint,
   Facts,
   FactualReview,
+  NewsType,
   QualityReview,
   StyleProfile,
   ValidationReport,
@@ -25,6 +26,28 @@ export function sourcesToText(sources: PipelineSource[]): string {
 export function factsToText(facts: Facts): string {
   if (facts.facts.length === 0) return "(sin hechos)";
   return facts.facts.map((fact) => `- ${fact.claim} (fuente: ${fact.source})`).join("\n");
+}
+
+/**
+ * Renderiza las directrices del tipo de noticia (formato, longitud objetivo y modo de fuentes)
+ * para inyectarlas en los prompts de blueprint y draft vía `{{formatDirectives}}`. Devuelve
+ * cadena vacía si no hay tipo o no aporta directrices, sin ensuciar el prompt.
+ */
+export function newsTypeDirectivesToText(newsType: NewsType | undefined): string {
+  if (!newsType) return "";
+  const parts: string[] = [];
+  if (newsType.structureInstruction.trim()) {
+    parts.push(`Formato: ${newsType.structureInstruction.trim()}`);
+  }
+  if (newsType.targetWordCount > 0) {
+    parts.push(`Longitud objetivo: aproximadamente ${newsType.targetWordCount} palabras.`);
+  }
+  if (newsType.sourceStrict) {
+    parts.push(
+      "Cíñete ESTRICTAMENTE a los hechos de las fuentes: no añadas conocimiento externo ni datos sin respaldo.",
+    );
+  }
+  return parts.join("\n");
 }
 
 /**

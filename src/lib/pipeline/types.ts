@@ -7,6 +7,7 @@ import type {
   Facts,
   FactualReview,
   FixerOutput,
+  NewsType,
   QualityReview,
   ScrubPattern,
   ValidationReport,
@@ -28,6 +29,8 @@ export interface PipelineSource extends SearchResult {
 export interface PipelineContext {
   topic: string;
   sources: PipelineSource[];
+  /** Tipo de noticia seleccionado (presets del pipeline). Si falta, se usa el comportamiento completo. */
+  newsType?: NewsType;
   facts?: Facts;
   blueprint?: Blueprint;
   draft?: string;

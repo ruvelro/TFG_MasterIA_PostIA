@@ -1,4 +1,4 @@
-import { factsToText } from "@/lib/pipeline/format";
+import { factsToText, newsTypeDirectivesToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import { BlueprintSchema, type Blueprint } from "@/lib/pipeline/schemas";
 import type {
@@ -20,6 +20,7 @@ export async function runBlueprint(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     facts: factsToText(ctx.facts),
+    formatDirectives: newsTypeDirectivesToText(ctx.newsType),
   });
 
   const { object, usage } = await deps.runObject({
