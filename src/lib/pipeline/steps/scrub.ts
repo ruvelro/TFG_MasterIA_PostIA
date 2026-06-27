@@ -19,12 +19,28 @@ export const DEFAULT_SCRUB_PATTERNS: ScrubPattern[] = [
  * Etapa scrub (determinista, sin IA): aplica los patrones de expresiones regulares
  * sobre el contenido final y normaliza los espacios en blanco resultantes.
  * Recibe el Markdown del artículo y devuelve la versión limpia.
+ *
+ * Robusto frente a configuración: un patrón con sintaxis de regex inválida (que un admin
+ * podría introducir por error) se ignora en vez de tumbar toda la generación.
  */
 export function runScrub(content: string, patterns: ScrubPattern[]): string {
   let result = content;
   for (const { pattern, replacement } of patterns) {
-    result = result.replace(new RegExp(pattern, "gi"), replacement);
+    let regex: RegExp;
+    try {
+      regex = new RegExp(pattern, "gi");
+    } catch {
+      // Patrón inválido: se descarta sin interrumpir la limpieza ni la generación.
+      continue;
+    }
+    result = result.replace(regex, replacement);
   }
-  // Colapsar tres o más saltos de línea consecutivos en dos (un párrafo en blanco).
-  return result.replace(/\n{3,}/g, "\n\n").trim();
+  // Normaliza los restos de los borrados: espacios huérfanos, puntuación descolgada y
+  // saltos de línea sobrantes que quedan al eliminar muletillas a mitad de frase.
+  return result
+    .replace(/[ \t]{2,}/g, " ") // colapsa espacios múltiples en uno
+    .replace(/[ \t]+([,.;:])/g, "$1") // elimina el espacio previo a un signo de puntuación
+    .replace(/[ \t]+\n/g, "\n") // elimina espacios al final de línea
+    .replace(/\n{3,}/g, "\n\n") // colapsa saltos de línea (un párrafo en blanco como máximo)
+    .trim();
 }

@@ -2,14 +2,8 @@ import type { z } from "zod";
 
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
-import {
-  AI_STAGE_IDS,
-  DEFAULT_PIPELINE_PARAMS,
-  type AiStageId,
-  type StepConfig,
-} from "@/lib/pipeline/default-config";
+import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
-import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 import type { PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
 import { createSearchProvider } from "@/lib/search";
 import { fetchReadableText } from "@/lib/search/fetch-content";
@@ -37,9 +31,9 @@ export async function buildPipelineConfig(
     seoRules: generation.seoRules,
     sourceCount: generation.sourceCount,
     maxFixIterations: generation.maxFixIterations,
-    maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
-    aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
-    scrubPatterns: [...DEFAULT_SCRUB_PATTERNS],
+    maxHumanizeRetries: generation.maxHumanizeRetries,
+    aiScoreThreshold: generation.aiScoreThreshold,
+    scrubPatterns: generation.scrubPatterns,
   };
 }
 
