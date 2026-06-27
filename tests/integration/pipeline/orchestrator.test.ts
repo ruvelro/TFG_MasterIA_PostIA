@@ -147,12 +147,22 @@ describe("orquestador del pipeline", () => {
         "quality-review",
         "fixer",
         "scrub",
+        "enrich",
       ]),
     );
+
+    // El enriquecimiento se computa (métricas derivadas) y se genera (campos creativos).
+    expect(result.context.enrichment).toBeDefined();
+    expect(result.context.enrichment?.headlineVariants.length).toBeGreaterThan(0);
+    expect(result.context.enrichment?.aiDetection.label).toBe("humano"); // aiScore=30 → humano
+    expect(result.context.enrichment?.qualitySummary.groundedness).toBe(100); // 1/1 confirmados
 
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
     expect(JSON.parse(article?.keywords ?? "[]")).toEqual(["kw"]);
+    // El enriquecimiento queda persistido en metadataJson para el historial.
+    expect(article?.metadataJson).toBeTruthy();
+    expect(JSON.parse(article?.metadataJson ?? "{}").tags).toEqual(["test", "e2e"]);
   });
 
   it("se pausa tras la extracción y se reanuda con los hechos editados", async () => {

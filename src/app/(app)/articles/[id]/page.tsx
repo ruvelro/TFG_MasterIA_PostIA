@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { ArticleEnrichmentView } from "@/components/article-enrichment";
 import { Markdown } from "@/components/markdown";
 import { getArticleForUser } from "@/lib/articles/repository";
 import { getCurrentSession } from "@/lib/auth/session";
+import { ArticleEnrichmentSchema, type ArticleEnrichment } from "@/lib/pipeline/schemas";
 
 import { DeleteArticleButton } from "../delete-article-button";
 import { GenerationTrace } from "../generation-trace";
@@ -18,6 +20,19 @@ function parseKeywords(raw: string): string[] {
   }
 }
 
+// El enriquecimiento se guarda serializado en `metadataJson`. Se valida con Zod para tolerar
+// artículos antiguos (sin metadatos) o esquemas que pudieran haber cambiado: si no encaja,
+// simplemente no se muestra el panel en lugar de romper la vista.
+function parseEnrichment(raw: string | null): ArticleEnrichment | null {
+  if (!raw) return null;
+  try {
+    const result = ArticleEnrichmentSchema.safeParse(JSON.parse(raw));
+    return result.success ? result.data : null;
+  } catch {
+    return null;
+  }
+}
+
 export default async function ArticleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
@@ -29,6 +44,7 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
   if (!article) notFound();
 
   const keywords = parseKeywords(article.keywords);
+  const enrichment = parseEnrichment(article.metadataJson);
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-12">
@@ -62,6 +78,8 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
       </header>
 
       <GenerationTrace steps={article.run?.steps ?? []} />
+
+      {enrichment ? <ArticleEnrichmentView enrichment={enrichment} /> : null}
 
       <div className="border-muted/20 rounded-lg border p-6">
         <Markdown>{article.contentMarkdown}</Markdown>

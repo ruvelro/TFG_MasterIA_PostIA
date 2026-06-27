@@ -15,4 +15,8 @@ export const SETTING_KEYS = {
   seoRules: "seo_rules",
   sourceCount: "research_source_count",
   maxFixIterations: "max_fix_iterations",
+  // Parámetros del bucle de calidad y de la limpieza final.
+  maxHumanizeRetries: "max_humanize_retries",
+  aiScoreThreshold: "ai_score_threshold",
+  scrubPatterns: "scrub_patterns",
 } as const;

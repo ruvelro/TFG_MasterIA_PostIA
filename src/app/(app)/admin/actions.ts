@@ -44,7 +44,9 @@ export async function saveIntegrations(formData: FormData): Promise<void> {
 
 /**
  * Guarda la configuración de generación: voz editorial y reglas SEO/GEO (texto que se
- * inyecta en los prompts) y los límites de recursos (nº de fuentes, iteraciones del fixer).
+ * inyecta en los prompts), los límites de recursos (nº de fuentes, iteraciones del fixer),
+ * los parámetros del bucle de calidad (re-humanizaciones y umbral de aiScore) y los patrones
+ * de limpieza final. Los rangos se sanean al leer en `getGenerationConfig`.
  */
 export async function saveGenerationConfig(formData: FormData): Promise<void> {
   await requireAdmin();
@@ -53,6 +55,9 @@ export async function saveGenerationConfig(formData: FormData): Promise<void> {
   await setAppSetting(SETTING_KEYS.seoRules, field(formData, "seoRules"));
   await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
   await setAppSetting(SETTING_KEYS.maxFixIterations, field(formData, "maxFixIterations"));
+  await setAppSetting(SETTING_KEYS.maxHumanizeRetries, field(formData, "maxHumanizeRetries"));
+  await setAppSetting(SETTING_KEYS.aiScoreThreshold, field(formData, "aiScoreThreshold"));
+  await setAppSetting(SETTING_KEYS.scrubPatterns, field(formData, "scrubPatterns"));
 
   revalidatePath("/admin");
 }

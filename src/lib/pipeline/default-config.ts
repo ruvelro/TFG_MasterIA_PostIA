@@ -225,20 +225,12 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
 };
 
 /**
- * Valores de configuración por defecto para los parámetros del pipeline que no
- * pertenecen a etapas concretas (bucles, umbrales y patrones de limpieza).
+ * Valores numéricos por defecto de los parámetros del pipeline que no pertenecen a etapas
+ * concretas (bucles y umbrales). Los patrones de limpieza viven en `steps/scrub.ts`
+ * (`DEFAULT_SCRUB_PATTERNS`), su hogar canónico. El admin puede sobreescribir todos ellos.
  */
 export const DEFAULT_PIPELINE_PARAMS = {
   maxFixIterations: 2,
   maxHumanizeRetries: 2,
   aiScoreThreshold: 70,
-  scrubPatterns: [
-    { pattern: "seg[uú]n las fuentes consultadas[,.]?", replacement: "" },
-    { pattern: "tras investigar[,.]?", replacement: "" },
-    { pattern: "bas[aá]ndonos en los datos[,.]?", replacement: "" },
-    { pattern: "de acuerdo con la investigaci[oó]n realizada[,.]?", replacement: "" },
-    { pattern: "como se puede observar en las fuentes[,.]?", replacement: "" },
-    { pattern: "los expertos se[nñ]alan que", replacement: "" },
-    { pattern: "nuestro an[aá]lisis (indica|muestra|revela) que", replacement: "" },
-  ],
 } as const;

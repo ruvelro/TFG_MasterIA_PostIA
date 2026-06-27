@@ -4,7 +4,7 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { getAppSetting } from "@/lib/settings/app-config";
-import { getGenerationConfig } from "@/lib/settings/generation-config";
+import { getGenerationConfig, serializeScrubPatterns } from "@/lib/settings/generation-config";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
@@ -141,8 +141,8 @@ export default async function AdminPage() {
           />
         </label>
 
-        <div className="flex gap-4">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+        <div className="grid grid-cols-2 gap-4">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Nº de fuentes (research)</span>
             <input
               name="sourceCount"
@@ -153,7 +153,7 @@ export default async function AdminPage() {
               className={inputClass}
             />
           </label>
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+          <label className="flex flex-col gap-1 text-sm">
             <span className="font-medium">Iteraciones máx. del fixer</span>
             <input
               name="maxFixIterations"
@@ -164,7 +164,44 @@ export default async function AdminPage() {
               className={inputClass}
             />
           </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Re-humanizaciones máx.</span>
+            <input
+              name="maxHumanizeRetries"
+              type="number"
+              min={0}
+              max={5}
+              defaultValue={generation.maxHumanizeRetries}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Umbral de aiScore (re-humanizar)</span>
+            <input
+              name="aiScoreThreshold"
+              type="number"
+              min={0}
+              max={100}
+              defaultValue={generation.aiScoreThreshold}
+              className={inputClass}
+            />
+          </label>
         </div>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Patrones de limpieza (uno por línea)</span>
+          <textarea
+            name="scrubPatterns"
+            rows={6}
+            defaultValue={serializeScrubPatterns(generation.scrubPatterns)}
+            className={`${inputClass} font-mono`}
+            placeholder="Expresiones regulares a eliminar del texto final…"
+          />
+          <span className="text-muted text-xs">
+            Cada línea es una expresión regular (flags <code>gi</code>) que se elimina del artículo
+            final. Déjalo vacío para desactivar la limpieza.
+          </span>
+        </label>
 
         <button
           type="submit"
@@ -221,7 +258,10 @@ export default async function AdminPage() {
           Variables disponibles en los prompts: <code>{"{{topic}}"}</code>,{" "}
           <code>{"{{sources}}"}</code>, <code>{"{{facts}}"}</code>, <code>{"{{blueprint}}"}</code>,{" "}
           <code>{"{{draft}}"}</code>, <code>{"{{report}}"}</code>,{" "}
-          <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>.
+          <code>{"{{editorialVoice}}"}</code>, <code>{"{{seoRules}}"}</code>,{" "}
+          <code>{"{{targetKeyword}}"}</code>, <code>{"{{article}}"}</code>. No todas aplican a cada
+          etapa: el corrector usa <code>{"{{report}}"}</code> y el enriquecimiento{" "}
+          <code>{"{{article}}"}</code> y <code>{"{{targetKeyword}}"}</code>.
         </p>
       </div>
     </section>
