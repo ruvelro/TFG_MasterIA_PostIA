@@ -28,6 +28,7 @@ export async function runValidate(
     editorialVoice: cfg.editorialVoice,
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
+    revisionInstructions: ctx.revisionInstructions ?? "",
   });
 
   const { object, usage } = await deps.runObject({

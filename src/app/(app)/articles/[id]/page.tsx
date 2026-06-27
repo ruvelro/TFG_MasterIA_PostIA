@@ -9,6 +9,7 @@ import { ArticleEnrichmentSchema, type ArticleEnrichment } from "@/lib/pipeline/
 
 import { DeleteArticleButton } from "../delete-article-button";
 import { GenerationTrace } from "../generation-trace";
+import { ReviseArticle } from "../revise-article";
 
 // Las keywords se guardan como JSON; parseamos de forma defensiva (nunca debe romper la vista).
 function parseKeywords(raw: string): string[] {
@@ -84,6 +85,8 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
       <div className="border-muted/20 rounded-lg border p-6">
         <Markdown>{article.contentMarkdown}</Markdown>
       </div>
+
+      <ReviseArticle articleId={article.id} />
 
       <div>
         <DeleteArticleButton

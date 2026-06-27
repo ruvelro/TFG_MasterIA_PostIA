@@ -41,5 +41,15 @@ export const resumeGenerationSchema = z.object({
   overrides: overridesSchema,
 });
 
+/** Cuerpo del POST que revisa un artículo existente (reenvío dirigido). */
+export const reviseGenerationSchema = z.object({
+  instructions: z
+    .string()
+    .trim()
+    .min(5, { error: "Indica qué revisar (al menos 5 caracteres)" })
+    .max(2000, { error: "Las instrucciones son demasiado largas (máx. 2000)" }),
+});
+
 export type StartGenerationInput = z.infer<typeof startGenerationSchema>;
 export type ResumeGenerationInput = z.infer<typeof resumeGenerationSchema>;
+export type ReviseGenerationInput = z.infer<typeof reviseGenerationSchema>;
