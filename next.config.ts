@@ -9,7 +9,12 @@ import type { NextConfig } from "next";
  * scripts inline porque Next.js/Tailwind los necesitan para hidratar, pero restringe
  * el resto de orígenes a `self`. Las llamadas a OpenRouter y a las APIs de búsqueda
  * se hacen siempre desde el servidor, por lo que `connect-src 'self'` es suficiente.
+ *
+ * `'unsafe-eval'` se añade SOLO en desarrollo: Turbopack/React lo usan para el HMR y la
+ * depuración. En producción React nunca usa eval, así que la CSP se mantiene estricta.
  */
+const isDev = process.env.NODE_ENV !== "production";
+
 const securityHeaders = [
   // Evita que el navegador "adivine" el tipo MIME y ejecute como script algo que no lo es.
   { key: "X-Content-Type-Options", value: "nosniff" },
@@ -25,7 +30,7 @@ const securityHeaders = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob:",
       "font-src 'self'",
