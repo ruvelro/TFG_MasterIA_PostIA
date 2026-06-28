@@ -35,6 +35,14 @@ export default defineConfig({
       // Solo medimos cobertura de nuestra lógica de dominio, no de la UI ni los tipos.
       include: ["src/lib/**/*.ts"],
       exclude: ["**/*.d.ts", "**/types.ts"],
+      // Umbrales que actúan de trinquete: por debajo del nivel actual para no romper hoy, pero
+      // suficientes para que una regresión de cobertura falle el CI. Súbelos al añadir tests.
+      thresholds: {
+        statements: 75,
+        branches: 64,
+        functions: 70,
+        lines: 78,
+      },
     },
   },
 });

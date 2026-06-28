@@ -197,6 +197,7 @@ export function computeQualitySummary(
   report: ValidationReport,
   factualReport: FactualReview,
   qualityReport: QualityReview,
+  validationPassed: boolean,
 ): ArticleEnrichment["qualitySummary"] {
   const confirmedRatio =
     factualReport.claims.length > 0
@@ -221,5 +222,6 @@ export function computeQualitySummary(
     factualRisk: factualReport.riskLevel,
     qualityRisk,
     warningsCount,
+    validationPassed,
   };
 }

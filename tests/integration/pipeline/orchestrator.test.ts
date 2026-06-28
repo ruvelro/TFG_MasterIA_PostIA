@@ -163,6 +163,8 @@ describe("orquestador del pipeline", () => {
     expect(result.context.enrichment?.headlineVariants.length).toBeGreaterThan(0);
     expect(result.context.enrichment?.aiDetection.label).toBe("humano"); // aiScore=30 → humano
     expect(result.context.enrichment?.qualitySummary.groundedness).toBe(100); // 1/1 confirmados
+    // La validación pasó: el artículo se entrega como validado.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
 
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
@@ -331,6 +333,9 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(2);
     const attempts = validateSteps.map((s) => s.attempt).sort();
     expect(attempts).toEqual([1, 2]);
+
+    // El bucle se agotó sin superar la validación: el artículo NO se marca como revalidado.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
   });
 
   it("respeta los toggles del tipo de noticia y omite las etapas desactivadas", async () => {
