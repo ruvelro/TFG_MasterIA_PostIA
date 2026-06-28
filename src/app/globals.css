@@ -31,6 +31,18 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Desplazamiento suave al pulsar los anclajes de la landing; se desactiva si el usuario
+   prefiere menos movimiento. */
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 /* Realimentación de clic uniforme para todos los botones: un ligero "hundido" al pulsar.
    Se aplica de forma global para no duplicar utilidades en cada botón ad-hoc del proyecto.
    Se respeta `prefers-reduced-motion` y se excluyen los botones deshabilitados. */
