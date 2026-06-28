@@ -20,9 +20,10 @@ const serverSchema = z.object({
   // poder migrar de SQLite a PostgreSQL cambiando solo el valor, sin tocar el esquema.
   DATABASE_URL: z.string().min(1, { error: "DATABASE_URL es obligatoria" }),
 
-  // Secreto con el que Better Auth firma sesiones y tokens. Exigimos una longitud mínima
-  // para descartar secretos triviales; genéralo con `openssl rand -base64 32`.
-  AUTH_SECRET: z.string().min(16, { error: "AUTH_SECRET debe tener al menos 16 caracteres" }),
+  // Secreto con el que Better Auth firma sesiones y tokens. Exigimos al menos 32 caracteres
+  // (el tamaño recomendado por Better Auth) para descartar secretos débiles; genéralo con
+  // `openssl rand -base64 32`, que produce 44 caracteres.
+  AUTH_SECRET: z.string().min(32, { error: "AUTH_SECRET debe tener al menos 32 caracteres" }),
 
   // URL pública de la app. La usa Better Auth como baseURL y para derivar el dominio
   // (rpID) y el origen de las passkeys (WebAuthn). En local apunta a localhost.
