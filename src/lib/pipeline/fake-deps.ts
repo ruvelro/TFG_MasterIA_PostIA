@@ -102,5 +102,7 @@ export function createFakePipelineDeps(): PipelineDeps {
       usage: {},
     }),
     runObject,
+    // En e2e no consultamos precios reales: el coste no es el objeto de la prueba.
+    estimateCost: async () => null,
   };
 }

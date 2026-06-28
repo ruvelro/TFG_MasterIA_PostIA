@@ -220,6 +220,10 @@ model GenerationStep {
   durationMs   Int?
   tokensInput  Int?
   tokensOutput Int?
+  // Coste estimado de la etapa en USD, calculado al finalizar a partir de los tokens y los
+  // precios de OpenRouter. Se persiste (congelado al generar) para no depender de precios
+  // futuros ni recalcularlo en cada vista. Null en research o si no hay precio del modelo.
+  costUsd      Float?
   error        String?
   createdAt    DateTime @default(now())
 

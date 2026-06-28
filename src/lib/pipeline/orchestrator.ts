@@ -113,6 +113,31 @@ async function saveContext(runId: string, ctx: PipelineContext, status: RunStatu
   });
 }
 
+/**
+ * Calcula y persiste el coste estimado (USD) de cada etapa del run a partir de sus tokens y los
+ * precios de OpenRouter (vía `deps.estimateCost`). Se hace al finalizar, cuando ya existen todas
+ * las filas `GenerationStep`, y se congela el coste con el precio del momento. Best-effort: el
+ * coste es instrumentación informativa, así que un fallo al estimar nunca tumba la finalización.
+ */
+async function persistStepCosts(runId: string, deps: PipelineDeps): Promise<void> {
+  try {
+    const steps = await prisma.generationStep.findMany({
+      where: { runId },
+      select: { id: true, model: true, tokensInput: true, tokensOutput: true },
+    });
+    await Promise.all(
+      steps.map(async (step) => {
+        const costUsd = await deps.estimateCost(step.model, step.tokensInput, step.tokensOutput);
+        if (costUsd != null) {
+          await prisma.generationStep.update({ where: { id: step.id }, data: { costUsd } });
+        }
+      }),
+    );
+  } catch {
+    // Ignorado a propósito: el coste no es crítico para entregar el artículo.
+  }
+}
+
 export interface GenerationResult {
   runId: string;
   status: RunStatus;
@@ -495,6 +520,9 @@ async function runQualityAndFinalize(
     ctx.enrichment = { ...result.enrichStepOutput, aiDetection, qualitySummary };
     return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
+
+  // Coste por etapa (informativo): se calcula y persiste cuando ya existen todas las filas.
+  await persistStepCosts(runId, deps);
 
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
 
