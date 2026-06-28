@@ -79,6 +79,8 @@ export async function saveGenerationConfig(
   await setAppSetting(SETTING_KEYS.maxHumanizeRetries, field(formData, "maxHumanizeRetries"));
   await setAppSetting(SETTING_KEYS.aiScoreThreshold, field(formData, "aiScoreThreshold"));
   await setAppSetting(SETTING_KEYS.scrubPatterns, field(formData, "scrubPatterns"));
+  await setAppSetting(SETTING_KEYS.aiMaxRetries, field(formData, "aiMaxRetries"));
+  await setAppSetting(SETTING_KEYS.aiTimeoutMs, field(formData, "aiTimeoutMs"));
 
   revalidatePath("/admin");
   return { ok: true, message: "Configuración guardada." };

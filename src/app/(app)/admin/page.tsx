@@ -24,6 +24,7 @@ import {
 } from "./actions";
 import { AdminForm } from "./admin-form";
 import { AdminTabs, type AdminTab } from "./admin-tabs";
+import { CostPanel } from "./cost-panel";
 import { EditorialStyleForm } from "./editorial-style-form";
 import { ErrorLogPanel } from "./error-log-panel";
 import { LengthPresetsForm } from "./length-presets-form";
@@ -206,6 +207,29 @@ export default async function AdminPage() {
                 min={0}
                 max={100}
                 defaultValue={generation.aiScoreThreshold}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Reintentos por llamada de IA</span>
+              <input
+                name="aiMaxRetries"
+                type="number"
+                min={0}
+                max={5}
+                defaultValue={generation.aiMaxRetries}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Timeout por llamada de IA (ms)</span>
+              <input
+                name="aiTimeoutMs"
+                type="number"
+                min={10000}
+                max={300000}
+                step={1000}
+                defaultValue={generation.aiTimeoutMs}
                 className={inputClass}
               />
             </label>
@@ -392,6 +416,11 @@ export default async function AdminPage() {
           </p>
         </div>
       ),
+    },
+    {
+      id: "cost",
+      label: "Coste",
+      content: <CostPanel />,
     },
     {
       id: "errors",

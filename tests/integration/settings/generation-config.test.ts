@@ -25,6 +25,8 @@ const KEYS = [
   SETTING_KEYS.legacyEditorialVoice,
   SETTING_KEYS.legacySeoRules,
   SETTING_KEYS.validatorConfig,
+  SETTING_KEYS.aiMaxRetries,
+  SETTING_KEYS.aiTimeoutMs,
 ];
 
 afterEach(async () => {
@@ -37,6 +39,8 @@ describe("getGenerationConfig — parámetros del bucle de calidad y limpieza", 
     expect(cfg.maxHumanizeRetries).toBe(DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries);
     expect(cfg.aiScoreThreshold).toBe(DEFAULT_PIPELINE_PARAMS.aiScoreThreshold);
     expect(cfg.scrubPatterns).toEqual([...DEFAULT_SCRUB_PATTERNS]);
+    expect(cfg.aiMaxRetries).toBe(DEFAULT_PIPELINE_PARAMS.aiMaxRetries);
+    expect(cfg.aiTimeoutMs).toBe(DEFAULT_PIPELINE_PARAMS.aiTimeoutMs);
   });
 
   it("acota aiScoreThreshold al rango 0-100 y maxHumanizeRetries al rango 0-5", async () => {
@@ -45,6 +49,14 @@ describe("getGenerationConfig — parámetros del bucle de calidad y limpieza", 
     const cfg = await getGenerationConfig();
     expect(cfg.aiScoreThreshold).toBe(100);
     expect(cfg.maxHumanizeRetries).toBe(5);
+  });
+
+  it("acota la resiliencia de IA: reintentos a 0-5 y timeout a 10s-5min", async () => {
+    await setAppSetting(SETTING_KEYS.aiMaxRetries, "99");
+    await setAppSetting(SETTING_KEYS.aiTimeoutMs, "1"); // por debajo del mínimo
+    const cfg = await getGenerationConfig();
+    expect(cfg.aiMaxRetries).toBe(5);
+    expect(cfg.aiTimeoutMs).toBe(10_000);
   });
 
   it("parsea los patrones de limpieza desde el textarea (uno por línea)", async () => {
