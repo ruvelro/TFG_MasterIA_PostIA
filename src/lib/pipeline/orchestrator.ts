@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { logError } from "@/lib/observability/error-log";
 import { parsePipelineContext } from "@/lib/pipeline/context-schema";
+import { getSourcesByRun, saveSources } from "@/lib/pipeline/sources-repository";
 import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
@@ -87,10 +88,28 @@ async function executeStage(
   }
 }
 
+/**
+ * Serializa el contexto para `contextJson` SIN el contenido descargado de las fuentes: ese
+ * cuerpo (potencialmente cientos de KB por web) vive en la tabla `GenerationSource` y se
+ * rehidrata al reanudar. Conservamos solo los metadatos ligeros de cada fuente.
+ */
+function serializeContext(ctx: PipelineContext): string {
+  const lean: PipelineContext = {
+    ...ctx,
+    sources: ctx.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      snippet: source.snippet,
+      content: "",
+    })),
+  };
+  return JSON.stringify(lean);
+}
+
 async function saveContext(runId: string, ctx: PipelineContext, status: RunStatus): Promise<void> {
   await prisma.generationRun.update({
     where: { id: runId },
-    data: { status, contextJson: JSON.stringify(ctx) },
+    data: { status, contextJson: serializeContext(ctx) },
   });
 }
 
@@ -154,6 +173,9 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
       ctx.sources = await runResearch(ctx, cfg, deps);
+      // Las fuentes (con su contenido) se persisten normalizadas: así sobreviven a la pausa de
+      // revisión sin inflar el contextJson y se rehidratan al reanudar/revisar.
+      await saveSources(run.id, ctx.sources);
       return { data: ctx.sources };
     });
     await executeStage({ runId: run.id, stageId: "extract", attempt: 1, onEvent }, async () => {
@@ -200,6 +222,12 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
   if (!run.contextJson) throw new Error("Falta el contexto de la generación");
 
   const ctx = parsePipelineContext(run.contextJson);
+
+  // Rehidratamos las fuentes (con su contenido) desde la tabla, ya que el contextJson solo
+  // guarda sus metadatos. Si no hay filas (runs anteriores a la normalización), conservamos
+  // las que viniesen en el snapshot por retrocompatibilidad.
+  const storedSources = await getSourcesByRun(runId);
+  if (storedSources.length > 0) ctx.sources = storedSources;
 
   // Al reanudar desde la pausa de extracción, el flag de revisión de estructura (persistido en el
   // contexto) sigue vigente; desde la pausa de blueprint ya no hay nueva pausa que aplicar.
@@ -489,7 +517,7 @@ async function runQualityAndFinalize(
     }),
     prisma.generationRun.update({
       where: { id: runId },
-      data: { status: "completed", contextJson: JSON.stringify(ctx) },
+      data: { status: "completed", contextJson: serializeContext(ctx) },
     }),
   ]);
 

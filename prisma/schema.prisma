@@ -172,15 +172,36 @@ model GenerationRun {
   status    String   @default("pending")
   // Snapshot serializado (JSON) del PipelineContext, necesario para PAUSAR tras la
   // extracción y REANUDAR la generación (posiblemente con los hechos editados por el usuario).
+  // Las fuentes NO viajan en este JSON (su contenido descargado pesa demasiado): se guardan
+  // normalizadas en GenerationSource y se rehidratan al reanudar/revisar.
   contextJson String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   steps   GenerationStep[]
+  sources GenerationSource[]
   article Article?
 
   @@index([userId])
+}
+
+// Fuente de investigación de un run (la "fuente de verdad" del artículo) con su contenido ya
+// descargado. Se normaliza en su propia tabla en vez de serializarse en GenerationRun.contextJson
+// porque el cuerpo de varias webs puede pesar cientos de KB y se replicaría en cada snapshot.
+model GenerationSource {
+  id        String   @id @default(cuid())
+  runId     String
+  url       String
+  title     String
+  snippet   String
+  // Cuerpo descargado de la web; cae al snippet de la búsqueda si la descarga falló (research).
+  content   String
+  createdAt DateTime @default(now())
+
+  run GenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@index([runId])
 }
 
 // Traza de cada etapa dentro de una ejecución. Permite analizar coste y rendimiento:
