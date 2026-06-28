@@ -42,13 +42,14 @@ export async function POST(
     return new Response(parsed.error.issues[0].message, { status: 400 });
   }
 
-  return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
+  return streamJsonEvents<GenerationStreamEvent>(async (emit, signal) => {
     const result = await resumeGenerationForRun(
       {
         runId,
         editedFacts: parsed.data.editedFacts,
         editedBlueprint: parsed.data.editedBlueprint,
         overrides: parsed.data.overrides,
+        signal,
       },
       (event) => emit({ type: "stage", ...event }),
     );

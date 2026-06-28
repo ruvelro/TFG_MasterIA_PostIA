@@ -48,7 +48,7 @@ export async function buildPipelineConfig(
  * (que queda capturada en el cierre, no circula por el contexto) y el proveedor de búsqueda
  * activo. Falla pronto y con un mensaje claro si no hay clave configurada.
  */
-export async function buildPipelineDeps(): Promise<PipelineDeps> {
+export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineDeps> {
   // Seam de test: en e2e usamos dependencias falsas deterministas (sin red ni clave), lo
   // que permite probar el flujo completo de la UI sin configurar claves reales.
   if (process.env.E2E === "true") {
@@ -62,14 +62,18 @@ export async function buildPipelineDeps(): Promise<PipelineDeps> {
 
   const searchProvider = createSearchProvider(await getSearchConfig());
 
+  // La señal se captura en el cierre: cualquier llamada de IA en curso se aborta si el cliente
+  // cancela, evitando malgastar tokens. La siguiente etapa tampoco arranca (lanza al abortar).
   return {
-    runText: ({ modelId, prompt }) => runTextGeneration({ apiKey, modelId, prompt }),
+    runText: ({ modelId, prompt }) =>
+      runTextGeneration({ apiKey, modelId, prompt, abortSignal: signal }),
     runObject: <T>(params: { modelId: string; prompt: string; schema: z.ZodType<T> }) =>
       runObjectGeneration<T>({
         apiKey,
         modelId: params.modelId,
         prompt: params.prompt,
         schema: params.schema,
+        abortSignal: signal,
       }),
     search: (query, limit) => searchProvider.search(query, limit),
     fetchContent: (url) => fetchReadableText(url),

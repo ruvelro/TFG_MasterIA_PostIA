@@ -84,6 +84,8 @@ export function useGenerationStream() {
   const [articleId, setArticleId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const runIdRef = useRef<string | null>(null);
+  // Controlador de aborto de la petición en curso, para poder cancelar la generación.
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleEvent = useCallback((event: GenerationStreamEvent) => {
     switch (event.type) {
@@ -161,14 +163,18 @@ export function useGenerationStream() {
       runIdRef.current = null;
       setPhase("running");
 
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const response = await fetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ topic, ...options }),
+          signal: controller.signal,
         });
         await consume(response);
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return; // cancelado por el usuario
         setError("Error de red durante la generación");
         setPhase("error");
       }
@@ -183,14 +189,18 @@ export function useGenerationStream() {
 
       setError(null);
       setPhase("finalizing");
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const response = await fetch(`/api/generate/${runId}/resume`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ editedFacts, overrides }),
+          signal: controller.signal,
         });
         await consume(response);
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
         setError("Error de red al reanudar la generación");
         setPhase("error");
       }
@@ -205,14 +215,18 @@ export function useGenerationStream() {
 
       setError(null);
       setPhase("finalizing");
+      const controller = new AbortController();
+      abortRef.current = controller;
       try {
         const response = await fetch(`/api/generate/${runId}/resume`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ editedBlueprint, overrides }),
+          signal: controller.signal,
         });
         await consume(response);
-      } catch {
+      } catch (e) {
+        if ((e as Error)?.name === "AbortError") return;
         setError("Error de red al reanudar desde la estructura");
         setPhase("error");
       }
@@ -233,6 +247,16 @@ export function useGenerationStream() {
     runIdRef.current = null;
   }, []);
 
+  /**
+   * Cancela la generación en curso: aborta la petición (lo que, en el servidor, interrumpe la
+   * llamada de IA actual y detiene el pipeline para no malgastar tokens) y vuelve al formulario.
+   */
+  const cancel = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    reset();
+  }, [reset]);
+
   return {
     phase,
     stages,
@@ -247,5 +271,6 @@ export function useGenerationStream() {
     resume,
     resumeFromBlueprint,
     reset,
+    cancel,
   };
 }
