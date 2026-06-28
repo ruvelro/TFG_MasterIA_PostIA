@@ -22,7 +22,7 @@ export function GenerationTrace({ steps }: { steps: TraceStep[] }) {
   if (steps.length === 0) return null;
 
   return (
-    <details className="border-muted/20 rounded-md border p-3">
+    <details className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] rounded-lg border p-3 transition-colors">
       <summary className="cursor-pointer text-sm font-medium">Detalles de generación</summary>
       <ul className="mt-3 flex flex-col gap-2">
         {steps.map((step, index) => (

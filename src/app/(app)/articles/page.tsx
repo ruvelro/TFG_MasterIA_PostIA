@@ -33,7 +33,7 @@ export default async function ArticlesPage() {
           {articles.map((article) => (
             <li
               key={article.id}
-              className="border-muted/20 flex items-start justify-between gap-4 rounded-lg border p-4"
+              className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] flex items-start justify-between gap-4 rounded-lg border p-4 transition-colors"
             >
               <div className="min-w-0">
                 <Link href={`/articles/${article.id}`} className="font-medium hover:underline">
