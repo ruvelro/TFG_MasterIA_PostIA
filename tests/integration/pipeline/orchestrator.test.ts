@@ -177,6 +177,36 @@ describe("orquestador del pipeline", () => {
     expect(JSON.parse(article?.metadataJson ?? "{}").tags).toEqual(["test", "e2e"]);
   });
 
+  it("normaliza las fuentes en su tabla y las omite del contextJson", async () => {
+    const started = await startGeneration({
+      userId,
+      topic: "Hidrógeno verde",
+      pauseForReview: true,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    // Las fuentes (con su contenido descargado) están en GenerationSource, no en el snapshot.
+    const sources = await prisma.generationSource.findMany({ where: { runId: started.runId } });
+    expect(sources.length).toBe(2);
+    expect(sources[0].content).toContain("contenido descargado");
+
+    const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: started.runId } });
+    const savedCtx = JSON.parse(run.contextJson ?? "{}") as PipelineContext;
+    // El contextJson conserva los metadatos de las fuentes pero NO su contenido (peso).
+    expect(savedCtx.sources.length).toBe(2);
+    expect(savedCtx.sources.every((s) => s.content === "")).toBe(true);
+
+    // Al reanudar, las fuentes se rehidratan con su contenido desde la tabla.
+    const resumed = await resumeGeneration({
+      runId: started.runId,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+    expect(resumed.status).toBe("completed");
+    expect(resumed.context.sources[0].content).toContain("contenido descargado");
+  });
+
   it("se pausa tras la extracción y se reanuda con los hechos editados", async () => {
     const started = await startGeneration({
       userId,

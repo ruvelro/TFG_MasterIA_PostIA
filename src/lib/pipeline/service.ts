@@ -8,6 +8,7 @@ import {
   type GenerationResult,
 } from "@/lib/pipeline/orchestrator";
 import { parsePipelineContext } from "@/lib/pipeline/context-schema";
+import { getSourcesByRun } from "@/lib/pipeline/sources-repository";
 import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
 import type { AiStageId } from "@/lib/pipeline/default-config";
 import { resolveLengthPreset } from "@/lib/settings/length-presets";
@@ -108,6 +109,13 @@ export async function reviseGenerationForUser(
   }
 
   const sourceContext = parsePipelineContext(article.run.contextJson);
+
+  // El contextJson solo guarda metadatos de las fuentes; recuperamos su contenido descargado
+  // desde la tabla del run original (si existe; los runs anteriores a la normalización lo
+  // conservan en el propio snapshot).
+  const storedSources = await getSourcesByRun(article.run.id);
+  if (storedSources.length > 0) sourceContext.sources = storedSources;
+
   const [cfg, deps] = await Promise.all([buildPipelineConfig(), buildPipelineDeps()]);
 
   return reviseGeneration({
