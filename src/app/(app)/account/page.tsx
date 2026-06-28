@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentSession } from "@/lib/auth/session";
 
+import { ChangePasswordForm } from "./change-password-form";
 import { PasskeyManager } from "./passkey-manager";
 
 // Página de cuenta: datos del usuario y gestión de passkeys. La sesión se verifica también
@@ -20,6 +21,10 @@ export default async function AccountPage() {
       </div>
 
       <PasskeyManager />
+
+      <hr className="border-muted/20" />
+
+      <ChangePasswordForm />
     </section>
   );
 }
