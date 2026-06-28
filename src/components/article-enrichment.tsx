@@ -10,7 +10,8 @@ export function ArticleEnrichmentView({ enrichment }: { enrichment: ArticleEnric
     void navigator.clipboard.writeText(text);
   }
 
-  const sectionClass = "border-muted/20 rounded-lg border p-4 flex flex-col gap-3";
+  const sectionClass =
+    "border-muted/15 hover:border-primary/40 bg-foreground/[0.02] flex flex-col gap-3 rounded-lg border p-4 transition-colors";
 
   const aiLabel = enrichment.aiDetection.label;
   const aiLabelColor =

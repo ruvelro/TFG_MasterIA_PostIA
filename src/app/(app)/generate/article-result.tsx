@@ -39,7 +39,7 @@ export function ArticleResult({
     <article className="flex flex-col gap-6">
       <header className="flex flex-col gap-2">
         <h1 className="text-3xl font-bold">{article.title}</h1>
-        <div className="border-muted/20 text-muted flex flex-col gap-1 rounded-md border p-3 text-sm">
+        <div className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] text-muted flex flex-col gap-1 rounded-lg border p-3 text-sm transition-colors">
           <p>
             <span className="font-medium">Slug:</span> {article.slug}
           </p>
@@ -79,7 +79,7 @@ export function ArticleResult({
 
       {enrichment ? <ArticleEnrichmentView enrichment={enrichment} /> : null}
 
-      <div className="border-muted/20 rounded-lg border p-6">
+      <div className="border-muted/15 bg-foreground/[0.02] rounded-lg border p-6">
         <Markdown>{article.contentMarkdown}</Markdown>
       </div>
     </article>

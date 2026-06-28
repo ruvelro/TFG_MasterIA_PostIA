@@ -91,7 +91,10 @@ export function ProgressView({
         );
 
         return (
-          <li key={stage.id} className="border-muted/20 rounded-md border">
+          <li
+            key={stage.id}
+            className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] rounded-lg border transition-colors"
+          >
             {detail ? (
               <details>
                 <summary className="flex cursor-pointer list-none items-center gap-3 p-3">
