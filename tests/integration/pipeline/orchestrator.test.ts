@@ -164,6 +164,14 @@ describe("orquestador del pipeline", () => {
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
     expect(JSON.parse(article?.keywords ?? "[]")).toEqual(["kw"]);
+
+    // Invariante de atomicidad: el artículo existe Y el run quedó `completed` compartiendo runId.
+    // Ambas escrituras ocurren en una única transacción (no puede haber artículo huérfano).
+    const finishedRun = await prisma.generationRun.findUniqueOrThrow({
+      where: { id: result.runId },
+    });
+    expect(finishedRun.status).toBe("completed");
+    expect(article?.runId).toBe(finishedRun.id);
     // El enriquecimiento queda persistido en metadataJson para el historial.
     expect(article?.metadataJson).toBeTruthy();
     expect(JSON.parse(article?.metadataJson ?? "{}").tags).toEqual(["test", "e2e"]);

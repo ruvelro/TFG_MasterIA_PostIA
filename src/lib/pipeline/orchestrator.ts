@@ -468,20 +468,29 @@ async function runQualityAndFinalize(
   });
 
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
-  const created = await prisma.article.create({
-    data: {
-      userId: run.userId,
-      runId,
-      title: cleanArticle.title,
-      slug: cleanArticle.slug,
-      contentMarkdown: cleanArticle.contentMarkdown,
-      metaDescription: cleanArticle.metaDescription,
-      keywords: JSON.stringify(cleanArticle.keywords),
-      metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
-    },
-    select: { id: true },
-  });
 
-  await saveContext(runId, ctx, "completed");
+  // Atomicidad: crear el artículo y marcar el run como `completed` deben ocurrir juntos. Si
+  // fueran dos escrituras sueltas, un fallo entre medias dejaría un artículo huérfano con el
+  // run sin completar. La transacción garantiza la invariante "artículo creado ⟺ run completado".
+  const [created] = await prisma.$transaction([
+    prisma.article.create({
+      data: {
+        userId: run.userId,
+        runId,
+        title: cleanArticle.title,
+        slug: cleanArticle.slug,
+        contentMarkdown: cleanArticle.contentMarkdown,
+        metaDescription: cleanArticle.metaDescription,
+        keywords: JSON.stringify(cleanArticle.keywords),
+        metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
+      },
+      select: { id: true },
+    }),
+    prisma.generationRun.update({
+      where: { id: runId },
+      data: { status: "completed", contextJson: JSON.stringify(ctx) },
+    }),
+  ]);
+
   return { runId, status: "completed", context: ctx, articleId: created.id };
 }
