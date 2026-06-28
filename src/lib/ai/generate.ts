@@ -3,6 +3,20 @@ import type { z } from "zod";
 
 import { createOpenRouterModel } from "@/lib/ai/openrouter";
 
+/**
+ * Reintentos automáticos por llamada. OpenRouter devuelve errores transitorios (429, 5xx) con
+ * cierta frecuencia; el AI SDK reintenta con backoff exponencial. El pipeline encadena ~11
+ * llamadas, así que un fallo puntual no debe tumbar toda la generación.
+ */
+const MAX_RETRIES = 2;
+
+/**
+ * Tiempo máximo por llamada de IA. Sin él, una etapa colgada bloquearía la generación
+ * indefinidamente (y mantendría la conexión de streaming abierta). 2 minutos cubre incluso a
+ * los modelos lentos con prompts largos.
+ */
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export interface GenerateParams {
   apiKey: string;
   modelId: string;
@@ -10,6 +24,16 @@ export interface GenerateParams {
   prompt: string;
   /** Señal de aborto: si el cliente cancela, la llamada de IA en curso se interrumpe. */
   abortSignal?: AbortSignal;
+}
+
+/**
+ * Combina la cancelación del usuario con un timeout por llamada. Si el cliente cancela O se
+ * agota el tiempo, la señal resultante se aborta y el AI SDK interrumpe la petición. Se expone
+ * para poder testear la composición de señales de forma aislada.
+ */
+export function buildAbortSignal(userSignal?: AbortSignal): AbortSignal {
+  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+  return userSignal ? AbortSignal.any([userSignal, timeout]) : timeout;
 }
 
 export interface TextGenerationResult {
@@ -27,7 +51,8 @@ export async function runTextGeneration(params: GenerateParams): Promise<TextGen
     model: createOpenRouterModel(params.apiKey, params.modelId),
     system: params.system,
     prompt: params.prompt,
-    abortSignal: params.abortSignal,
+    maxRetries: MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal),
   });
 
   return {
@@ -53,7 +78,8 @@ export async function runObjectGeneration<T>(
     schema: params.schema,
     system: params.system,
     prompt: params.prompt,
-    abortSignal: params.abortSignal,
+    maxRetries: MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal),
   });
 
   return {

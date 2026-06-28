@@ -7,11 +7,13 @@ import {
   startGeneration,
   type GenerationResult,
 } from "@/lib/pipeline/orchestrator";
+import { parsePipelineContext } from "@/lib/pipeline/context-schema";
+import { getSourcesByRun } from "@/lib/pipeline/sources-repository";
 import type { Blueprint, Facts } from "@/lib/pipeline/schemas";
 import type { AiStageId } from "@/lib/pipeline/default-config";
 import { resolveLengthPreset } from "@/lib/settings/length-presets";
 import { resolveNewsType } from "@/lib/settings/news-types";
-import type { PipelineContext, StageEventHandler } from "@/lib/pipeline/types";
+import type { StageEventHandler } from "@/lib/pipeline/types";
 
 /**
  * Capa de servicio: enlaza la configuración y dependencias REALES (claves y config de la BD)
@@ -106,7 +108,14 @@ export async function reviseGenerationForUser(
     throw new Error("El artículo original no conserva el contexto necesario para revisarlo");
   }
 
-  const sourceContext = JSON.parse(article.run.contextJson) as PipelineContext;
+  const sourceContext = parsePipelineContext(article.run.contextJson);
+
+  // El contextJson solo guarda metadatos de las fuentes; recuperamos su contenido descargado
+  // desde la tabla del run original (si existe; los runs anteriores a la normalización lo
+  // conservan en el propio snapshot).
+  const storedSources = await getSourcesByRun(article.run.id);
+  if (storedSources.length > 0) sourceContext.sources = storedSources;
+
   const [cfg, deps] = await Promise.all([buildPipelineConfig(), buildPipelineDeps()]);
 
   return reviseGeneration({

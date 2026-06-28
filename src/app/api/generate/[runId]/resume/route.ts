@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth/authorize";
 import { prisma } from "@/lib/db/client";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { generateRateLimiter } from "@/lib/http/rate-limit";
 import { resumeGenerationForRun } from "@/lib/pipeline/service";
 import type { GenerationStreamEvent } from "@/lib/pipeline/stream-events";
 import { resumeGenerationSchema } from "@/lib/validation/generation";
@@ -25,6 +26,11 @@ export async function POST(
     session = await requireSession();
   } catch {
     return new Response("No autenticado", { status: 401 });
+  }
+
+  // Reanudar dispara toda la cola del pipeline (coste de IA): limitamos igual que el arranque.
+  if (!generateRateLimiter.check(session.user.id)) {
+    return new Response("Demasiadas peticiones, inténtalo en un minuto.", { status: 429 });
   }
 
   // Autorización por propietario: no basta con estar autenticado.

@@ -29,4 +29,18 @@ describe("createRateLimiter", () => {
     vi.advanceTimersByTime(1001);
     expect(limiter.check("user")).toBe(true);
   });
+
+  it("purga los buckets caducados y no crece sin límite", () => {
+    vi.useFakeTimers();
+    const limiter = createRateLimiter(5, 1000);
+    // Muchas claves distintas (p. ej. usuarios efímeros) llenan el mapa.
+    for (let i = 0; i < 50; i++) limiter.check(`user-${i}`);
+    expect(limiter.size()).toBe(50);
+
+    // Pasada la ventana, la siguiente comprobación dispara la purga perezosa de lo caducado.
+    vi.advanceTimersByTime(1001);
+    limiter.check("nuevo");
+    // Solo queda la clave nueva; las 50 caducadas se han eliminado.
+    expect(limiter.size()).toBe(1);
+  });
 });

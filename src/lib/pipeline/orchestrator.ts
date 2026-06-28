@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db/client";
 import { logError } from "@/lib/observability/error-log";
+import { parsePipelineContext } from "@/lib/pipeline/context-schema";
+import { getSourcesByRun, saveSources } from "@/lib/pipeline/sources-repository";
 import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
@@ -86,11 +88,54 @@ async function executeStage(
   }
 }
 
+/**
+ * Serializa el contexto para `contextJson` SIN el contenido descargado de las fuentes: ese
+ * cuerpo (potencialmente cientos de KB por web) vive en la tabla `GenerationSource` y se
+ * rehidrata al reanudar. Conservamos solo los metadatos ligeros de cada fuente.
+ */
+function serializeContext(ctx: PipelineContext): string {
+  const lean: PipelineContext = {
+    ...ctx,
+    sources: ctx.sources.map((source) => ({
+      title: source.title,
+      url: source.url,
+      snippet: source.snippet,
+      content: "",
+    })),
+  };
+  return JSON.stringify(lean);
+}
+
 async function saveContext(runId: string, ctx: PipelineContext, status: RunStatus): Promise<void> {
   await prisma.generationRun.update({
     where: { id: runId },
-    data: { status, contextJson: JSON.stringify(ctx) },
+    data: { status, contextJson: serializeContext(ctx) },
   });
+}
+
+/**
+ * Calcula y persiste el coste estimado (USD) de cada etapa del run a partir de sus tokens y los
+ * precios de OpenRouter (vía `deps.estimateCost`). Se hace al finalizar, cuando ya existen todas
+ * las filas `GenerationStep`, y se congela el coste con el precio del momento. Best-effort: el
+ * coste es instrumentación informativa, así que un fallo al estimar nunca tumba la finalización.
+ */
+async function persistStepCosts(runId: string, deps: PipelineDeps): Promise<void> {
+  try {
+    const steps = await prisma.generationStep.findMany({
+      where: { runId },
+      select: { id: true, model: true, tokensInput: true, tokensOutput: true },
+    });
+    await Promise.all(
+      steps.map(async (step) => {
+        const costUsd = await deps.estimateCost(step.model, step.tokensInput, step.tokensOutput);
+        if (costUsd != null) {
+          await prisma.generationStep.update({ where: { id: step.id }, data: { costUsd } });
+        }
+      }),
+    );
+  } catch {
+    // Ignorado a propósito: el coste no es crítico para entregar el artículo.
+  }
 }
 
 export interface GenerationResult {
@@ -153,6 +198,9 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
       ctx.sources = await runResearch(ctx, cfg, deps);
+      // Las fuentes (con su contenido) se persisten normalizadas: así sobreviven a la pausa de
+      // revisión sin inflar el contextJson y se rehidratan al reanudar/revisar.
+      await saveSources(run.id, ctx.sources);
       return { data: ctx.sources };
     });
     await executeStage({ runId: run.id, stageId: "extract", attempt: 1, onEvent }, async () => {
@@ -198,7 +246,13 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
     throw new Error("La generación no está pendiente de revisión");
   if (!run.contextJson) throw new Error("Falta el contexto de la generación");
 
-  const ctx = JSON.parse(run.contextJson) as PipelineContext;
+  const ctx = parsePipelineContext(run.contextJson);
+
+  // Rehidratamos las fuentes (con su contenido) desde la tabla, ya que el contextJson solo
+  // guarda sus metadatos. Si no hay filas (runs anteriores a la normalización), conservamos
+  // las que viniesen en el snapshot por retrocompatibilidad.
+  const storedSources = await getSourcesByRun(runId);
+  if (storedSources.length > 0) ctx.sources = storedSources;
 
   // Al reanudar desde la pausa de extracción, el flag de revisión de estructura (persistido en el
   // contexto) sigue vigente; desde la pausa de blueprint ya no hay nueva pausa que aplicar.
@@ -419,6 +473,19 @@ async function runQualityAndFinalize(
     }
   }
 
+  // Estado de calidad final: si el bucle agotó sus iteraciones con el informe aún sin superar,
+  // el corrector actuó en la última pasada pero NO hubo una revalidación posterior. Lo
+  // registramos para no entregar como "validado" un artículo cuya última corrección no se
+  // comprobó, y lo dejamos visible en las métricas (qualitySummary.validationPassed).
+  const validationPassed = ctx.report?.passed ?? false;
+  if (!validationPassed) {
+    await logError({
+      category: "pipeline",
+      message: "Artículo entregado sin superar la validación final (se agotaron las iteraciones)",
+      detail: `runId: ${runId} · iteraciones: ${maxIterations}`,
+    });
+  }
+
   // Si la validación pasó a la primera sin necesidad de fixer, aún falta producir el
   // artículo estructurado con la meta SEO; el fixer lo hace sin correcciones pendientes.
   if (!ctx.article) {
@@ -452,13 +519,14 @@ async function runQualityAndFinalize(
   const aiDetection = computeAiDetection(ctx.qualityReport?.aiScore ?? 0);
   const qualitySummary =
     ctx.report && ctx.factualReport && ctx.qualityReport
-      ? computeQualitySummary(ctx.report, ctx.factualReport, ctx.qualityReport)
+      ? computeQualitySummary(ctx.report, ctx.factualReport, ctx.qualityReport, validationPassed)
       : {
           groundedness: 100,
           aiDetectionScore: aiDetection.score,
           factualRisk: "low" as const,
           qualityRisk: "low" as const,
           warningsCount: 0,
+          validationPassed,
         };
 
   await executeStage({ runId, stageId: "enrich", attempt: 1, onEvent }, async () => {
@@ -467,21 +535,33 @@ async function runQualityAndFinalize(
     return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
 
-  const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
-  const created = await prisma.article.create({
-    data: {
-      userId: run.userId,
-      runId,
-      title: cleanArticle.title,
-      slug: cleanArticle.slug,
-      contentMarkdown: cleanArticle.contentMarkdown,
-      metaDescription: cleanArticle.metaDescription,
-      keywords: JSON.stringify(cleanArticle.keywords),
-      metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
-    },
-    select: { id: true },
-  });
+  // Coste por etapa (informativo): se calcula y persiste cuando ya existen todas las filas.
+  await persistStepCosts(runId, deps);
 
-  await saveContext(runId, ctx, "completed");
+  const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
+
+  // Atomicidad: crear el artículo y marcar el run como `completed` deben ocurrir juntos. Si
+  // fueran dos escrituras sueltas, un fallo entre medias dejaría un artículo huérfano con el
+  // run sin completar. La transacción garantiza la invariante "artículo creado ⟺ run completado".
+  const [created] = await prisma.$transaction([
+    prisma.article.create({
+      data: {
+        userId: run.userId,
+        runId,
+        title: cleanArticle.title,
+        slug: cleanArticle.slug,
+        contentMarkdown: cleanArticle.contentMarkdown,
+        metaDescription: cleanArticle.metaDescription,
+        keywords: JSON.stringify(cleanArticle.keywords),
+        metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
+      },
+      select: { id: true },
+    }),
+    prisma.generationRun.update({
+      where: { id: runId },
+      data: { status: "completed", contextJson: serializeContext(ctx) },
+    }),
+  ]);
+
   return { runId, status: "completed", context: ctx, articleId: created.id };
 }

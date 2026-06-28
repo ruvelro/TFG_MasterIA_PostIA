@@ -78,6 +78,16 @@ export interface PipelineDeps {
   }) => Promise<{ object: T; usage: TokenUsage }>;
   search: (query: string, limit: number) => Promise<SearchResult[]>;
   fetchContent: (url: string) => Promise<string>;
+  /**
+   * Estima el coste en USD de una etapa a partir de su modelo y tokens (precios de OpenRouter).
+   * Inyectada para no acoplar el orquestador a la red ni a precios concretos: en tests devuelve
+   * valores deterministas. `null` cuando no se puede estimar (sin modelo, sin precio, etc.).
+   */
+  estimateCost: (
+    model: string | null,
+    inputTokens: number | null,
+    outputTokens: number | null,
+  ) => Promise<number | null>;
 }
 
 /** Configuración resuelta de la generación (modelo+prompt por etapa ya con overrides aplicados). */

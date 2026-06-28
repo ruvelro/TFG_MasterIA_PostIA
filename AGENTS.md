@@ -16,14 +16,23 @@ This version has breaking changes — APIs, conventions, and file structure may 
 
 **PostIA** es un generador de artículos de blog mediante IA, desarrollado como Trabajo
 de Fin de Máster. Su núcleo es un **pipeline multi-etapa** donde cada etapa puede usar
-un modelo distinto a través de **OpenRouter**:
+un modelo distinto a través de **OpenRouter**. El catálogo único y ordenado de etapas vive
+en `src/lib/pipeline/stages.ts` (`STAGE_IDS`); son **11**:
 
-1. **Research** — busca N fuentes y descarga su contenido (fuente de verdad). No usa IA.
-2. **Extract** — extrae los hechos clave con su cita (Zod). Revisable por el usuario (pausa opcional).
-3. **Blueprint** — diseña la estructura: titular, ángulo, secciones, keyword (Zod).
-4. **Draft** — redacta el artículo con hechos + estructura + voz editorial + reglas SEO/GEO.
-5. **Validate** — informe estructurado (fidelidad, tono IA, editorial, SEO/GEO); modelo "juez".
-6. **Fixer** — corrige según el informe, marca negritas y genera la meta SEO final. Bucle con Validate.
+1. **research** — busca N fuentes y descarga su contenido (fuente de verdad). No usa IA.
+2. **extract** — extrae los hechos clave con su cita (Zod). Revisable por el usuario (pausa opcional).
+3. **blueprint** — diseña la estructura: titular, ángulo, secciones, keyword (Zod). Revisable (pausa opcional).
+4. **draft** — redacta el artículo con hechos + estructura + voz editorial + reglas SEO/GEO.
+5. **humanize** — reescribe el borrador para eliminar patrones de IA (muletillas, estructura repetitiva).
+6. **validate** — informe estructurado (fidelidad, tono IA, editorial, SEO/GEO); modelo "juez".
+7. **factual-review** — clasifica cada afirmación (confirmada/dudosa/descartada) y emite un riesgo global.
+8. **quality-review** — puntúa estructura, soporte factual, SEO y el `aiScore` que gobierna la re-humanización.
+9. **fixer** — corrige según los informes, marca negritas y genera la meta SEO final. Bucle de calidad.
+10. **scrub** — elimina meta-referencias de investigación del texto final (regex). No usa IA.
+11. **enrich** — genera titulares alternativos, tags, FAQ, alt de imagen, Schema.org y prompt de imagen.
+
+Las etapas `humanize`, `factual-review` y `quality-review` son **opcionales** según el tipo de
+noticia. El porqué de la evolución 6→11 está en `docs/decisiones/0006-evolucion-pipeline-11-etapas.md`.
 
 El criterio de evaluación del TFG son las **buenas prácticas**, no solo que funcione.
 

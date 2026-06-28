@@ -5,7 +5,8 @@
 
 ## Contexto
 
-La generación recorre 6 etapas (más el bucle validate↔fixer) y puede tardar bastante. El
+La generación recorre varias etapas (11 en total tras el [ADR 0006](0006-evolucion-pipeline-11-etapas.md),
+más el bucle de calidad) y puede tardar bastante. El
 usuario debe ver el avance en vivo y, además, hay una **pausa de revisión** intermedia que
 requiere enviar datos (tema, overrides, hechos editados) desde el cliente.
 

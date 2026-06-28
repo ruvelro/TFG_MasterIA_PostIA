@@ -44,6 +44,17 @@ export function ArticleEnrichmentView({ enrichment }: { enrichment: ArticleEnric
           <span className="text-muted">
             Avisos: <strong>{enrichment.qualitySummary.warningsCount}</strong>
           </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              enrichment.qualitySummary.validationPassed
+                ? "bg-green-100 text-green-800"
+                : "bg-red-100 text-red-800"
+            }`}
+          >
+            {enrichment.qualitySummary.validationPassed
+              ? "Validación superada"
+              : "No revalidado tras la última corrección"}
+          </span>
         </div>
       </div>
 

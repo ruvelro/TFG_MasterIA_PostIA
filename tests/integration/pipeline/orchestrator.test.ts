@@ -113,6 +113,9 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
       usage: { inputTokens: 1, outputTokens: 1 },
     }),
     runObject,
+    // Coste determinista para el test: 1e-6 USD por token, solo cuando hay modelo (etapas IA).
+    estimateCost: async (model, inputTokens, outputTokens) =>
+      model ? ((inputTokens ?? 0) + (outputTokens ?? 0)) * 1e-6 : null,
   };
 }
 
@@ -160,13 +163,64 @@ describe("orquestador del pipeline", () => {
     expect(result.context.enrichment?.headlineVariants.length).toBeGreaterThan(0);
     expect(result.context.enrichment?.aiDetection.label).toBe("humano"); // aiScore=30 → humano
     expect(result.context.enrichment?.qualitySummary.groundedness).toBe(100); // 1/1 confirmados
+    // La validación pasó: el artículo se entrega como validado.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
 
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
     expect(JSON.parse(article?.keywords ?? "[]")).toEqual(["kw"]);
+
+    // El coste estimado se persiste por etapa de IA (research no usa modelo → sin coste).
+    const stepsWithCost = await prisma.generationStep.findMany({
+      where: { runId: result.runId, costUsd: { not: null } },
+    });
+    expect(stepsWithCost.length).toBeGreaterThan(0);
+    expect(stepsWithCost.every((s) => (s.costUsd ?? 0) > 0)).toBe(true);
+    const researchStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "research" },
+    });
+    expect(researchStep?.costUsd).toBeNull();
+
+    // Invariante de atomicidad: el artículo existe Y el run quedó `completed` compartiendo runId.
+    // Ambas escrituras ocurren en una única transacción (no puede haber artículo huérfano).
+    const finishedRun = await prisma.generationRun.findUniqueOrThrow({
+      where: { id: result.runId },
+    });
+    expect(finishedRun.status).toBe("completed");
+    expect(article?.runId).toBe(finishedRun.id);
     // El enriquecimiento queda persistido en metadataJson para el historial.
     expect(article?.metadataJson).toBeTruthy();
     expect(JSON.parse(article?.metadataJson ?? "{}").tags).toEqual(["test", "e2e"]);
+  });
+
+  it("normaliza las fuentes en su tabla y las omite del contextJson", async () => {
+    const started = await startGeneration({
+      userId,
+      topic: "Hidrógeno verde",
+      pauseForReview: true,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    // Las fuentes (con su contenido descargado) están en GenerationSource, no en el snapshot.
+    const sources = await prisma.generationSource.findMany({ where: { runId: started.runId } });
+    expect(sources.length).toBe(2);
+    expect(sources[0].content).toContain("contenido descargado");
+
+    const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: started.runId } });
+    const savedCtx = JSON.parse(run.contextJson ?? "{}") as PipelineContext;
+    // El contextJson conserva los metadatos de las fuentes pero NO su contenido (peso).
+    expect(savedCtx.sources.length).toBe(2);
+    expect(savedCtx.sources.every((s) => s.content === "")).toBe(true);
+
+    // Al reanudar, las fuentes se rehidratan con su contenido desde la tabla.
+    const resumed = await resumeGeneration({
+      runId: started.runId,
+      cfg: makeConfig(),
+      deps: makeDeps({ validatePasses: true }),
+    });
+    expect(resumed.status).toBe("completed");
+    expect(resumed.context.sources[0].content).toContain("contenido descargado");
   });
 
   it("se pausa tras la extracción y se reanuda con los hechos editados", async () => {
@@ -279,6 +333,9 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(2);
     const attempts = validateSteps.map((s) => s.attempt).sort();
     expect(attempts).toEqual([1, 2]);
+
+    // El bucle se agotó sin superar la validación: el artículo NO se marca como revalidado.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
   });
 
   it("respeta los toggles del tipo de noticia y omite las etapas desactivadas", async () => {
