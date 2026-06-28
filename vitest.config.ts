@@ -24,7 +24,7 @@ export default defineConfig({
     // sin secretos reales.
     env: {
       DATABASE_URL: "file:./test.db",
-      AUTH_SECRET: "test-secret-do-not-use-in-prod",
+      AUTH_SECRET: "test-secret-do-not-use-in-prod-0123456789",
       // Clave AES-256 (32 bytes) en base64, solo para los tests. No es un secreto real.
       ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
     },

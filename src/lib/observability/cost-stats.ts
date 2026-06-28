@@ -1,11 +1,12 @@
+import { requireAdmin } from "@/lib/auth/authorize";
 import { prisma } from "@/lib/db/client";
 
 /**
  * Agrega el coste estimado por etapa (`GenerationStep.costUsd`, ya persistido) para el panel de
- * administración: total global, total del periodo reciente y desglose por usuario. Solo debe
- * invocarse desde un contexto ya autorizado como admin (la consulta cruza datos de TODOS los
- * usuarios). El coste se calcula en JS a partir de una única consulta para no recurrir a SQL crudo
- * ni a varios `groupBy`: el volumen (un TFM sobre SQLite) lo hace sobradamente suficiente.
+ * administración: total global, total del periodo reciente y desglose por usuario. La consulta
+ * cruza datos de TODOS los usuarios, así que `getCostStats` exige rol admin por sí misma. El coste
+ * se calcula en JS a partir de una única consulta para no recurrir a SQL crudo ni a varios
+ * `groupBy`: el volumen (un TFM sobre SQLite) lo hace sobradamente suficiente.
  */
 
 /** Coste acumulado de un usuario: nº de runs con coste y total en USD. */
@@ -28,6 +29,10 @@ export interface CostStats {
 }
 
 export async function getCostStats(periodDays = 30): Promise<CostStats> {
+  // Defensa en profundidad: la consulta cruza datos de TODOS los usuarios, así que exigimos rol
+  // admin aquí además del guard de la página (ningún caller puede saltarse la autorización).
+  await requireAdmin();
+
   const since = new Date(Date.now() - periodDays * 24 * 60 * 60 * 1000);
 
   // Solo etapas con coste calculable; arrastramos el usuario del run para agrupar.

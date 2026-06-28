@@ -2,7 +2,11 @@ import type { z } from "zod";
 
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { estimateCostUsd, findModelPrice, getModelPricing } from "@/lib/ai/pricing";
-import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
+import {
+  assertOverrideModelsAllowed,
+  resolveStepConfig,
+  type StepOverride,
+} from "@/lib/ai/resolve-step";
 import { logError } from "@/lib/observability/error-log";
 import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
@@ -22,6 +26,12 @@ export async function buildPipelineConfig(
   overrides?: Partial<Record<AiStageId, StepOverride>>,
 ): Promise<ResolvedPipelineConfig> {
   const [stored, generation] = await Promise.all([getAllStepConfigs(), getGenerationConfig()]);
+
+  // Allowlist de modelos: solo los que el admin tiene configurados por etapa (cada uno cae a su
+  // default si no hay fila). Rechazamos cualquier override que apunte a un modelo fuera de aquí,
+  // para que un usuario no pueda fijar por API un modelo caro a costa de la clave compartida.
+  const allowedModels = new Set(AI_STAGE_IDS.map((id) => stored[id].model));
+  assertOverrideModelsAllowed(overrides, allowedModels);
 
   const steps = {} as Record<AiStageId, StepConfig>;
   for (const stageId of AI_STAGE_IDS) {
