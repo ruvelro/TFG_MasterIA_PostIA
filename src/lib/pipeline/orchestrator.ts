@@ -125,16 +125,32 @@ async function persistStepCosts(runId: string, deps: PipelineDeps): Promise<void
       where: { runId },
       select: { id: true, model: true, tokensInput: true, tokensOutput: true },
     });
-    await Promise.all(
-      steps.map(async (step) => {
-        const costUsd = await deps.estimateCost(step.model, step.tokensInput, step.tokensOutput);
-        if (costUsd != null) {
-          await prisma.generationStep.update({ where: { id: step.id }, data: { costUsd } });
-        }
-      }),
+
+    // Estimamos en paralelo (lecturas del catálogo cacheado, sin escritura) y nos quedamos solo
+    // con las etapas que tienen coste calculable.
+    const estimates = await Promise.all(
+      steps.map(async (step) => ({
+        id: step.id,
+        costUsd: await deps.estimateCost(step.model, step.tokensInput, step.tokensOutput),
+      })),
     );
-  } catch {
-    // Ignorado a propósito: el coste no es crítico para entregar el artículo.
+    const updates = estimates
+      .filter((e): e is { id: string; costUsd: number } => e.costUsd != null)
+      .map((e) =>
+        prisma.generationStep.update({ where: { id: e.id }, data: { costUsd: e.costUsd } }),
+      );
+
+    // Un único $transaction agrupa las N escrituras (SQLite no admite update masivo con valores
+    // distintos por fila), evitando N round-trips sueltos y dejando el coste del run consistente.
+    if (updates.length > 0) await prisma.$transaction(updates);
+  } catch (error) {
+    // Best-effort: el coste es instrumentación, no debe tumbar la entrega del artículo. Pero ya
+    // no lo tragamos en silencio: lo registramos para poder detectar fallos de persistencia.
+    await logError({
+      category: "pipeline",
+      message: "No se pudieron persistir los costes de las etapas",
+      detail: `runId=${runId}: ${error instanceof Error ? error.message : String(error)}`,
+    });
   }
 }
 
