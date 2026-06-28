@@ -3,10 +3,13 @@
 //
 // Seguridad: descargar URLs arbitrarias en el servidor es un riesgo de SSRF. Aplicamos un
 // guard que solo permite http/https y bloquea hosts internos/privados, además de timeout y
-// límite de tamaño. Es defensa razonable (no cubre rebinding de DNS, fuera de alcance del TFG).
+// límite de tamaño. Seguimos las redirecciones a mano para revalidar CADA salto con el guard
+// (un 3xx hacia un host interno burlaría una comprobación hecha solo sobre la URL inicial).
+// Es defensa razonable (no cubre rebinding de DNS, fuera de alcance del TFG).
 
 const FETCH_TIMEOUT_MS = 10_000;
 const MAX_BYTES = 2_000_000; // 2 MB: suficiente para el texto de un artículo, acota memoria.
+const MAX_REDIRECTS = 5; // Cota de saltos: evita bucles de redirección y limita el coste.
 
 const BLOCKED_HOSTNAMES = new Set(["localhost", "127.0.0.1", "0.0.0.0", "::1"]);
 
@@ -51,21 +54,36 @@ export function htmlToText(html: string): string {
 }
 
 export async function fetchReadableText(rawUrl: string): Promise<string> {
-  assertSafeUrl(rawUrl);
+  // El guard se aplica a la URL inicial y se repite en cada redirección dentro del bucle.
+  let url = assertSafeUrl(rawUrl).toString();
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(rawUrl, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: { "User-Agent": "PostIA/1.0 (+research)" },
-    });
-    if (!response.ok) {
-      throw new Error(`La descarga falló (${response.status})`);
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const response = await fetch(url, {
+        signal: controller.signal,
+        // "manual": no seguimos la redirección automáticamente para poder validar el destino
+        // con assertSafeUrl antes de ir a por él (clave anti-SSRF).
+        redirect: "manual",
+        headers: { "User-Agent": "PostIA/1.0 (+research)" },
+      });
+
+      if (response.status >= 300 && response.status < 400) {
+        const location = response.headers.get("location");
+        if (!location) throw new Error("Redirección sin destino");
+        // Resolvemos relativo a la URL actual y revalidamos con el guard antes de seguir.
+        url = assertSafeUrl(new URL(location, url).toString()).toString();
+        continue;
+      }
+
+      if (!response.ok) {
+        throw new Error(`La descarga falló (${response.status})`);
+      }
+      const html = (await response.text()).slice(0, MAX_BYTES);
+      return htmlToText(html);
     }
-    const html = (await response.text()).slice(0, MAX_BYTES);
-    return htmlToText(html);
+    throw new Error("Demasiadas redirecciones");
   } finally {
     clearTimeout(timeout);
   }

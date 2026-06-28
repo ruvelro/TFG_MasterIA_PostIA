@@ -51,4 +51,36 @@ describe("fetchReadableText", () => {
     await expect(fetchReadableText("http://localhost")).rejects.toThrow();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("revalida el destino de una redirección y bloquea el salto a un host interno", async () => {
+    // Una web pública responde 302 hacia el endpoint de metadatos de cloud: el guard debe
+    // bloquear el destino en vez de seguirlo (SSRF vía redirección).
+    const fetchMock = vi.fn().mockResolvedValue({
+      status: 302,
+      headers: new Headers({ location: "http://169.254.169.254/latest/meta-data" }),
+    } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchReadableText("https://example.com")).rejects.toThrow(/internos/);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // solo la petición inicial; no sigue al destino
+  });
+
+  it("sigue una redirección hacia otra URL pública y devuelve su contenido", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: 301,
+        headers: new Headers({ location: "https://example.org/final" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        text: async () => "<p>Destino</p>",
+      } as Response);
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchReadableText("https://example.com")).resolves.toBe("Destino");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
 });
