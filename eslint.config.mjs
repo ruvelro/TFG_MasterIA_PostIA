@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Código generado por Prisma: no se lintea ni se formatea.
     "src/generated/**",
+    // Informe de cobertura generado por Vitest: no es código fuente.
+    "coverage/**",
   ]),
 ]);
 

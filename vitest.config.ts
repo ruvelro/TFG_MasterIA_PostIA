@@ -38,10 +38,10 @@ export default defineConfig({
       // Umbrales que actúan de trinquete: por debajo del nivel actual para no romper hoy, pero
       // suficientes para que una regresión de cobertura falle el CI. Súbelos al añadir tests.
       thresholds: {
-        statements: 75,
-        branches: 64,
-        functions: 70,
-        lines: 78,
+        statements: 78,
+        branches: 67,
+        functions: 74,
+        lines: 80,
       },
     },
   },
