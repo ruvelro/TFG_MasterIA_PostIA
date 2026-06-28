@@ -7,6 +7,9 @@
   --foreground: #0f172a;
   --primary: #4f46e5;
   --muted: #64748b;
+  /* Superficie de los controles de formulario: un tono propio para que destaquen sobre el
+     fondo de la página y no se confundan con él. */
+  --surface: #ffffff;
 }
 
 @theme inline {
@@ -14,6 +17,7 @@
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-muted: var(--muted);
+  --color-surface: var(--surface);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -24,11 +28,24 @@
     --foreground: #e2e8f0;
     --primary: #818cf8;
     --muted: #94a3b8;
+    /* Algo más claro que el fondo para que los campos resalten en modo oscuro. */
+    --surface: #1e293b;
   }
 }
 
 body {
   font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+/* Controles de formulario con superficie propia: así los cuadros de texto se distinguen del
+   fondo en lugar de fundirse con él. Se excluyen casillas y radios (mantienen su aspecto
+   nativo). Una sombra muy sutil añade profundidad sin recargar. Los componentes que fijan su
+   propio `bg-*` lo conservan (la clase gana en especificidad al selector de elemento). */
+input:not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  background-color: var(--surface);
+  box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.04);
 }
 
 /* Desplazamiento suave al pulsar los anclajes de la landing; se desactiva si el usuario
