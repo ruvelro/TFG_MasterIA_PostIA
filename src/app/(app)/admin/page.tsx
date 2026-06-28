@@ -24,6 +24,7 @@ import {
 } from "./actions";
 import { AdminForm } from "./admin-form";
 import { AdminTabs, type AdminTab } from "./admin-tabs";
+import { CostPanel } from "./cost-panel";
 import { EditorialStyleForm } from "./editorial-style-form";
 import { ErrorLogPanel } from "./error-log-panel";
 import { LengthPresetsForm } from "./length-presets-form";
@@ -392,6 +393,11 @@ export default async function AdminPage() {
           </p>
         </div>
       ),
+    },
+    {
+      id: "cost",
+      label: "Coste",
+      content: <CostPanel />,
     },
     {
       id: "errors",
