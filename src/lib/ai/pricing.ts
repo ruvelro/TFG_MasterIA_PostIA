@@ -27,6 +27,25 @@ interface OpenRouterModel {
 }
 
 /**
+ * Normaliza un id de OpenRouter quitándole el sufijo de routing/variante (todo lo que sigue al
+ * primer `:`, p. ej. `:free`, `:nitro`, `:floor`). El catálogo de precios indexa por el id base,
+ * así que un modelo configurado como `vendor/model:free` debe poder casar con `vendor/model`.
+ */
+export function normalizeModelId(id: string): string {
+  const colon = id.indexOf(":");
+  return colon === -1 ? id : id.slice(0, colon);
+}
+
+/**
+ * Busca el precio de un modelo tolerando variantes de id: primero por coincidencia exacta y, si
+ * falla, por id normalizado. Devuelve `null` si el modelo no está en el catálogo. Se expone para
+ * que el consumidor pueda distinguir "sin precio" (modelo desconocido) de "coste cero".
+ */
+export function findModelPrice(pricing: PricingTable, model: string): ModelPrice | null {
+  return pricing.get(model) ?? pricing.get(normalizeModelId(model)) ?? null;
+}
+
+/**
  * Devuelve el catálogo de precios (cacheado). Mapa vacío si la consulta falla o en e2e (donde
  * no debe haber llamadas externas). El cacheo solo ocurre cuando la consulta tiene éxito, para
  * poder reintentar tras un fallo transitorio.
@@ -48,7 +67,14 @@ export async function getModelPricing(): Promise<PricingTable> {
       const completion = Number(model.pricing?.completion);
       // OpenRouter da el precio por token como string; descartamos los no numéricos.
       if (Number.isFinite(prompt) && Number.isFinite(completion)) {
-        table.set(model.id, { prompt, completion });
+        const price = { prompt, completion };
+        table.set(model.id, price);
+        // Indexamos también por id base para tolerar variantes (`:free`, etc.) al consultar.
+        // El id exacto tiene prioridad: solo añadimos el normalizado si no colisiona.
+        const base = normalizeModelId(model.id);
+        if (base !== model.id && !table.has(base)) {
+          table.set(base, price);
+        }
       }
     }
     cache = { table, fetchedAt: now };
@@ -69,7 +95,7 @@ export function estimateCostUsd(
   outputTokens: number | null,
 ): number | null {
   if (!model) return null;
-  const price = pricing.get(model);
+  const price = findModelPrice(pricing, model);
   if (!price) return null;
   return (inputTokens ?? 0) * price.prompt + (outputTokens ?? 0) * price.completion;
 }

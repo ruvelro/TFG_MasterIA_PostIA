@@ -1,8 +1,9 @@
 import type { z } from "zod";
 
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
-import { estimateCostUsd, getModelPricing } from "@/lib/ai/pricing";
+import { estimateCostUsd, findModelPrice, getModelPricing } from "@/lib/ai/pricing";
 import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
+import { logError } from "@/lib/observability/error-log";
 import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
 import { styleProfileToText } from "@/lib/pipeline/format";
@@ -67,6 +68,10 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
   // al construir las deps, y se captura en el cierre para que todas las etapas la respeten.
   const { aiMaxRetries, aiTimeoutMs } = await getGenerationConfig();
 
+  // Modelos ya avisados por no tener precio en el catálogo. Dedupe por generación: el pipeline
+  // encadena ~11 etapas que pueden compartir modelo, y no queremos 11 entradas idénticas en el log.
+  const warnedMissingPrice = new Set<string>();
+
   // La señal se captura en el cierre: cualquier llamada de IA en curso se aborta si el cliente
   // cancela, evitando malgastar tokens. La siguiente etapa tampoco arranca (lanza al abortar).
   return {
@@ -93,7 +98,25 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
     fetchContent: (url) => fetchReadableText(url),
     // El catálogo de precios se cachea en pricing.ts, así que estas llamadas no golpean la red
     // en cada etapa. Best-effort: si no hay precio, el coste de esa etapa queda como null.
-    estimateCost: async (model, inputTokens, outputTokens) =>
-      estimateCostUsd(await getModelPricing(), model, inputTokens, outputTokens),
+    estimateCost: async (model, inputTokens, outputTokens) => {
+      const pricing = await getModelPricing();
+      // Convertimos el null silencioso en señal: si la etapa tiene modelo pero no figura en el
+      // catálogo (ni por id exacto ni normalizado), lo registramos una vez para poder corregir
+      // la configuración. Con catálogo vacío (red caída / e2e) no avisamos: no es del modelo.
+      if (
+        model &&
+        pricing.size > 0 &&
+        !findModelPrice(pricing, model) &&
+        !warnedMissingPrice.has(model)
+      ) {
+        warnedMissingPrice.add(model);
+        void logError({
+          category: "pipeline",
+          message: `Modelo sin precio en el catálogo de OpenRouter: ${model}`,
+          detail: "El coste de las etapas con este modelo no se podrá estimar (quedará como null).",
+        });
+      }
+      return estimateCostUsd(pricing, model, inputTokens, outputTokens);
+    },
   };
 }
