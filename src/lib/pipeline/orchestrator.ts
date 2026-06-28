@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db/client";
 import { logError } from "@/lib/observability/error-log";
+import { parsePipelineContext } from "@/lib/pipeline/context-schema";
 import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
@@ -198,7 +199,7 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
     throw new Error("La generación no está pendiente de revisión");
   if (!run.contextJson) throw new Error("Falta el contexto de la generación");
 
-  const ctx = JSON.parse(run.contextJson) as PipelineContext;
+  const ctx = parsePipelineContext(run.contextJson);
 
   // Al reanudar desde la pausa de extracción, el flag de revisión de estructura (persistido en el
   // contexto) sigue vigente; desde la pausa de blueprint ya no hay nueva pausa que aplicar.
