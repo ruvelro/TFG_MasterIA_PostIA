@@ -63,11 +63,22 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
 
   const searchProvider = createSearchProvider(await getSearchConfig());
 
+  // Resiliencia de IA configurable por el admin (reintentos y timeout por llamada). Se lee aquí,
+  // al construir las deps, y se captura en el cierre para que todas las etapas la respeten.
+  const { aiMaxRetries, aiTimeoutMs } = await getGenerationConfig();
+
   // La señal se captura en el cierre: cualquier llamada de IA en curso se aborta si el cliente
   // cancela, evitando malgastar tokens. La siguiente etapa tampoco arranca (lanza al abortar).
   return {
     runText: ({ modelId, prompt }) =>
-      runTextGeneration({ apiKey, modelId, prompt, abortSignal: signal }),
+      runTextGeneration({
+        apiKey,
+        modelId,
+        prompt,
+        abortSignal: signal,
+        maxRetries: aiMaxRetries,
+        timeoutMs: aiTimeoutMs,
+      }),
     runObject: <T>(params: { modelId: string; prompt: string; schema: z.ZodType<T> }) =>
       runObjectGeneration<T>({
         apiKey,
@@ -75,6 +86,8 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
         prompt: params.prompt,
         schema: params.schema,
         abortSignal: signal,
+        maxRetries: aiMaxRetries,
+        timeoutMs: aiTimeoutMs,
       }),
     search: (query, limit) => searchProvider.search(query, limit),
     fetchContent: (url) => fetchReadableText(url),

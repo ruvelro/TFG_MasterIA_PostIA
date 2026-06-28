@@ -24,6 +24,10 @@ export interface GenerateParams {
   prompt: string;
   /** Señal de aborto: si el cliente cancela, la llamada de IA en curso se interrumpe. */
   abortSignal?: AbortSignal;
+  /** Reintentos por llamada; cae a `MAX_RETRIES` si no se indica (configurable por el admin). */
+  maxRetries?: number;
+  /** Timeout por llamada en ms; cae a `REQUEST_TIMEOUT_MS` si no se indica. */
+  timeoutMs?: number;
 }
 
 /**
@@ -31,8 +35,11 @@ export interface GenerateParams {
  * agota el tiempo, la señal resultante se aborta y el AI SDK interrumpe la petición. Se expone
  * para poder testear la composición de señales de forma aislada.
  */
-export function buildAbortSignal(userSignal?: AbortSignal): AbortSignal {
-  const timeout = AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+export function buildAbortSignal(
+  userSignal?: AbortSignal,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
+): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
   return userSignal ? AbortSignal.any([userSignal, timeout]) : timeout;
 }
 
@@ -51,8 +58,8 @@ export async function runTextGeneration(params: GenerateParams): Promise<TextGen
     model: createOpenRouterModel(params.apiKey, params.modelId),
     system: params.system,
     prompt: params.prompt,
-    maxRetries: MAX_RETRIES,
-    abortSignal: buildAbortSignal(params.abortSignal),
+    maxRetries: params.maxRetries ?? MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
   });
 
   return {
@@ -78,8 +85,8 @@ export async function runObjectGeneration<T>(
     schema: params.schema,
     system: params.system,
     prompt: params.prompt,
-    maxRetries: MAX_RETRIES,
-    abortSignal: buildAbortSignal(params.abortSignal),
+    maxRetries: params.maxRetries ?? MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
   });
 
   return {

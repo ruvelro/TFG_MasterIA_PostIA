@@ -26,6 +26,10 @@ export interface GenerationConfig {
   aiScoreThreshold: number;
   scrubPatterns: ScrubPattern[];
   validatorConfig: ValidatorConfig;
+  /** Reintentos por llamada de IA ante errores transitorios de OpenRouter (429/5xx). */
+  aiMaxRetries: number;
+  /** Timeout por llamada de IA en ms; evita que una etapa colgada bloquee la generación. */
+  aiTimeoutMs: number;
 }
 
 /** Perfil de estilo vacío: punto de partida cuando no hay nada configurado. */
@@ -135,6 +139,8 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     maxHumanizeRetries,
     aiScoreThreshold,
     scrubPatterns,
+    aiMaxRetries,
+    aiTimeoutMs,
   ] = await Promise.all([
     getStyleProfile(),
     getValidatorConfig(),
@@ -143,6 +149,8 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     getAppSetting(SETTING_KEYS.maxHumanizeRetries),
     getAppSetting(SETTING_KEYS.aiScoreThreshold),
     getAppSetting(SETTING_KEYS.scrubPatterns),
+    getAppSetting(SETTING_KEYS.aiMaxRetries),
+    getAppSetting(SETTING_KEYS.aiTimeoutMs),
   ]);
 
   return {
@@ -169,5 +177,10 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
       100,
     ),
     scrubPatterns: parseScrubPatterns(scrubPatterns),
+    // Resiliencia de IA: pocos reintentos (más solo multiplican coste y latencia) y un timeout
+    // acotado entre 10 s y 5 min (por debajo no da margen ni a modelos rápidos; por encima
+    // mantendría una conexión colgada demasiado tiempo).
+    aiMaxRetries: parseBoundedInt(aiMaxRetries, DEFAULT_PIPELINE_PARAMS.aiMaxRetries, 0, 5),
+    aiTimeoutMs: parseBoundedInt(aiTimeoutMs, DEFAULT_PIPELINE_PARAMS.aiTimeoutMs, 10_000, 300_000),
   };
 }
