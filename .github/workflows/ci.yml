@@ -20,7 +20,7 @@ env:
   # tests en vitest.config.ts. La validación fail-fast de lib/config/env los exige al
   # cargar la app durante build, test y e2e.
   DATABASE_URL: "file:./ci.db"
-  AUTH_SECRET: "ci-secret-do-not-use-in-prod"
+  AUTH_SECRET: "ci-secret-do-not-use-in-prod-0123456789"
   ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
   APP_URL: "http://localhost:3000"
 
