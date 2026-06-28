@@ -113,6 +113,9 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
       usage: { inputTokens: 1, outputTokens: 1 },
     }),
     runObject,
+    // Coste determinista para el test: 1e-6 USD por token, solo cuando hay modelo (etapas IA).
+    estimateCost: async (model, inputTokens, outputTokens) =>
+      model ? ((inputTokens ?? 0) + (outputTokens ?? 0)) * 1e-6 : null,
   };
 }
 
@@ -164,6 +167,17 @@ describe("orquestador del pipeline", () => {
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
     expect(JSON.parse(article?.keywords ?? "[]")).toEqual(["kw"]);
+
+    // El coste estimado se persiste por etapa de IA (research no usa modelo → sin coste).
+    const stepsWithCost = await prisma.generationStep.findMany({
+      where: { runId: result.runId, costUsd: { not: null } },
+    });
+    expect(stepsWithCost.length).toBeGreaterThan(0);
+    expect(stepsWithCost.every((s) => (s.costUsd ?? 0) > 0)).toBe(true);
+    const researchStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "research" },
+    });
+    expect(researchStep?.costUsd).toBeNull();
 
     // Invariante de atomicidad: el artículo existe Y el run quedó `completed` compartiendo runId.
     // Ambas escrituras ocurren en una única transacción (no puede haber artículo huérfano).

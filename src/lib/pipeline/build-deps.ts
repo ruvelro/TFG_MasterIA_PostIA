@@ -1,6 +1,7 @@
 import type { z } from "zod";
 
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
+import { estimateCostUsd, getModelPricing } from "@/lib/ai/pricing";
 import { resolveStepConfig, type StepOverride } from "@/lib/ai/resolve-step";
 import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/default-config";
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
@@ -77,5 +78,9 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
       }),
     search: (query, limit) => searchProvider.search(query, limit),
     fetchContent: (url) => fetchReadableText(url),
+    // El catálogo de precios se cachea en pricing.ts, así que estas llamadas no golpean la red
+    // en cada etapa. Best-effort: si no hay precio, el coste de esa etapa queda como null.
+    estimateCost: async (model, inputTokens, outputTokens) =>
+      estimateCostUsd(await getModelPricing(), model, inputTokens, outputTokens),
   };
 }
