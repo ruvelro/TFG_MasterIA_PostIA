@@ -42,17 +42,28 @@ export async function POST(
     return new Response(parsed.error.issues[0].message, { status: 400 });
   }
 
-  return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
+  return streamJsonEvents<GenerationStreamEvent>(async (emit, signal) => {
     const result = await resumeGenerationForRun(
       {
         runId,
         editedFacts: parsed.data.editedFacts,
         editedBlueprint: parsed.data.editedBlueprint,
         overrides: parsed.data.overrides,
+        signal,
       },
       (event) => emit({ type: "stage", ...event }),
     );
-    if (result.context.article) {
+
+    // Al reanudar desde la revisión de hechos con la revisión de estructura activada, el pipeline
+    // se vuelve a pausar en el blueprint: hay que avisar al cliente para que muestre su formulario
+    // editable. Sin esto, la generación se quedaba colgada en esa segunda pausa.
+    if (result.status === "awaiting_blueprint_review" && result.context.blueprint) {
+      emit({
+        type: "awaiting_blueprint_review",
+        runId: result.runId,
+        blueprint: result.context.blueprint,
+      });
+    } else if (result.context.article) {
       emit({
         type: "completed",
         runId: result.runId,

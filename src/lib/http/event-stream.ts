@@ -7,23 +7,36 @@
  * cuerpo (tema, overrides, hechos) y necesitamos enviar y recibir en la misma petición.
  */
 export function streamJsonEvents<E>(
-  producer: (emit: (event: E) => void) => Promise<void>,
+  producer: (emit: (event: E) => void, signal: AbortSignal) => Promise<void>,
 ): Response {
   const encoder = new TextEncoder();
+  // Se aborta cuando el cliente cancela/cierra el stream (p. ej. botón "Cancelar"): permite
+  // que el productor detenga el pipeline y, sobre todo, las llamadas de IA en curso.
+  const controller = new AbortController();
 
   const stream = new ReadableStream<Uint8Array>({
-    async start(controller) {
+    async start(streamController) {
       const write = (value: unknown) =>
-        controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`));
+        streamController.enqueue(encoder.encode(`${JSON.stringify(value)}\n`));
       try {
-        await producer((event) => write(event));
+        await producer((event) => write(event), controller.signal);
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Error desconocido en la generación";
-        write({ type: "error", message });
+        // Si el cliente ya canceló, no intentamos escribir: la conexión no está.
+        if (!controller.signal.aborted) {
+          const message =
+            error instanceof Error ? error.message : "Error desconocido en la generación";
+          write({ type: "error", message });
+        }
       } finally {
-        controller.close();
+        try {
+          streamController.close();
+        } catch {
+          // El stream ya estaba cerrado tras la cancelación; nada que hacer.
+        }
       }
+    },
+    cancel() {
+      controller.abort();
     },
   });
 

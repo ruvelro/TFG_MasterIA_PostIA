@@ -8,6 +8,8 @@ export interface GenerateParams {
   modelId: string;
   system?: string;
   prompt: string;
+  /** Señal de aborto: si el cliente cancela, la llamada de IA en curso se interrumpe. */
+  abortSignal?: AbortSignal;
 }
 
 export interface TextGenerationResult {
@@ -25,6 +27,7 @@ export async function runTextGeneration(params: GenerateParams): Promise<TextGen
     model: createOpenRouterModel(params.apiKey, params.modelId),
     system: params.system,
     prompt: params.prompt,
+    abortSignal: params.abortSignal,
   });
 
   return {
@@ -50,6 +53,7 @@ export async function runObjectGeneration<T>(
     schema: params.schema,
     system: params.system,
     prompt: params.prompt,
+    abortSignal: params.abortSignal,
   });
 
   return {

@@ -28,6 +28,8 @@ export interface StartGenerationInput {
   newsTypeId?: string;
   lengthPresetId?: string;
   overrides?: Partial<Record<AiStageId, StepOverride>>;
+  /** Señal de cancelación: aborta las llamadas de IA si el cliente cancela la generación. */
+  signal?: AbortSignal;
 }
 
 export async function startGenerationForUser(
@@ -36,7 +38,7 @@ export async function startGenerationForUser(
 ): Promise<GenerationResult> {
   const [cfg, deps, newsType, lengthPreset] = await Promise.all([
     buildPipelineConfig(input.overrides),
-    buildPipelineDeps(),
+    buildPipelineDeps(input.signal),
     resolveNewsType(input.newsTypeId),
     resolveLengthPreset(input.lengthPresetId),
   ]);
@@ -59,6 +61,8 @@ export interface ResumeGenerationInput {
   editedFacts?: Facts;
   editedBlueprint?: Blueprint;
   overrides?: Partial<Record<AiStageId, StepOverride>>;
+  /** Señal de cancelación: aborta las llamadas de IA si el cliente cancela. */
+  signal?: AbortSignal;
 }
 
 export async function resumeGenerationForRun(
@@ -67,7 +71,7 @@ export async function resumeGenerationForRun(
 ): Promise<GenerationResult> {
   const [cfg, deps] = await Promise.all([
     buildPipelineConfig(input.overrides),
-    buildPipelineDeps(),
+    buildPipelineDeps(input.signal),
   ]);
   return resumeGeneration({
     runId: input.runId,
