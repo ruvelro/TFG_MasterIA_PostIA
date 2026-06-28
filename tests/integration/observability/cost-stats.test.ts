@@ -1,7 +1,13 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db/client";
 import { getCostStats } from "@/lib/observability/cost-stats";
+
+// getCostStats exige rol admin (defensa en profundidad). Aquí probamos la AGREGACIÓN, no la
+// autorización, así que dejamos requireAdmin como un no-op (no hay contexto de request en el test).
+vi.mock("@/lib/auth/authorize", () => ({
+  requireAdmin: vi.fn().mockResolvedValue({ user: { id: "admin-test", role: "admin" } }),
+}));
 
 let userId: string;
 

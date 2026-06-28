@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/auth/authorize";
 import { prisma } from "@/lib/db/client";
 
 import type { ErrorCategory } from "./error-log";
@@ -20,6 +21,10 @@ export async function listErrorLogs(opts?: {
   category?: ErrorCategory;
   limit?: number;
 }): Promise<ErrorLogRow[]> {
+  // Defensa en profundidad: el log unificado contiene errores de todos los usuarios; exigimos rol
+  // admin aquí además del guard de la página de administración.
+  await requireAdmin();
+
   const rows = await prisma.errorLog.findMany({
     where: opts?.category ? { category: opts.category } : undefined,
     orderBy: { createdAt: "desc" },
