@@ -23,4 +23,13 @@ describe("buildAbortSignal", () => {
     controller.abort();
     expect(signal.aborted).toBe(true);
   });
+
+  it("se aborta al agotarse el timeout configurado", async () => {
+    // Timeout muy corto para no ralentizar el test: la señal debe abortarse sola sin que el
+    // usuario cancele. Verifica que el parámetro de timeout se respeta.
+    const signal = buildAbortSignal(undefined, 5);
+    expect(signal.aborted).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(signal.aborted).toBe(true);
+  });
 });

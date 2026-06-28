@@ -272,4 +272,8 @@ export const DEFAULT_PIPELINE_PARAMS = {
   maxFixIterations: 2,
   maxHumanizeRetries: 2,
   aiScoreThreshold: 70,
+  // Resiliencia de las llamadas de IA. Reintentos ante errores transitorios de OpenRouter
+  // (429/5xx) y timeout por llamada (ms) para que una etapa colgada no bloquee la generación.
+  aiMaxRetries: 2,
+  aiTimeoutMs: 120_000,
 } as const;

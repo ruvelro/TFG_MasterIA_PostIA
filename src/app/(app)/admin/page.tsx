@@ -210,6 +210,29 @@ export default async function AdminPage() {
                 className={inputClass}
               />
             </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Reintentos por llamada de IA</span>
+              <input
+                name="aiMaxRetries"
+                type="number"
+                min={0}
+                max={5}
+                defaultValue={generation.aiMaxRetries}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Timeout por llamada de IA (ms)</span>
+              <input
+                name="aiTimeoutMs"
+                type="number"
+                min={10000}
+                max={300000}
+                step={1000}
+                defaultValue={generation.aiTimeoutMs}
+                className={inputClass}
+              />
+            </label>
           </div>
 
           <label className="flex flex-col gap-1 text-sm">

@@ -17,6 +17,9 @@ export const SETTING_KEYS = {
   maxHumanizeRetries: "max_humanize_retries",
   aiScoreThreshold: "ai_score_threshold",
   scrubPatterns: "scrub_patterns",
+  // Resiliencia de las llamadas de IA (reintentos y timeout por llamada).
+  aiMaxRetries: "ai_max_retries",
+  aiTimeoutMs: "ai_timeout_ms",
   // Estilo editorial estructurado (JSON) y modelo del analizador de estilo.
   styleProfile: "editorial_style_profile",
   styleAnalyzerModel: "style_analyzer_model",
