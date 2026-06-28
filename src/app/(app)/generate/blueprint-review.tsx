@@ -100,19 +100,24 @@ export function BlueprintReview({
         </ul>
       </div>
 
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={addSection}
-          className="border-muted/30 rounded-md border px-3 py-2 text-sm font-medium"
-        >
-          Añadir sección
-        </button>
+      <button
+        type="button"
+        onClick={addSection}
+        className="border-muted/30 self-start rounded-md border px-3 py-2 text-sm font-medium"
+      >
+        Añadir sección
+      </button>
+
+      {/* Barra de acción fija: el botón de continuar siempre visible, como en la revisión de hechos. */}
+      <div className="border-muted/20 bg-background/90 sticky bottom-0 z-10 flex items-center justify-between gap-3 border-t py-3 backdrop-blur">
+        <span className="text-muted text-sm">
+          {sections.length} {sections.length === 1 ? "sección" : "secciones"}
+        </span>
         <button
           type="button"
           onClick={handleContinue}
           disabled={disabled}
-          className="bg-primary rounded-md px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          className="bg-primary rounded-md px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           Continuar y redactar
         </button>
