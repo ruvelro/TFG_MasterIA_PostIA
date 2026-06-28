@@ -473,6 +473,19 @@ async function runQualityAndFinalize(
     }
   }
 
+  // Estado de calidad final: si el bucle agotó sus iteraciones con el informe aún sin superar,
+  // el corrector actuó en la última pasada pero NO hubo una revalidación posterior. Lo
+  // registramos para no entregar como "validado" un artículo cuya última corrección no se
+  // comprobó, y lo dejamos visible en las métricas (qualitySummary.validationPassed).
+  const validationPassed = ctx.report?.passed ?? false;
+  if (!validationPassed) {
+    await logError({
+      category: "pipeline",
+      message: "Artículo entregado sin superar la validación final (se agotaron las iteraciones)",
+      detail: `runId: ${runId} · iteraciones: ${maxIterations}`,
+    });
+  }
+
   // Si la validación pasó a la primera sin necesidad de fixer, aún falta producir el
   // artículo estructurado con la meta SEO; el fixer lo hace sin correcciones pendientes.
   if (!ctx.article) {
@@ -506,13 +519,14 @@ async function runQualityAndFinalize(
   const aiDetection = computeAiDetection(ctx.qualityReport?.aiScore ?? 0);
   const qualitySummary =
     ctx.report && ctx.factualReport && ctx.qualityReport
-      ? computeQualitySummary(ctx.report, ctx.factualReport, ctx.qualityReport)
+      ? computeQualitySummary(ctx.report, ctx.factualReport, ctx.qualityReport, validationPassed)
       : {
           groundedness: 100,
           aiDetectionScore: aiDetection.score,
           factualRisk: "low" as const,
           qualityRisk: "low" as const,
           warningsCount: 0,
+          validationPassed,
         };
 
   await executeStage({ runId, stageId: "enrich", attempt: 1, onEvent }, async () => {

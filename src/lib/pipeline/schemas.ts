@@ -147,6 +147,10 @@ export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
     factualRisk: z.enum(["low", "medium", "high"]),
     qualityRisk: z.enum(["low", "medium", "high"]),
     warningsCount: z.number().int().describe("Total de issues detectados en todos los informes"),
+    // Si el artículo entregado pasó la validación final. Es `false` cuando el bucle agota las
+    // iteraciones con un informe aún no superado (el corrector actuó pero no se revalidó). Con
+    // default `true` para que los artículos guardados antes de este campo sigan siendo válidos.
+    validationPassed: z.boolean().default(true),
   }),
 });
 export type ArticleEnrichment = z.infer<typeof ArticleEnrichmentSchema>;
