@@ -44,7 +44,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     overrides,
   } = parsed.data;
 
-  return streamJsonEvents<GenerationStreamEvent>(async (emit) => {
+  return streamJsonEvents<GenerationStreamEvent>(async (emit, signal) => {
     const result = await startGenerationForUser(
       {
         userId,
@@ -55,6 +55,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         newsTypeId,
         lengthPresetId,
         overrides,
+        signal,
       },
       (event) => emit({ type: "stage", ...event }),
     );

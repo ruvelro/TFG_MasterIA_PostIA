@@ -35,6 +35,7 @@ export function GeneratorClient({
     resume,
     resumeFromBlueprint,
     reset,
+    cancel,
   } = useGenerationStream();
 
   // Ancla de la zona de revisión: el aviso de "requiere intervención" salta hasta aquí.
@@ -43,6 +44,8 @@ export function GeneratorClient({
   const busy = phase === "running" || phase === "finalizing";
   const showForm = phase === "idle" || phase === "error";
   const needsReview = phase === "review" || phase === "blueprint-review";
+  // La generación está "viva" mientras no esté en reposo, terminada ni en error.
+  const isActive = busy || needsReview;
   const showProgress =
     phase === "running" || needsReview || phase === "finalizing" || phase === "done";
 
@@ -65,6 +68,22 @@ export function GeneratorClient({
         <p role="alert" className="text-sm text-red-600">
           {error}
         </p>
+      ) : null}
+
+      {/* Estado + cancelar: detiene la generación a medio proceso para no malgastar tokens. */}
+      {isActive ? (
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-muted text-sm">
+            {busy ? "Generando…" : "En pausa, esperando tu revisión."}
+          </span>
+          <button
+            type="button"
+            onClick={cancel}
+            className="border-muted/30 rounded-md border px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:border-red-500/60"
+          >
+            Cancelar generación
+          </button>
+        </div>
       ) : null}
 
       {/* Aviso de pausa: la generación espera tu revisión. El botón lleva directo al formulario. */}
