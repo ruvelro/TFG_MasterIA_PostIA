@@ -6,32 +6,75 @@ una con una responsabilidad única y un contrato de entrada/salida tipado. El mo
 
 ## Flujo
 
+El pipeline creció de 6 a **11 etapas** para reforzar la lucha anti-IA (humanización),
+desdoblar la validación en varios jueces especializados y añadir limpieza y enriquecimiento
+GEO. El catálogo único y ordenado de etapas vive en `src/lib/pipeline/stages.ts` (`STAGE_IDS`),
+del que beben tanto la UI como el orquestador. El porqué de la evolución está en el
+[ADR 0006](decisiones/0006-evolucion-pipeline-11-etapas.md).
+
 ```
-research → extract → [revisión humana opcional] → blueprint → draft → validate ⟲ fixer → Article
+research → extract → [revisión humana opcional]
+        → blueprint → [revisión humana opcional]
+        → draft → humanize
+        → ( validate + factual-review + quality-review  ⟲  humanize / fixer )
+        → scrub → enrich → Article
 ```
 
-| #   | Etapa         | ¿IA?          | Entrada                                              | Salida                                                                     |
-| --- | ------------- | ------------- | ---------------------------------------------------- | -------------------------------------------------------------------------- |
-| 1   | **research**  | No (búsqueda) | tema                                                 | N fuentes con su **contenido descargado** (fuente de verdad)               |
-| 2   | **extract**   | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**     |
-| 3   | **blueprint** | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod)                      |
-| 4   | **draft**     | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                       |
-| 5   | **validate**  | Sí (juez)     | borrador + hechos                                    | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)    |
-| 6   | **fixer**     | Sí            | borrador + informe                                   | artículo corregido + **meta SEO** (title, slug, metaDescription, keywords) |
+| #   | Etapa              | ¿IA?          | Entrada                                              | Salida                                                                      |
+| --- | ------------------ | ------------- | ---------------------------------------------------- | --------------------------------------------------------------------------- |
+| 1   | **research**       | No (búsqueda) | tema                                                 | N fuentes con su **contenido descargado** (fuente de verdad)                |
+| 2   | **extract**        | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**      |
+| 3   | **blueprint**      | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**       |
+| 4   | **draft**          | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                        |
+| 5   | **humanize**       | Sí            | borrador                                             | borrador reescrito sin muletillas ni estructura repetitiva de IA            |
+| 6   | **validate**       | Sí (juez)     | borrador + hechos + fuentes                          | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)     |
+| 7   | **factual-review** | Sí (juez)     | borrador + hechos                                    | clasificación por afirmación (confirmada/dudosa/descartada) + riesgo global |
+| 8   | **quality-review** | Sí (juez)     | borrador                                             | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA) |
+| 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido + **meta SEO** (title, slug, metaDescription, keywords)  |
+| 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                              |
+| 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen |
+
+Además, dentro del bucle corre un **validador editorial determinista** (sin IA,
+`steps/editorial-validator.ts`) que comprueba reglas mecánicas (palabras prohibidas,
+densidad, citas…) y **fusiona** sus hallazgos en el informe de `validate`; los de severidad
+alta marcan el informe como NO superado.
+
+## Etapas opcionales (tipo de noticia)
+
+Cada **tipo de noticia** puede activar o desactivar etapas mediante toggles
+(`enableHumanize`, `enableFactualReview`, `enableQualityReview`). Si no hay tipo, se ejecutan
+todas (comportamiento por defecto, retrocompatible). `research` nunca es opcional (es la fuente
+de verdad). El **preset de longitud** ajusta el número de palabras objetivo del `draft`.
 
 ## Revisión humana (pausa / reanudación)
 
-Tras **extract**, el orquestador puede **pausar** (`GenerationRun.status = awaiting_review`),
-guardando el estado en `GenerationRun.contextJson`. El usuario revisa/edita los hechos y la
-generación se **reanuda** (`resumeGeneration`) aplicando esos hechos. Si la revisión está
-desactivada, el pipeline corre de principio a fin.
+El orquestador puede **pausar** en dos puntos, guardando el estado en
+`GenerationRun.contextJson`:
 
-## Bucle de calidad validate ⟲ fixer
+- Tras **extract** (`status = awaiting_review`): el usuario revisa/edita los **hechos**.
+- Tras **blueprint** (`status = awaiting_blueprint_review`): el usuario revisa/edita la
+  **estructura**.
 
-`validate` produce un informe estructurado. Si no pasa, `fixer` corrige según ese informe
-(reescribe frases con tono IA, ajusta fidelidad/editorial/SEO, marca negritas) y el resultado
-se **vuelve a validar**, hasta `passed` o `maxFixIterations`. El `fixer` también es quien
-produce el artículo final con su meta SEO, por lo que siempre se ejecuta al menos una vez.
+En ambos casos la generación se **reanuda** (`resumeGeneration`) aplicando lo editado. Si las
+revisiones están desactivadas, el pipeline corre de principio a fin.
+
+## Bucle de calidad
+
+Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
+pasadas: ejecuta los jueces (`validate` + validador determinista, y según el tipo
+`factual-review` y `quality-review`) y, en función de sus resultados, **re-humaniza** (si el
+`aiScore` supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) y/o corrige con **fixer**.
+
+El `fixer` produce el artículo final con su meta SEO, por lo que **siempre se ejecuta al menos
+una vez** (si la validación pasa a la primera, se ejecuta sin correcciones pendientes). Cerrado
+el bucle, `scrub` limpia el texto y `enrich` añade los campos creativos y las métricas
+derivadas antes de persistir el `Article`.
+
+## Revisión dirigida (Revision Mode)
+
+`reviseGeneration` regenera un artículo existente a partir de unas **instrucciones**, sin volver
+a investigar: reutiliza hechos, estructura y fuentes del run original y toma el artículo previo
+como borrador de partida, reentrando directamente en el bucle de calidad.
 
 ## Modelo y prompt por etapa
 
