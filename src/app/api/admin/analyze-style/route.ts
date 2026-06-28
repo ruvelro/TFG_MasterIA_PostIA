@@ -4,6 +4,7 @@ import type { z } from "zod";
 import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { ForbiddenError, requireAdmin, UnauthenticatedError } from "@/lib/auth/authorize";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { generateRateLimiter } from "@/lib/http/rate-limit";
 import { logError } from "@/lib/observability/error-log";
 import type { StyleAnalysisResult } from "@/lib/pipeline/schemas";
 import { fetchReadableText } from "@/lib/search/fetch-content";
@@ -28,13 +29,19 @@ export type StyleAnalysisEvent =
  * el proceso es largo y conviene mostrar avance en vez de una espera opaca.
  */
 export async function POST(request: NextRequest): Promise<Response> {
+  let session;
   try {
-    await requireAdmin();
+    session = await requireAdmin();
   } catch (error) {
     if (error instanceof UnauthenticatedError)
       return new Response("No autenticado", { status: 401 });
     if (error instanceof ForbiddenError) return new Response("No autorizado", { status: 403 });
     throw error;
+  }
+
+  // El análisis descarga URLs y llama a la IA por lotes (coste): limitamos por usuario.
+  if (!generateRateLimiter.check(session.user.id)) {
+    return new Response("Demasiadas peticiones, inténtalo en un minuto.", { status: 429 });
   }
 
   const body = await request.json().catch(() => null);
