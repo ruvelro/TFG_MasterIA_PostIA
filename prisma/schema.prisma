@@ -128,8 +128,9 @@ model AppSetting {
   updatedAt DateTime @updatedAt
 }
 
-// Configuración por etapa del pipeline que usa IA (outline, draft, validate, humanize-seo):
-// qué modelo de OpenRouter usar y la plantilla de prompt (con variables {{...}}).
+// Configuración por etapa del pipeline que usa IA (extract, blueprint, draft, humanize,
+// validate, factual-review, quality-review, fixer, enrich): qué modelo de OpenRouter usar
+// y la plantilla de prompt (con variables {{...}}). El catálogo está en stages.ts.
 model PipelineStepConfig {
   stageId   String   @id
   model     String
@@ -187,7 +188,8 @@ model GenerationRun {
 model GenerationStep {
   id           String   @id @default(cuid())
   runId        String
-  // research | extract | blueprint | draft | validate | fixer
+  // Uno de STAGE_IDS (src/lib/pipeline/stages.ts): research | extract | blueprint | draft |
+  // humanize | validate | factual-review | quality-review | fixer | scrub | enrich.
   stageId      String
   status       String   @default("pending")
   // Número de pasada de la etapa: el bucle validate↔fixer puede ejecutarla varias veces.
