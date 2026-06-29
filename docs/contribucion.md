@@ -35,7 +35,15 @@ chore: configura husky y lint-staged
 Los hooks de Git ejecutan parte de esto automáticamente (`pre-commit`: lint-staged;
 `pre-push`: typecheck + tests), pero conviene comprobarlo antes de pedir revisión.
 
+## Integración continua (CI)
+
+Cada push y cada PR a `develop` o `main` dispara el workflow de **GitHub Actions**
+([`.github/workflows/ci.yml`](../.github/workflows/ci.yml)), que replica el gate del hook
+`pre-push` en el servidor (no es saltable): **lint → typecheck → test → build** y, en un job
+aparte, los **e2e de Playwright**. Los e2e usan dependencias falsas (`E2E=true`), así que no
+necesitan claves reales de OpenRouter ni de búsqueda.
+
 ## Revisión
 
 Cada PR pasa por revisión de código. En las ramas que tocan autenticación o el pipeline
-de IA se ejecuta además una revisión de seguridad.
+de IA se ejecuta además una revisión de seguridad (`/security-review`).

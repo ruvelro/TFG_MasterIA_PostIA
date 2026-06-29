@@ -1,11 +1,14 @@
 # Modelo de datos
 
-> El esquema vive en `prisma/schema.prisma` (se implementa en la Fase 2). Este documento
-> describe las entidades y sus relaciones.
+> El esquema vive en [`prisma/schema.prisma`](../prisma/schema.prisma). Este documento
+> describe las entidades y sus relaciones. SQLite no tiene enums ni arrays nativos, así que
+> los estados se guardan como `String` y las listas como JSON serializado.
 
 ## Entidades de autenticación (gestionadas por Better Auth)
 
-- **User** — usuario registrado. La contraseña **no** vive aquí.
+- **User** — usuario registrado. La contraseña **no** vive aquí. Incluye `role`
+  (`"user"` | `"admin"`): el primer usuario registrado se promueve a `admin` y puede
+  gestionar la configuración global.
 - **Account** — credenciales del usuario; almacena el **hash de la contraseña** (scrypt).
 - **Session** — sesiones activas (token, expiración, IP/user-agent).
 - **Verification** — tokens temporales (p. ej. verificación de email, si se habilita).
@@ -13,32 +16,59 @@
 
 > Los nombres de campo de estas tablas los fija Better Auth y no deben renombrarse.
 
-El **rol** del usuario (`user.role`) controla la autorización: el primer usuario registrado
-se promueve a `admin` y puede gestionar la configuración global.
-
 ## Configuración global (gestionada por el admin)
 
-- **Secret** — claves de API de terceros **cifradas** (OpenRouter, Tavily, Google CSE).
-- **AppSetting** — ajustes no sensibles (proveedor de búsqueda, id del motor de Google CSE).
+- **Secret** — claves de API de terceros **cifradas** en reposo (OpenRouter, Tavily,
+  Google CSE). La `key` identifica el secreto (p. ej. `openrouter_api_key`).
+- **AppSetting** — ajustes no sensibles en claro (proveedor de búsqueda activo, id del
+  motor de Google CSE…).
 - **PipelineStepConfig** — modelo y prompt por etapa de IA (si falta, se usan los defaults).
+  La `stageId` es uno de los `STAGE_IDS`.
+
+## Observabilidad
+
+- **ErrorLog** — registro unificado de errores para el panel de administración. `category`
+  es `"auth" | "pipeline" | "server"`; es _best-effort_ (registrarlo nunca debe tumbar el
+  flujo que falló) y `userId` es opcional (un login fallido no tiene usuario conocido).
 
 ## Entidades de dominio (PostIA)
 
-- **Article** — artículo final generado: contenido en Markdown y metadatos SEO.
-- **GenerationRun** — una ejecución del pipeline para un tema dado. `status` recorre
-  `pending → researching → awaiting_review → generating → completed | failed`. `contextJson`
-  guarda un snapshot del contexto para **pausar** tras la extracción y **reanudar** después.
-- **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó,
-  duración, tokens e `attempt` (el bucle validate↔fixer ejecuta etapas varias veces).
-  Permite analizar coste y rendimiento por etapa.
+- **GenerationRun** — una ejecución del pipeline para un tema dado. Su `status` recorre:
 
-## Relaciones (previstas)
+  ```
+  researching → awaiting_review → awaiting_blueprint_review → generating → completed | failed
+  ```
+
+  Las pausas de revisión humana (`awaiting_review` tras los hechos,
+  `awaiting_blueprint_review` tras la estructura) son **opcionales** según el tipo de
+  noticia. `contextJson` guarda un snapshot serializado del `PipelineContext` para **pausar**
+  y **reanudar** la generación. Las fuentes **no** viajan en ese JSON (pesan demasiado): se
+  normalizan en `GenerationSource` y se rehidratan al reanudar/revisar.
+
+- **GenerationSource** — fuente de investigación de un run (la "fuente de verdad" del
+  artículo) con su **contenido ya descargado**. Tabla propia en lugar de serializarse en el
+  contexto, porque el cuerpo de varias webs puede pesar cientos de KB.
+
+- **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó
+  (`null` en `research`/`scrub`, que no usan IA), `status`, `attempt` (el bucle de calidad
+  ejecuta etapas varias veces), `durationMs`, tokens y **`costUsd`** (coste estimado
+  congelado al generar, a partir de los tokens y los precios de OpenRouter). Permite analizar
+  coste y rendimiento por etapa.
+
+- **Article** — artículo final publicable, propiedad de un usuario. Contenido en Markdown,
+  `metaDescription`, `slug`, `keywords` (JSON) y `metadataJson` (el enriquecimiento:
+  titulares alternativos, tags, FAQ, alt de imagen, Schema.org…). Enlaza opcionalmente con
+  el run que lo produjo.
+
+## Relaciones
 
 ```
 User 1───∞ Article
 User 1───∞ GenerationRun
 GenerationRun 1───∞ GenerationStep
+GenerationRun 1───∞ GenerationSource
 GenerationRun 1───0..1 Article   (la ejecución que culmina produce un artículo)
 ```
 
-Se detallará con los campos exactos al implementar el esquema Prisma.
+> Los campos exactos de cada entidad están en [`prisma/schema.prisma`](../prisma/schema.prisma),
+> documentados con comentarios. Las migraciones aplicadas viven en `prisma/migrations/`.
