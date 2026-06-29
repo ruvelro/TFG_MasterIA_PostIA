@@ -19,13 +19,18 @@ de `src/lib`.
                 │ usa
 ┌───────────────▼──────────────────────────────────────────────┐
 │  lib/  (dominio, sin dependencia de React)                    │
-│   · pipeline/   orquestador + etapas                          │
-│   · ai/         cliente OpenRouter + modelo por etapa         │
-│   · search/     proveedores de búsqueda intercambiables       │
-│   · auth/       sesión y hashing                              │
-│   · db/         cliente Prisma                                │
-│   · config/     validación de entorno                         │
-│   · validation/ esquemas Zod compartidos                      │
+│   · pipeline/      orquestador + etapas                       │
+│   · ai/            cliente OpenRouter + modelo por etapa       │
+│   · search/        proveedores de búsqueda intercambiables     │
+│   · auth/          Better Auth: sesión y autorización (roles)  │
+│   · crypto/        cifrado de secretos en reposo (AES-256-GCM) │
+│   · settings/      secretos, ajustes y config por etapa        │
+│   · articles/      repositorio de artículos (por usuario)      │
+│   · observability/ estadísticas de coste y registro de errores │
+│   · http/          streaming NDJSON y rate limiting            │
+│   · db/            cliente Prisma                              │
+│   · config/        validación de entorno                       │
+│   · validation/    esquemas Zod compartidos                    │
 └───────────────┬──────────────────────────────────────────────┘
                 │ persiste en
 ┌───────────────▼──────────────────────────────────────────────┐

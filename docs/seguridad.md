@@ -26,11 +26,11 @@ resume las amenazas consideradas y los controles aplicados.
 | Robo de claves de terceros | Las claves de API (OpenRouter, buscadores) se guardan **cifradas** en la BD (AES-256-GCM, KEK en `ENCRYPTION_KEY`); nunca se devuelven al cliente (solo enmascaradas).  |
 | Configuración global       | Solo el rol **admin** puede leer/cambiar claves, modelos y prompts; cada Server Action revalida la autorización (no basta con ocultar la página).                       |
 | Coste descontrolado de IA  | Límite de peticiones (_rate limit_) en el endpoint de generación.                                                                                                       |
-| XSS por contenido generado | El Markdown del artículo se sanea al renderizar; no se inyecta HTML sin sanitizar.                                                                                      |
+| XSS por contenido generado | El Markdown del artículo se renderiza con `react-markdown` + `rehype-sanitize`, que sanea el HTML resultante; no se inyecta HTML sin sanitizar.                         |
 
 ## Notas
 
 - La cabecera `Strict-Transport-Security` solo surte efecto sobre HTTPS; es inocua en el
   `http://localhost` de desarrollo.
-- Este documento se revisa al cerrar las fases de autenticación (Fase 2) y pipeline (Fase 4),
-  acompañado de una pasada de `/security-review`.
+- Los controles se revisan con una pasada de `/security-review` en cada PR que toca
+  autenticación o el pipeline de IA (ver [contribucion.md](contribucion.md)).
