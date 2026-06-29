@@ -16,8 +16,6 @@ _De un simple **tema** a un **artículo documentado, humano y optimizado para SE
 
 <br />
 
-<img src="docs/images/landing.png" alt="Página de inicio de PostIA" width="860" />
-
 </div>
 
 ---
