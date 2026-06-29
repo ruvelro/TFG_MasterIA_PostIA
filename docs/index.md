@@ -4,6 +4,7 @@
 
 | Documento                          | Contenido                                                 |
 | ---------------------------------- | --------------------------------------------------------- |
+| [memoria.md](memoria.md)           | **Memoria del TFM**: documento académico completo.        |
 | [arquitectura.md](arquitectura.md) | Visión general, componentes y flujo de datos.             |
 | [pipeline.md](pipeline.md)         | Las 11 etapas del pipeline, contratos y modelo por etapa. |
 | [stack.md](stack.md)               | Stack tecnológico y justificación de cada elección.       |
