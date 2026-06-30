@@ -245,20 +245,38 @@ El porqué de cada elección está en [`docs/stack.md`](docs/stack.md).
 
 ---
 
+## 🎓 Entrega del TFM
+
+| Recurso                  | Enlace                                                                                           |
+| ------------------------ | ------------------------------------------------------------------------------------------------ |
+| 📊 **Presentación**      | [`docs/presentacion-postia.pptx`](docs/presentacion-postia.pptx) · _[URL pública de las slides]_ |
+| 🎬 **Vídeo explicativo** | _[URL pública del vídeo]_ (guion en [`docs/guion-video.md`](docs/guion-video.md))                |
+| 🌐 **Despliegue (demo)** | _[URL pública del despliegue]_ — ver [`docs/despliegue.md`](docs/despliegue.md)                  |
+| 💻 **Repositorio**       | https://github.com/ruvelro/TFG_MasterIA_PostIA                                                   |
+
+> **Credenciales de prueba.** El registro es **abierto**: para evaluar la app basta con
+> **registrarse** en `/register` (el primer usuario se convierte en administrador). En el
+> despliegue público se deja además un usuario admin de prueba —sus credenciales se indican
+> aquí y en el formulario de entrega—: _[usuario]_ / _[contraseña]_.
+
+---
+
 ## 📚 Documentación
 
 Toda la documentación detallada vive en [`docs/`](docs/):
 
-| Documento                               | Contenido                                           |
-| --------------------------------------- | --------------------------------------------------- |
-| [arquitectura.md](docs/arquitectura.md) | Visión general, capas y flujo de datos.             |
-| [pipeline.md](docs/pipeline.md)         | Las 11 etapas, contratos y modelo por etapa.        |
-| [stack.md](docs/stack.md)               | Stack tecnológico y justificación de cada elección. |
-| [seguridad.md](docs/seguridad.md)       | Modelo de amenazas y controles de seguridad.        |
-| [modelo-datos.md](docs/modelo-datos.md) | Entidades de la base de datos y relaciones.         |
-| [despliegue.md](docs/despliegue.md)     | Despliegue con Docker en un VPS.                    |
-| [contribucion.md](docs/contribucion.md) | Flujo de Git, ramas, commits y PRs.                 |
-| [decisiones/](docs/decisiones/)         | Registro de decisiones de arquitectura (ADRs).      |
+| Documento                                                 | Contenido                                           |
+| --------------------------------------------------------- | --------------------------------------------------- |
+| [arquitectura.md](docs/arquitectura.md)                   | Visión general, capas y flujo de datos.             |
+| [pipeline.md](docs/pipeline.md)                           | Las 11 etapas, contratos y modelo por etapa.        |
+| [stack.md](docs/stack.md)                                 | Stack tecnológico y justificación de cada elección. |
+| [seguridad.md](docs/seguridad.md)                         | Modelo de amenazas y controles de seguridad.        |
+| [modelo-datos.md](docs/modelo-datos.md)                   | Entidades de la base de datos y relaciones.         |
+| [despliegue.md](docs/despliegue.md)                       | Despliegue con Docker en un VPS.                    |
+| [contribucion.md](docs/contribucion.md)                   | Flujo de Git, ramas, commits y PRs.                 |
+| [decisiones/](docs/decisiones/)                           | Registro de decisiones de arquitectura (ADRs).      |
+| [presentacion-postia.pptx](docs/presentacion-postia.pptx) | Slides de presentación del proyecto.                |
+| [guion-video.md](docs/guion-video.md)                     | Guion para el vídeo explicativo del TFM.            |
 
 > Para las normas que sigue el código (convenciones, seguridad por diseño, idioma), ver
 > [`AGENTS.md`](AGENTS.md).
