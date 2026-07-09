@@ -1,3 +1,4 @@
+import { detectPromptInjection } from "@/lib/pipeline/injection-heuristics";
 import type {
   PipelineContext,
   PipelineDeps,
@@ -21,6 +22,12 @@ export async function runResearch(
     results.map(async (result): Promise<PipelineSource> => {
       try {
         const content = await deps.fetchContent(result.url);
+        // Anti-inyección: si el cuerpo trae órdenes dirigidas al modelo, no dejamos que
+        // llegue a los prompts; degradamos al extracto de búsqueda y marcamos la fuente
+        // como sospechosa para que el prompt de extracción la trate con cautela.
+        if (detectPromptInjection(content)) {
+          return { ...result, content: result.snippet, suspicious: true };
+        }
         return { ...result, content };
       } catch {
         return { ...result, content: result.snippet };

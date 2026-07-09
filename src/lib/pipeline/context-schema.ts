@@ -31,6 +31,8 @@ const SourceSchema = z.object({
   snippet: z.string(),
   // Contenido descargado (la "fuente de verdad"). Opcional para tolerar fuentes sin cuerpo.
   content: z.string().default(""),
+  // Marcada por la heurística anti-inyección de research (contenido degradado al extracto).
+  suspicious: z.boolean().optional(),
 });
 
 export const PipelineContextSchema = z.object({
