@@ -40,6 +40,7 @@ model User {
   articles Article[]
   runs     GenerationRun[]
   batches  Batch[]
+  apiKeys  ApiKey[]
 }
 
 model Session {
@@ -317,4 +318,25 @@ model BatchItem {
   batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@index([batchId])
+}
+
+// Clave de la API pública, propiedad de un usuario. Solo se guarda el HASH (SHA-256): la
+// clave en claro se muestra una única vez al crearla. SHA-256 (y no scrypt) a propósito:
+// las claves son aleatorias de 256 bits de entropía, así que un KDF lento no aporta (los
+// KDF protegen secretos de baja entropía como contraseñas) y el hash rápido permite
+// autenticar cada petición sin coste.
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  keyHash    String    @unique
+  // Prefijo visible (postia_xxxx…) para que el usuario identifique la clave en la UI.
+  prefix     String
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
