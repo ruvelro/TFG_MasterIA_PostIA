@@ -26,6 +26,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <Link href="/articles" className="text-muted hover:text-foreground text-sm">
             Historial
           </Link>
+          <Link href="/batches" className="text-muted hover:text-foreground text-sm">
+            Lotes
+          </Link>
           <Link href="/account" className="text-muted hover:text-foreground text-sm">
             Cuenta
           </Link>

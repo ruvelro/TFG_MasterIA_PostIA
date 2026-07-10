@@ -16,7 +16,7 @@ import type { NextRequest } from "next/server";
  *    la barrera real: la verificación fiable se hace en el layout del grupo (app) con
  *    `getCurrentSession()`. Defensa en profundidad: nunca confiamos solo en esta capa.
  */
-const PROTECTED_PREFIXES = ["/generate", "/articles", "/account", "/admin"];
+const PROTECTED_PREFIXES = ["/generate", "/articles", "/batches", "/account", "/admin"];
 
 // Better Auth nombra la cookie de sesión distinto según el esquema: `__Secure-` sobre HTTPS.
 const SESSION_COOKIE_NAMES = ["better-auth.session_token", "__Secure-better-auth.session_token"];
