@@ -39,6 +39,7 @@ model User {
   // Relaciones de dominio (PostIA).
   articles Article[]
   runs     GenerationRun[]
+  batches  Batch[]
 }
 
 model Session {
@@ -256,4 +257,46 @@ model Article {
   run  GenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+}
+
+// Lote de generación: una lista de temas que se procesa en segundo plano, con presupuesto
+// de coste opcional. Los artículos resultantes quedan como borradores del usuario.
+model Batch {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  // Estado como String (SQLite no tiene enums): pending | running | completed | cancelled
+  status    String   @default("pending")
+  // Presupuesto máximo del lote en USD (0 = sin límite). Al agotarse, los temas restantes
+  // se marcan como skipped en lugar de generarse.
+  budgetUsd Float    @default(0)
+  // Tipo de noticia con el que se generan todos los temas del lote (id del catálogo).
+  newsTypeId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items BatchItem[]
+
+  @@index([userId])
+}
+
+// Un tema del lote y su resultado. `costUsd` congela el coste del run al completarse,
+// para que el control de presupuesto no tenga que reagregar la traza en cada item.
+model BatchItem {
+  id      String  @id @default(cuid())
+  batchId String
+  topic   String
+  // pending | running | completed | failed | skipped (presupuesto agotado o lote cancelado)
+  status  String  @default("pending")
+  runId   String?
+  articleId String?
+  error   String?
+  costUsd Float?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  batch Batch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
 }

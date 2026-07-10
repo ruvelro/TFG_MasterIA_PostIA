@@ -56,15 +56,23 @@
   coste y rendimiento por etapa.
 
 - **Article** — artículo final publicable, propiedad de un usuario. Contenido en Markdown,
-  `metaDescription`, `slug`, `keywords` (JSON) y `metadataJson` (el enriquecimiento:
-  titulares alternativos, tags, FAQ, alt de imagen, Schema.org…). Enlaza opcionalmente con
-  el run que lo produjo.
+  `metaDescription`, `slug`, `keywords` (JSON), `metadataJson` (el enriquecimiento:
+  titulares alternativos, tags, FAQ, alt de imagen, Schema.org…) y `featuredImagePath`
+  (imagen destacada generada por la etapa `feature-image`, si el tipo la activa). Enlaza
+  opcionalmente con el run que lo produjo.
+
+- **Batch / BatchItem** — lote de generación en segundo plano: una lista de temas que el
+  worker procesa secuencialmente sin pausas de revisión, con presupuesto opcional en USD
+  (`budgetUsd`; al agotarse, los temas restantes quedan `skipped`). Cada item congela el
+  coste de su run (`costUsd`) y enlaza con el artículo resultante.
 
 ## Relaciones
 
 ```
 User 1───∞ Article
 User 1───∞ GenerationRun
+User 1───∞ Batch
+Batch 1───∞ BatchItem
 GenerationRun 1───∞ GenerationStep
 GenerationRun 1───∞ GenerationSource
 GenerationRun 1───0..1 Article   (la ejecución que culmina produce un artículo)
