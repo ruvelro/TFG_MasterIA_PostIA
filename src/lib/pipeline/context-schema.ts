@@ -42,6 +42,8 @@ export const PipelineContextSchema = z.object({
   lengthPreset: LengthPresetSchema.optional(),
   revisionInstructions: z.string().optional(),
   context: z.string().optional(),
+  language: z.string().optional(),
+  parentArticleId: z.string().optional(),
   pauseForBlueprintReview: z.boolean().optional(),
   facts: FactsSchema.optional(),
   blueprint: BlueprintSchema.optional(),

@@ -59,7 +59,9 @@
   `metaDescription`, `slug`, `keywords` (JSON), `metadataJson` (el enriquecimiento:
   titulares alternativos, tags, FAQ, alt de imagen, Schema.org…) y `featuredImagePath`
   (imagen destacada generada por la etapa `feature-image`, si el tipo la activa). Enlaza
-  opcionalmente con el run que lo produjo.
+  opcionalmente con el run que lo produjo y, si es una revisión (Revision Mode), con su
+  artículo **padre** (`parentId`): la vista del artículo muestra las versiones y un diff
+  del Markdown entre padre e hijo.
 
 - **Batch / BatchItem** — lote de generación en segundo plano: una lista de temas que el
   worker procesa secuencialmente sin pausas de revisión, con presupuesto opcional en USD

@@ -12,6 +12,7 @@ import { DeleteArticleButton } from "../delete-article-button";
 import { GenerationTrace } from "../generation-trace";
 import { PublishPanel } from "../publish-panel";
 import { ReviseArticle } from "../revise-article";
+import { VersionDiff } from "../version-diff";
 
 // Las keywords se guardan como JSON; parseamos de forma defensiva (nunca debe romper la vista).
 function parseKeywords(raw: string): string[] {
@@ -100,6 +101,12 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
       </div>
 
       <PublishPanel articleId={article.id} wordpressConfigured={wordpressConfigured} />
+
+      <VersionDiff
+        parent={article.parent}
+        currentMarkdown={article.contentMarkdown}
+        revisions={article.children}
+      />
 
       <ReviseArticle articleId={article.id} />
 

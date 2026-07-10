@@ -22,7 +22,15 @@ export function listArticlesByUser(userId: string) {
 export function getArticleForUser(articleId: string, userId: string) {
   return prisma.article.findFirst({
     where: { id: articleId, userId },
-    include: { run: { include: { steps: { orderBy: { createdAt: "asc" } } } } },
+    include: {
+      run: { include: { steps: { orderBy: { createdAt: "asc" } } } },
+      // Versionado: el padre (para la vista de diferencias) y las revisiones posteriores.
+      parent: { select: { id: true, title: true, contentMarkdown: true, createdAt: true } },
+      children: {
+        select: { id: true, title: true, createdAt: true },
+        orderBy: { createdAt: "asc" },
+      },
+    },
   });
 }
 

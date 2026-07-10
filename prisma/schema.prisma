@@ -251,11 +251,16 @@ model Article {
   // Ruta (relativa al directorio de uploads) de la imagen destacada generada por la etapa
   // feature-image; null si el tipo de noticia no la activa o su generación falló.
   featuredImagePath String?
+  // Versionado: el artículo del que este es una revisión (Revision Mode). El hijo apunta
+  // al padre; si el padre se borra, el hijo queda huérfano (SetNull), no se borra en cascada.
+  parentId String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   run  GenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  parent   Article?  @relation("ArticleVersions", fields: [parentId], references: [id], onDelete: SetNull)
+  children Article[] @relation("ArticleVersions")
   embedding ArticleEmbedding?
 
   @@index([userId])

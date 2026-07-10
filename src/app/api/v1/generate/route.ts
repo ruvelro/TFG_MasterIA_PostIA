@@ -38,7 +38,7 @@ export async function POST(request: NextRequest): Promise<Response> {
     return new Response(parsed.error.issues[0].message, { status: 400 });
   }
 
-  const { topic, context, newsTypeId, lengthPresetId, overrides } = parsed.data;
+  const { topic, context, language, newsTypeId, lengthPresetId, overrides } = parsed.data;
 
   return streamJsonEvents<GenerationStreamEvent>(async (emit, signal) => {
     const result = await startGenerationForUser(
@@ -46,6 +46,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         userId: auth.userId,
         topic,
         context,
+        language,
         // Desatendida: sin pausas de revisión (el consumidor recibe el artículo terminado).
         pauseForReview: false,
         pauseForBlueprintReview: false,

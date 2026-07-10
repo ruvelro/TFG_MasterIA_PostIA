@@ -30,6 +30,8 @@ export const startGenerationSchema = z.object({
   pauseForBlueprintReview: z.boolean().default(false),
   /** Id del tipo de noticia elegido; si falta o no existe, se usa el predeterminado. */
   newsTypeId: z.string().max(50).optional(),
+  /** Idioma del artículo (texto libre para los prompts); si falta, español. */
+  language: z.string().trim().max(40).optional(),
   /** Id del preset de longitud elegido; si falta o no existe, gobierna el tipo de noticia. */
   lengthPresetId: z.string().max(50).optional(),
   overrides: overridesSchema,
