@@ -53,9 +53,11 @@ RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
-# Directorio de datos (SQLite) propiedad del usuario no-root; el volumen nombrado del compose
-# hereda esta propiedad al crearse, de modo que el proceso pueda escribir la base de datos.
-RUN mkdir -p /data && chown node:node /data
+# Directorios de datos (SQLite) y de subidas (imágenes destacadas) propiedad del usuario
+# no-root; los volúmenes nombrados del compose heredan esta propiedad al crearse, de modo
+# que el proceso pueda escribir la base de datos y las imágenes generadas.
+RUN mkdir -p /data /app/uploads/featured \
+  && chown -R node:node /data /app/uploads
 
 # Copiamos solo lo necesario para ejecutar, con propiedad del usuario node.
 COPY --from=builder --chown=node:node /app/node_modules ./node_modules

@@ -47,10 +47,14 @@ La app queda en `http://TU_IP:38291` (o el `APP_PORT` que definas).
 
 ## Datos y backups
 
-- La base de datos SQLite vive en el **volumen** `postia-data` (montado en `/data`), así que
-  **persiste** entre reinicios y reconstrucciones.
-- Backup: `docker run --rm -v tfg_masteria_postia_postia-data:/data -v "$PWD":/backup alpine \
-tar czf /backup/postia-data.tgz -C /data .` (ajusta el nombre del volumen si difiere).
+- Dos **volúmenes** persisten entre reinicios y reconstrucciones:
+  - `postia-data` (montado en `/data`): la base de datos SQLite.
+  - `postia-uploads` (montado en `/app/uploads`): las imágenes destacadas generadas por la
+    etapa `feature-image`.
+- Backup de la base de datos: `docker run --rm -v tfg_masteria_postia_postia-data:/data -v "$PWD":/backup alpine \
+tar czf /backup/postia-data.tgz -C /data .` (ajusta el nombre del volumen si difiere; usa
+  `docker volume ls` para verlo).
+- Backup de las imágenes: igual pero con el volumen `postia-uploads` y `-C /app/uploads`.
 
 ## Seguridad aplicada
 
