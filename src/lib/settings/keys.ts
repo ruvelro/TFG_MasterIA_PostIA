@@ -23,6 +23,7 @@ export const SETTING_KEYS = {
   // Estilo editorial estructurado (JSON) y modelo del analizador de estilo.
   styleProfile: "editorial_style_profile",
   styleAnalyzerModel: "style_analyzer_model",
+  queryExpansionModel: "query_expansion_model",
   // Configuración (JSON) del validador editorial determinista.
   validatorConfig: "editorial_validator_config",
   // Catálogo (JSON) de tipos de noticia (presets del pipeline).

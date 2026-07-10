@@ -24,6 +24,7 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     voiceBrand: "",
     voiceHouseRules: "",
     voiceExamples: [],
+    freshnessDays: 0,
   },
   {
     id: "nota-breve",
@@ -39,6 +40,8 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     voiceBrand: "",
     voiceHouseRules: "",
     voiceExamples: [],
+    // Las notas breves son piezas de actualidad: fuentes de los últimos 30 días.
+    freshnessDays: 30,
   },
   {
     id: "analisis",
@@ -54,6 +57,7 @@ export const DEFAULT_NEWS_TYPES: NewsType[] = [
     voiceBrand: "",
     voiceHouseRules: "",
     voiceExamples: [],
+    freshnessDays: 0,
   },
 ];
 

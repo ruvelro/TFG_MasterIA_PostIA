@@ -105,3 +105,20 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
 La clave de OpenRouter y las del buscador se guardan **cifradas** en la BD y se gestionan en
 `/admin` (ver [seguridad.md](seguridad.md)). El proveedor de búsqueda (Tavily o Google CSE)
 también se elige ahí; el research lo consume a través de la interfaz `SearchProvider`.
+
+## Detalle de la etapa research
+
+La calidad del pipeline está acotada por lo que entra en research, así que la búsqueda se
+refuerza en cuatro frentes:
+
+- **Expansión de consultas**: una micro-llamada de IA (modelo barato configurable en
+  `/admin`, desactivable) genera 2-3 consultas complementarias al tema literal; los
+  resultados se fusionan. Si el modelo falla, se degrada al tema tal cual. No es una etapa
+  del catálogo: su coste y tokens se registran en la fila `GenerationStep` de research.
+- **Deduplicación**: por URL normalizada y con un máximo de 2 fuentes por dominio, para no
+  construir el artículo sobre una sola web repetida.
+- **Frescura**: si el tipo de noticia define `freshnessDays > 0`, el proveedor limita los
+  resultados a los últimos N días (Tavily: `topic=news&days=N`; Google: `dateRestrict=dN`).
+- **Extracción del cuerpo**: el HTML descargado pasa por `@mozilla/readability` sobre
+  `linkedom` (sin navegador), que aísla el artículo y descarta menús, banners y footers;
+  si no encuentra un artículo con entidad, se cae al stripping clásico por regex.
