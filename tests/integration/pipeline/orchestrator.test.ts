@@ -440,6 +440,54 @@ describe("orquestador del pipeline", () => {
     expect(humanizeSteps.length).toBe(2);
   });
 
+  it("marca el run como cancelled (no failed) cuando el usuario aborta", async () => {
+    // El abort del stream se propaga a las llamadas de IA como AbortError: no es un fallo
+    // del pipeline y no debe contaminar las métricas de fiabilidad.
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+    const deps = makeDeps({ validatePasses: true });
+    deps.runObject = async () => {
+      throw abortError;
+    };
+
+    await expect(
+      startGeneration({
+        userId,
+        topic: "Generación cancelada",
+        pauseForReview: false,
+        cfg: makeConfig(),
+        deps,
+      }),
+    ).rejects.toThrow("aborted");
+
+    const run = await prisma.generationRun.findFirstOrThrow({
+      where: { userId, topic: "Generación cancelada" },
+    });
+    expect(run.status).toBe("cancelled");
+  });
+
+  it("marca el run como failed ante un error real (no cancelación)", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    deps.runObject = async () => {
+      throw new Error("El modelo devolvió un error 500");
+    };
+
+    await expect(
+      startGeneration({
+        userId,
+        topic: "Generación fallida",
+        pauseForReview: false,
+        cfg: makeConfig(),
+        deps,
+      }),
+    ).rejects.toThrow("500");
+
+    const run = await prisma.generationRun.findFirstOrThrow({
+      where: { userId, topic: "Generación fallida" },
+    });
+    expect(run.status).toBe("failed");
+  });
+
   it("reviseGeneration regenera desde un borrador existente sin investigar", async () => {
     const result = await reviseGeneration({
       userId,

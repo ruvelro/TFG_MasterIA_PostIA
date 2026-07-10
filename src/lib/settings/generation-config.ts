@@ -23,6 +23,8 @@ export interface GenerationConfig {
   sourceCount: number;
   /** Modelo de la expansión de consultas de research ("" = desactivada). */
   queryExpansionModel: string;
+  /** Presupuesto diario de IA por usuario en USD (0 = sin límite). */
+  dailyCostLimitUsd: number;
   maxFixIterations: number;
   maxHumanizeRetries: number;
   aiScoreThreshold: number;
@@ -53,6 +55,13 @@ export const DEFAULT_STYLE_ANALYZER_MODEL = "google/gemini-2.5-flash";
 export const DEFAULT_QUERY_EXPANSION_MODEL = "google/gemini-2.5-flash";
 
 const SOURCE_COUNT_DEFAULT = 5;
+
+/** Convierte un ajuste de texto a número (decimal) dentro de un rango, con defecto si no es válido. */
+function parseBoundedFloat(raw: string | null, fallback: number, min: number, max: number): number {
+  const value = Number.parseFloat(raw ?? "");
+  if (Number.isNaN(value)) return fallback;
+  return Math.min(Math.max(value, min), max);
+}
 
 /** Convierte un ajuste de texto a entero dentro de un rango, cayendo al defecto si no es válido. */
 function parseBoundedInt(raw: string | null, fallback: number, min: number, max: number): number {
@@ -141,6 +150,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     validatorConfig,
     sourceCount,
     queryExpansionModel,
+    dailyCostLimitUsd,
     maxFixIterations,
     maxHumanizeRetries,
     aiScoreThreshold,
@@ -152,6 +162,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     getValidatorConfig(),
     getAppSetting(SETTING_KEYS.sourceCount),
     getAppSetting(SETTING_KEYS.queryExpansionModel),
+    getAppSetting(SETTING_KEYS.dailyCostLimitUsd),
     getAppSetting(SETTING_KEYS.maxFixIterations),
     getAppSetting(SETTING_KEYS.maxHumanizeRetries),
     getAppSetting(SETTING_KEYS.aiScoreThreshold),
@@ -168,6 +179,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     // Expansión de consultas: null (sin fila) = default de fábrica; guardado vacío = desactivada.
     queryExpansionModel:
       queryExpansionModel === null ? DEFAULT_QUERY_EXPANSION_MODEL : queryExpansionModel.trim(),
+    dailyCostLimitUsd: parseBoundedFloat(dailyCostLimitUsd, 0, 0, 10_000),
     maxFixIterations: parseBoundedInt(
       maxFixIterations,
       DEFAULT_PIPELINE_PARAMS.maxFixIterations,

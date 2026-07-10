@@ -178,6 +178,20 @@ export default async function AdminPage() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">
+                Presupuesto diario por usuario (USD, 0 = sin límite)
+              </span>
+              <input
+                name="dailyCostLimitUsd"
+                type="number"
+                min={0}
+                max={10000}
+                step={0.01}
+                defaultValue={generation.dailyCostLimitUsd}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Modelo de expansión de consultas (research)</span>
               <input
                 name="queryExpansionModel"
