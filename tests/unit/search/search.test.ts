@@ -36,6 +36,20 @@ describe("TavilyProvider", () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false, status: 401 } as Response));
     await expect(new TavilyProvider("clave").search("x")).rejects.toThrow("401");
   });
+
+  it("traduce la frescura al parámetro days con topic news", async () => {
+    const fetchMock = mockFetchJson({ results: [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new TavilyProvider("clave").search("ia", 3, { freshnessDays: 7 });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ topic: "news", days: 7 });
+
+    // Sin frescura no se envían los parámetros (búsqueda general, no de noticias).
+    await new TavilyProvider("clave").search("ia", 3);
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body).not.toHaveProperty("days");
+    expect(body).not.toHaveProperty("topic");
+  });
 });
 
 describe("GoogleCseProvider", () => {
@@ -52,6 +66,17 @@ describe("GoogleCseProvider", () => {
     expect(calledUrl).toContain("key=k");
     expect(calledUrl).toContain("cx=cx");
     expect(calledUrl).toContain("q=ia");
+  });
+
+  it("traduce la frescura al parámetro dateRestrict", async () => {
+    const fetchMock = mockFetchJson({ items: [] });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await new GoogleCseProvider("k", "cx").search("ia", 5, { freshnessDays: 30 });
+    expect(String(fetchMock.mock.calls[0][0])).toContain("dateRestrict=d30");
+
+    await new GoogleCseProvider("k", "cx").search("ia", 5);
+    expect(String(fetchMock.mock.calls[1][0])).not.toContain("dateRestrict");
   });
 });
 

@@ -2,7 +2,9 @@ import type { NextRequest } from "next/server";
 
 import { requireSession } from "@/lib/auth/authorize";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { indexArticleAndSuggestLinks } from "@/lib/embeddings/service";
 import { generateRateLimiter } from "@/lib/http/rate-limit";
+import { checkDailyBudget } from "@/lib/observability/cost-budget";
 import { startGenerationForUser } from "@/lib/pipeline/service";
 import type { GenerationStreamEvent } from "@/lib/pipeline/stream-events";
 import { startGenerationSchema } from "@/lib/validation/generation";
@@ -27,6 +29,16 @@ export async function POST(request: NextRequest): Promise<Response> {
     return new Response("Demasiadas peticiones, inténtalo en un minuto.", { status: 429 });
   }
 
+  // Presupuesto diario en USD (si el admin lo ha configurado): protege el coste real de IA,
+  // no solo el número de peticiones.
+  const budget = await checkDailyBudget(session.user.id);
+  if (!budget.allowed) {
+    return new Response(
+      `Presupuesto diario de IA agotado (${budget.spentUsd.toFixed(2)} de ${budget.limitUsd.toFixed(2)} USD en 24 h).`,
+      { status: 429 },
+    );
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = startGenerationSchema.safeParse(body);
   if (!parsed.success) {
@@ -37,6 +49,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const {
     topic,
     context,
+    language,
     pauseForReview,
     pauseForBlueprintReview,
     newsTypeId,
@@ -50,6 +63,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         userId,
         topic,
         context,
+        language,
         pauseForReview,
         pauseForBlueprintReview,
         newsTypeId,
@@ -76,6 +90,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
+      // Indexado para dedupe/enlazado interno: best-effort, fuera del camino crítico.
+      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
     }
   });
 }

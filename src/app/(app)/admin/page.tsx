@@ -5,6 +5,7 @@ import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { getAppSetting } from "@/lib/settings/app-config";
 import {
+  getEmbeddingsModel,
   getGenerationConfig,
   getStyleAnalyzerModel,
   getValidatorConfig,
@@ -50,11 +51,15 @@ export default async function AdminPage() {
     openRouter,
     tavily,
     google,
+    wordpressPassword,
     searchProvider,
     googleEngineId,
+    wordpressUrl,
+    wordpressUsername,
     stepConfigs,
     generation,
     analyzerModel,
+    embeddingsModel,
     validator,
     newsTypes,
     lengthPresets,
@@ -62,11 +67,15 @@ export default async function AdminPage() {
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
     getSecretStatus(SECRET_KEYS.googleCse),
+    getSecretStatus(SECRET_KEYS.wordpressAppPassword),
     getAppSetting(SETTING_KEYS.searchProvider),
     getAppSetting(SETTING_KEYS.googleEngineId),
+    getAppSetting(SETTING_KEYS.wordpressUrl),
+    getAppSetting(SETTING_KEYS.wordpressUsername),
     getAllStepConfigs(),
     getGenerationConfig(),
     getStyleAnalyzerModel(),
+    getEmbeddingsModel(),
     getValidatorConfig(),
     getNewsTypes(),
     getLengthPresets(),
@@ -135,6 +144,44 @@ export default async function AdminPage() {
               placeholder="Sin configurar"
             />
           </label>
+
+          <h3 className="pt-2 text-base font-semibold">Publicación en WordPress</h3>
+          <p className="text-muted text-sm">
+            Permite publicar artículos como borrador o post en un WordPress vía REST API. La
+            contraseña es una <em>Application Password</em> del perfil del usuario de WordPress.
+          </p>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">URL del sitio</span>
+            <input
+              name="wordpressUrl"
+              type="url"
+              defaultValue={wordpressUrl ?? ""}
+              className={inputClass}
+              placeholder="https://miblog.com"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Usuario</span>
+            <input
+              name="wordpressUsername"
+              type="text"
+              defaultValue={wordpressUsername ?? ""}
+              className={inputClass}
+              placeholder="Sin configurar"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Application Password</span>
+            <input
+              name="wordpressAppPassword"
+              type="password"
+              className={inputClass}
+              placeholder={secretPlaceholder(wordpressPassword)}
+            />
+          </label>
         </AdminForm>
       ),
     },
@@ -175,6 +222,50 @@ export default async function AdminPage() {
                 max={10}
                 defaultValue={generation.sourceCount}
                 className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">
+                Presupuesto diario por usuario (USD, 0 = sin límite)
+              </span>
+              <input
+                name="dailyCostLimitUsd"
+                type="number"
+                min={0}
+                max={10000}
+                step={0.01}
+                defaultValue={generation.dailyCostLimitUsd}
+                className={inputClass}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modelo de expansión de consultas (research)</span>
+              <input
+                name="queryExpansionModel"
+                type="text"
+                defaultValue={generation.queryExpansionModel}
+                placeholder="google/gemini-2.5-flash · vacío = desactivada"
+                className={`${inputClass} font-mono`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modelo de imagen destacada (feature-image)</span>
+              <input
+                name="featureImageModel"
+                type="text"
+                defaultValue={generation.featureImageModel}
+                placeholder="google/gemini-2.5-flash-image · vacío = desactivada"
+                className={`${inputClass} font-mono`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modelo de embeddings (dedupe y enlazado)</span>
+              <input
+                name="embeddingsModel"
+                type="text"
+                defaultValue={embeddingsModel}
+                placeholder="openai/text-embedding-3-small · vacío = desactivado"
+                className={`${inputClass} font-mono`}
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">

@@ -31,6 +31,8 @@ const SourceSchema = z.object({
   snippet: z.string(),
   // Contenido descargado (la "fuente de verdad"). Opcional para tolerar fuentes sin cuerpo.
   content: z.string().default(""),
+  // Marcada por la heurística anti-inyección de research (contenido degradado al extracto).
+  suspicious: z.boolean().optional(),
 });
 
 export const PipelineContextSchema = z.object({
@@ -40,6 +42,8 @@ export const PipelineContextSchema = z.object({
   lengthPreset: LengthPresetSchema.optional(),
   revisionInstructions: z.string().optional(),
   context: z.string().optional(),
+  language: z.string().optional(),
+  parentArticleId: z.string().optional(),
   pauseForBlueprintReview: z.boolean().optional(),
   facts: FactsSchema.optional(),
   blueprint: BlueprintSchema.optional(),
@@ -50,6 +54,7 @@ export const PipelineContextSchema = z.object({
   humanizeAttempts: z.number().int().optional(),
   article: FixerOutputSchema.optional(),
   enrichment: ArticleEnrichmentSchema.optional(),
+  featuredImagePath: z.string().optional(),
 });
 
 /**

@@ -24,7 +24,7 @@ _De un simple **tema** a un **artículo documentado, humano y optimizado para SE
 
 La mayoría de generadores de texto hacen **una sola llamada** a un modelo y te devuelven un
 artículo genérico, con datos inventados y ese inconfundible "olor a IA". PostIA hace algo
-distinto: orquesta un **pipeline de 11 etapas especializadas**, donde cada paso tiene una
+distinto: orquesta un **pipeline de 12 etapas especializadas**, donde cada paso tiene una
 única responsabilidad y **puede ejecutarse con el modelo más adecuado** (uno barato para
 tareas mecánicas, uno potente para las que exigen criterio).
 
@@ -41,7 +41,7 @@ El resultado es un artículo que:
 
 |     | Característica                       | Detalle                                                                                            |
 | --- | ------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| 🧩  | **Pipeline multi-etapa**             | 11 etapas encadenadas; cada una con su contrato de entrada/salida tipado.                          |
+| 🧩  | **Pipeline multi-etapa**             | 12 etapas encadenadas; cada una con su contrato de entrada/salida tipado.                          |
 | 🎛️  | **Un modelo distinto por etapa**     | Configura qué modelo de OpenRouter usa cada paso, y su _prompt_, desde el panel de administración. |
 | 🔎  | **Investigación con fuentes reales** | Busca en la web (Tavily o Google CSE) y descarga el contenido como fuente de verdad.               |
 | 👀  | **Progreso en vivo**                 | Ves cada etapa ejecutarse en tiempo real mediante _streaming_.                                     |
@@ -56,7 +56,7 @@ El resultado es un artículo que:
 
 ---
 
-## 🛠️ ¿Cómo funciona? El pipeline en 11 etapas
+## 🛠️ ¿Cómo funciona? El pipeline en 12 etapas
 
 ```
   TEMA
@@ -81,12 +81,14 @@ El resultado es un artículo que:
    │
  ⑪ enrich ────────► titulares alt, tags, FAQ, alt, Schema.org
    │
+ ⑫ feature-image ─► genera la imagen destacada (modelo de imagen)
+   │
    ▼
  ARTÍCULO PUBLICABLE  📰
 ```
 
-> Las etapas **humanize**, **factual-review** y **quality-review** son **opcionales** según
-> el _tipo de noticia_. La explicación completa de cada etapa está en
+> Las etapas **humanize**, **factual-review**, **quality-review** y **feature-image** son
+> **opcionales** según el _tipo de noticia_. La explicación completa de cada etapa está en
 > [`docs/pipeline.md`](docs/pipeline.md).
 
 <div align="center">

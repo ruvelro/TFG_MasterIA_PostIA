@@ -13,6 +13,15 @@ import { z } from "zod";
  * Este módulo es solo de servidor: nunca debe importarse desde componentes de
  * cliente, porque expondría la forma de la configuración del backend.
  */
+/** Valida que un valor sea una clave AES-256 válida: 32 bytes codificados en base64. */
+function isBase64Key32Bytes(value: string): boolean {
+  try {
+    return Buffer.from(value, "base64").length === 32;
+  } catch {
+    return false;
+  }
+}
+
 const serverSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
@@ -32,16 +41,19 @@ const serverSchema = z.object({
   // Clave maestra (KEK) para cifrar en reposo los secretos de terceros (claves de API de
   // OpenRouter y de búsqueda) que se guardan en la base de datos. Debe ser de 32 bytes
   // (AES-256), codificada en base64. Genérala con: openssl rand -base64 32
-  ENCRYPTION_KEY: z.string().refine(
-    (value) => {
-      try {
-        return Buffer.from(value, "base64").length === 32;
-      } catch {
-        return false;
-      }
-    },
-    { error: "ENCRYPTION_KEY debe ser 32 bytes en base64 (genera con: openssl rand -base64 32)" },
-  ),
+  ENCRYPTION_KEY: z.string().refine(isBase64Key32Bytes, {
+    error: "ENCRYPTION_KEY debe ser 32 bytes en base64 (genera con: openssl rand -base64 32)",
+  }),
+
+  // KEK ANTERIOR, solo durante una rotación de clave (ADR 0007): permite descifrar los
+  // secretos cifrados con la clave vieja mientras se re-cifran perezosamente con la nueva.
+  // Retírala cuando todos los secretos estén re-cifrados.
+  ENCRYPTION_KEY_PREVIOUS: z
+    .string()
+    .refine(isBase64Key32Bytes, {
+      error: "ENCRYPTION_KEY_PREVIOUS debe ser 32 bytes en base64",
+    })
+    .optional(),
 });
 
 type ServerEnv = z.infer<typeof serverSchema>;

@@ -5,11 +5,15 @@ export const SECRET_KEYS = {
   openRouter: "openrouter_api_key",
   tavily: "tavily_api_key",
   googleCse: "google_cse_api_key",
+  wordpressAppPassword: "wordpress_app_password",
 } as const;
 
 export const SETTING_KEYS = {
   searchProvider: "search_provider",
   googleEngineId: "google_cse_engine_id",
+  // Publicación en WordPress (la Application Password va en SECRET_KEYS).
+  wordpressUrl: "wordpress_url",
+  wordpressUsername: "wordpress_username",
   // Configuración de generación.
   sourceCount: "research_source_count",
   maxFixIterations: "max_fix_iterations",
@@ -23,6 +27,10 @@ export const SETTING_KEYS = {
   // Estilo editorial estructurado (JSON) y modelo del analizador de estilo.
   styleProfile: "editorial_style_profile",
   styleAnalyzerModel: "style_analyzer_model",
+  queryExpansionModel: "query_expansion_model",
+  dailyCostLimitUsd: "daily_cost_limit_usd",
+  featureImageModel: "feature_image_model",
+  embeddingsModel: "embeddings_model",
   // Configuración (JSON) del validador editorial determinista.
   validatorConfig: "editorial_validator_config",
   // Catálogo (JSON) de tipos de noticia (presets del pipeline).

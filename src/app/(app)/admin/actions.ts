@@ -49,11 +49,19 @@ export async function saveIntegrations(
   const google = field(formData, "google");
   const engineId = field(formData, "googleEngineId");
   const provider = field(formData, "searchProvider");
+  const wordpressUrl = field(formData, "wordpressUrl");
+  const wordpressUsername = field(formData, "wordpressUsername");
+  const wordpressAppPassword = field(formData, "wordpressAppPassword");
 
   if (openrouter) await setSecret(SECRET_KEYS.openRouter, openrouter);
   if (tavily) await setSecret(SECRET_KEYS.tavily, tavily);
   if (google) await setSecret(SECRET_KEYS.googleCse, google);
   if (engineId) await setAppSetting(SETTING_KEYS.googleEngineId, engineId);
+  // WordPress: URL y usuario se guardan tal cual (pueden vaciarse para desactivar la
+  // integración); la Application Password solo se sobreescribe si se escribe una nueva.
+  await setAppSetting(SETTING_KEYS.wordpressUrl, wordpressUrl);
+  await setAppSetting(SETTING_KEYS.wordpressUsername, wordpressUsername);
+  if (wordpressAppPassword) await setSecret(SECRET_KEYS.wordpressAppPassword, wordpressAppPassword);
   if (provider === "tavily" || provider === "google") {
     await setAppSetting(SETTING_KEYS.searchProvider, provider);
   }
@@ -75,6 +83,10 @@ export async function saveGenerationConfig(
   await requireAdmin();
 
   await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
+  await setAppSetting(SETTING_KEYS.queryExpansionModel, field(formData, "queryExpansionModel"));
+  await setAppSetting(SETTING_KEYS.dailyCostLimitUsd, field(formData, "dailyCostLimitUsd"));
+  await setAppSetting(SETTING_KEYS.featureImageModel, field(formData, "featureImageModel"));
+  await setAppSetting(SETTING_KEYS.embeddingsModel, field(formData, "embeddingsModel"));
   await setAppSetting(SETTING_KEYS.maxFixIterations, field(formData, "maxFixIterations"));
   await setAppSetting(SETTING_KEYS.maxHumanizeRetries, field(formData, "maxHumanizeRetries"));
   await setAppSetting(SETTING_KEYS.aiScoreThreshold, field(formData, "aiScoreThreshold"));

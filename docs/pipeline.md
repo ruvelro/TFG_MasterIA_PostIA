@@ -6,7 +6,7 @@ una con una responsabilidad única y un contrato de entrada/salida tipado. El mo
 
 ## Flujo
 
-El pipeline creció de 6 a **11 etapas** para reforzar la lucha anti-IA (humanización),
+El pipeline creció de 6 a **12 etapas** para reforzar la lucha anti-IA (humanización),
 desdoblar la validación en varios jueces especializados y añadir limpieza y enriquecimiento
 GEO. El catálogo único y ordenado de etapas vive en `src/lib/pipeline/stages.ts` (`STAGE_IDS`),
 del que beben tanto la UI como el orquestador. El porqué de la evolución está en el
@@ -33,6 +33,7 @@ research → extract → [revisión humana opcional]
 | 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido + **meta SEO** (title, slug, metaDescription, keywords)  |
 | 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                              |
 | 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen |
+| 12  | **feature-image**  | Sí (imagen)   | prompt de imagen de enrich                           | imagen destacada persistida (opcional; el artículo no depende de ella)      |
 
 Además, dentro del bucle corre un **validador editorial determinista** (sin IA,
 `steps/editorial-validator.ts`) que comprueba reglas mecánicas (palabras prohibidas,
@@ -105,3 +106,27 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
 La clave de OpenRouter y las del buscador se guardan **cifradas** en la BD y se gestionan en
 `/admin` (ver [seguridad.md](seguridad.md)). El proveedor de búsqueda (Tavily o Google CSE)
 también se elige ahí; el research lo consume a través de la interfaz `SearchProvider`.
+
+## Idioma del artículo
+
+El idioma es un parámetro de la generación (campo opcional del formulario y de la API;
+por defecto, español). Viaja en el contexto del pipeline y las plantillas lo reciben como
+`{{language}}` (redacción y enriquecimiento), de modo que un mismo portal puede producir
+piezas en varios idiomas sin tocar la configuración.
+
+## Detalle de la etapa research
+
+La calidad del pipeline está acotada por lo que entra en research, así que la búsqueda se
+refuerza en cuatro frentes:
+
+- **Expansión de consultas**: una micro-llamada de IA (modelo barato configurable en
+  `/admin`, desactivable) genera 2-3 consultas complementarias al tema literal; los
+  resultados se fusionan. Si el modelo falla, se degrada al tema tal cual. No es una etapa
+  del catálogo: su coste y tokens se registran en la fila `GenerationStep` de research.
+- **Deduplicación**: por URL normalizada y con un máximo de 2 fuentes por dominio, para no
+  construir el artículo sobre una sola web repetida.
+- **Frescura**: si el tipo de noticia define `freshnessDays > 0`, el proveedor limita los
+  resultados a los últimos N días (Tavily: `topic=news&days=N`; Google: `dateRestrict=dN`).
+- **Extracción del cuerpo**: el HTML descargado pasa por `@mozilla/readability` sobre
+  `linkedom` (sin navegador), que aísla el artículo y descarta menús, banners y footers;
+  si no encuentra un artículo con entidad, se cae al stripping clásico por regex.

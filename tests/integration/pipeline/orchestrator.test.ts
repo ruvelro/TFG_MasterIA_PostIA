@@ -25,6 +25,9 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     seoRules: "Usa la keyword en el primer párrafo",
     geoRules: "Responde preguntas frecuentes de forma directa",
     sourceCount: 2,
+    // Desactivada en los tests del orquestador: la expansión tiene sus propios tests unitarios.
+    queryExpansionModel: "",
+    featureImageModel: "modelo/imagen",
     maxFixIterations,
     maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
     aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
@@ -113,6 +116,13 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
       usage: { inputTokens: 1, outputTokens: 1 },
     }),
     runObject,
+    runImage: async () => ({
+      imageBase64: Buffer.from("png-falso").toString("base64"),
+      mediaType: "image/png",
+      usage: { inputTokens: 1, outputTokens: 1 },
+    }),
+    // No toca disco: devuelve la ruta que persistiría el almacenamiento real.
+    storeImage: async ({ runId }) => `uploads/featured/${runId}.png`,
     // Coste determinista para el test: 1e-6 USD por token, solo cuando hay modelo (etapas IA).
     estimateCost: async (model, inputTokens, outputTokens) =>
       model ? ((inputTokens ?? 0) + (outputTokens ?? 0)) * 1e-6 : null,
@@ -329,13 +339,38 @@ describe("orquestador del pipeline", () => {
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
-    // Con maxFixIterations=2 y validación que nunca pasa, debe validar 2 veces.
-    expect(validateSteps.length).toBe(2);
+    // Con maxFixIterations=2 y validación que nunca pasa: 2 validaciones del bucle + la
+    // revalidación determinista final que comprueba la última corrección del fixer.
+    expect(validateSteps.length).toBe(3);
     const attempts = validateSteps.map((s) => s.attempt).sort();
-    expect(attempts).toEqual([1, 2]);
+    expect(attempts).toEqual([1, 2, 3]);
 
-    // El bucle se agotó sin superar la validación: el artículo NO se marca como revalidado.
+    // La revalidación final no encontró problemas bloqueantes en el texto entregado: la
+    // última pasada del fixer queda comprobada y la métrica lo refleja.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+  });
+
+  it("la revalidación final mantiene el suspenso si persisten problemas bloqueantes", async () => {
+    // La validación IA nunca pasa Y el artículo final del fixer contiene una palabra
+    // prohibida ("clave" aparece en su Markdown): la revalidación determinista posterior a
+    // la última corrección debe suspender el artículo entregado.
+    const result = await startGeneration({
+      userId,
+      topic: "Ciberseguridad",
+      pauseForReview: false,
+      cfg: { ...makeConfig(2), forbiddenWords: ["clave"] },
+      deps: makeDeps({ validatePasses: false }),
+    });
+
+    expect(result.status).toBe("completed");
+    const validateSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "validate" },
+    });
+    expect(validateSteps.length).toBe(3); // 2 del bucle + revalidación final
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
+    // El informe final describe el texto entregado, con el problema bloqueante visible.
+    expect(result.context.report?.passed).toBe(false);
+    expect(result.context.report?.issues.some((i) => i.severity === "high")).toBe(true);
   });
 
   it("respeta los toggles del tipo de noticia y omite las etapas desactivadas", async () => {
@@ -356,6 +391,8 @@ describe("orquestador del pipeline", () => {
         voiceBrand: "",
         voiceHouseRules: "",
         voiceExamples: [],
+        enableFeatureImage: false,
+        freshnessDays: 0,
       },
       cfg: makeConfig(1),
       deps: makeDeps({ validatePasses: true }),
@@ -412,10 +449,146 @@ describe("orquestador del pipeline", () => {
     expect(humanizeSteps.length).toBe(2);
   });
 
+  it("genera y persiste la imagen destacada cuando el tipo la activa", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Con imagen destacada",
+      pauseForReview: false,
+      newsType: {
+        id: "con-imagen",
+        label: "Con imagen",
+        description: "",
+        enableHumanize: false,
+        enableFactualReview: false,
+        enableQualityReview: false,
+        sourceStrict: false,
+        structureInstruction: "",
+        targetWordCount: 0,
+        voiceBrand: "",
+        voiceHouseRules: "",
+        voiceExamples: [],
+        enableFeatureImage: true,
+        freshnessDays: 0,
+      },
+      cfg: makeConfig(1),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(result.status).toBe("completed");
+    const imageStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "feature-image" },
+    });
+    expect(imageStep?.status).toBe("done");
+    expect(imageStep?.model).toBe("modelo/imagen");
+
+    const article = await prisma.article.findFirst({ where: { runId: result.runId } });
+    expect(article?.featuredImagePath).toBe(`uploads/featured/${result.runId}.png`);
+  });
+
+  it("si el modelo de imagen falla, la generación se entrega sin imagen (degradación)", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    deps.runImage = async () => {
+      throw new Error("modelo de imagen caído");
+    };
+    const result = await startGeneration({
+      userId,
+      topic: "Imagen fallida",
+      pauseForReview: false,
+      newsType: {
+        id: "con-imagen",
+        label: "Con imagen",
+        description: "",
+        enableHumanize: false,
+        enableFactualReview: false,
+        enableQualityReview: false,
+        sourceStrict: false,
+        structureInstruction: "",
+        targetWordCount: 0,
+        voiceBrand: "",
+        voiceHouseRules: "",
+        voiceExamples: [],
+        enableFeatureImage: true,
+        freshnessDays: 0,
+      },
+      cfg: makeConfig(1),
+      deps,
+    });
+
+    expect(result.status).toBe("completed");
+    const imageStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "feature-image" },
+    });
+    expect(imageStep?.status).toBe("error");
+    const article = await prisma.article.findFirst({ where: { runId: result.runId } });
+    expect(article).not.toBeNull();
+    expect(article?.featuredImagePath).toBeNull();
+  });
+
+  it("marca el run como cancelled (no failed) cuando el usuario aborta", async () => {
+    // El abort del stream se propaga a las llamadas de IA como AbortError: no es un fallo
+    // del pipeline y no debe contaminar las métricas de fiabilidad.
+    const abortError = new Error("The operation was aborted");
+    abortError.name = "AbortError";
+    const deps = makeDeps({ validatePasses: true });
+    deps.runObject = async () => {
+      throw abortError;
+    };
+
+    await expect(
+      startGeneration({
+        userId,
+        topic: "Generación cancelada",
+        pauseForReview: false,
+        cfg: makeConfig(),
+        deps,
+      }),
+    ).rejects.toThrow("aborted");
+
+    const run = await prisma.generationRun.findFirstOrThrow({
+      where: { userId, topic: "Generación cancelada" },
+    });
+    expect(run.status).toBe("cancelled");
+  });
+
+  it("marca el run como failed ante un error real (no cancelación)", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    deps.runObject = async () => {
+      throw new Error("El modelo devolvió un error 500");
+    };
+
+    await expect(
+      startGeneration({
+        userId,
+        topic: "Generación fallida",
+        pauseForReview: false,
+        cfg: makeConfig(),
+        deps,
+      }),
+    ).rejects.toThrow("500");
+
+    const run = await prisma.generationRun.findFirstOrThrow({
+      where: { userId, topic: "Generación fallida" },
+    });
+    expect(run.status).toBe("failed");
+  });
+
   it("reviseGeneration regenera desde un borrador existente sin investigar", async () => {
+    // Artículo original al que la revisión debe quedar enlazada (versionado padre→hijo).
+    const original = await prisma.article.create({
+      data: {
+        userId,
+        title: "Original",
+        slug: "original",
+        contentMarkdown: "# Artículo original",
+        metaDescription: "meta",
+      },
+      select: { id: true },
+    });
+
     const result = await reviseGeneration({
       userId,
       topic: "Tema original",
+      sourceArticleId: original.id,
       sourceContext: {
         topic: "Tema original",
         sources: [],
@@ -441,8 +614,34 @@ describe("orquestador del pipeline", () => {
     expect(stageIds).not.toContain("blueprint");
     expect(stageIds).toEqual(expect.arrayContaining(["validate", "fixer", "scrub", "enrich"]));
 
-    // Produce un artículo nuevo en un run nuevo.
+    // Produce un artículo nuevo en un run nuevo, enlazado al original (versionado).
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article).not.toBeNull();
+    expect(article?.parentId).toBe(original.id);
+  });
+
+  it("inyecta el idioma solicitado en el prompt de redacción", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    const prompts: string[] = [];
+    const originalRunText = deps.runText;
+    deps.runText = async (params) => {
+      prompts.push(params.prompt);
+      return originalRunText(params);
+    };
+
+    const result = await startGeneration({
+      userId,
+      topic: "Artículo en inglés",
+      pauseForReview: false,
+      language: "inglés",
+      cfg: makeConfig(1),
+      deps,
+    });
+
+    expect(result.status).toBe("completed");
+    // El prompt del redactor (draft) lleva el idioma pedido en lugar del español fijo.
+    expect(prompts.some((prompt) => prompt.includes("en inglés"))).toBe(true);
+    // Y el idioma sobrevive en el contexto persistido (pausas, revisiones).
+    expect(result.context.language).toBe("inglés");
   });
 });

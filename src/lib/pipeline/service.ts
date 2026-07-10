@@ -25,6 +25,8 @@ export interface StartGenerationInput {
   userId: string;
   topic: string;
   context?: string;
+  /** Idioma del artículo (texto libre); si falta, español. */
+  language?: string;
   pauseForReview?: boolean;
   pauseForBlueprintReview?: boolean;
   newsTypeId?: string;
@@ -48,6 +50,7 @@ export async function startGenerationForUser(
     userId: input.userId,
     topic: input.topic,
     context: input.context,
+    language: input.language,
     pauseForReview: input.pauseForReview,
     pauseForBlueprintReview: input.pauseForBlueprintReview,
     newsType,
@@ -121,6 +124,7 @@ export async function reviseGenerationForUser(
   return reviseGeneration({
     userId: input.userId,
     topic: article.run.topic,
+    sourceArticleId: article.id,
     sourceContext,
     sourceArticleMarkdown: article.contentMarkdown,
     instructions: input.instructions,

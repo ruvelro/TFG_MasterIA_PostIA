@@ -57,3 +57,9 @@ prisma/*.db-journal
 !.vscode/extensions.json
 
 /src/generated/prisma
+
+# Resultados del harness de evaluación (npm run eval)
+/eval-results
+
+# Imágenes destacadas generadas en runtime (etapa feature-image)
+/uploads

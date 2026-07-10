@@ -2,7 +2,12 @@ import { GoogleCseProvider } from "@/lib/search/google-cse";
 import { TavilyProvider } from "@/lib/search/tavily";
 import type { SearchProvider, SearchProviderId } from "@/lib/search/types";
 
-export type { SearchProvider, SearchResult, SearchProviderId } from "@/lib/search/types";
+export type {
+  SearchOptions,
+  SearchProvider,
+  SearchResult,
+  SearchProviderId,
+} from "@/lib/search/types";
 
 /** Configuración resuelta (claves ya descifradas) necesaria para crear un proveedor. */
 export interface SearchConfig {

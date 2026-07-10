@@ -24,6 +24,8 @@ function emptyType(index: number): NewsType {
     voiceBrand: "",
     voiceHouseRules: "",
     voiceExamples: [],
+    enableFeatureImage: false,
+    freshnessDays: 0,
   };
 }
 
@@ -132,6 +134,14 @@ function NewsTypeCard({
           />
           <span>Ceñirse a las fuentes</span>
         </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={type.enableFeatureImage}
+            onChange={(e) => onPatch({ enableFeatureImage: e.target.checked })}
+          />
+          <span>Imagen destacada</span>
+        </label>
       </div>
 
       <label className="flex flex-col gap-1 text-sm">
@@ -144,17 +154,30 @@ function NewsTypeCard({
         />
       </label>
 
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Palabras objetivo (0 = sin objetivo)</span>
-        <input
-          type="number"
-          min={0}
-          max={10000}
-          value={type.targetWordCount}
-          onChange={(e) => onPatch({ targetWordCount: Number(e.target.value) || 0 })}
-          className={inputClass}
-        />
-      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Palabras objetivo (0 = sin objetivo)</span>
+          <input
+            type="number"
+            min={0}
+            max={10000}
+            value={type.targetWordCount}
+            onChange={(e) => onPatch({ targetWordCount: Number(e.target.value) || 0 })}
+            className={inputClass}
+          />
+        </label>
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Frescura de fuentes en días (0 = sin filtro)</span>
+          <input
+            type="number"
+            min={0}
+            max={365}
+            value={type.freshnessDays}
+            onChange={(e) => onPatch({ freshnessDays: Number(e.target.value) || 0 })}
+            className={inputClass}
+          />
+        </label>
+      </div>
 
       {/* ── Voz editorial específica de este tipo (complementa la voz global) ── */}
       <fieldset className="border-muted/20 flex flex-col gap-3 rounded-md border p-3">

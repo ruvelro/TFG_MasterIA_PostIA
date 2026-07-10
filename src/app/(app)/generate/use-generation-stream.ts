@@ -60,6 +60,8 @@ export interface LengthPresetOption {
 
 export interface StartOptions {
   context?: string;
+  /** Idioma del artículo (texto libre); si falta, español. */
+  language?: string;
   pauseForReview: boolean;
   pauseForBlueprintReview: boolean;
   newsTypeId?: string;

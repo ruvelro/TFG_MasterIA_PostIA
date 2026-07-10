@@ -6,6 +6,20 @@ import { z } from "zod";
  * pipeline trabaja con datos tipados y validados, no con texto libre que haya que parsear.
  */
 
+/**
+ * Salida de la expansión de consultas de research: consultas complementarias al tema literal
+ * para diversificar las fuentes. Es una micro-llamada auxiliar de la etapa research (no una
+ * etapa del catálogo), con un modelo barato configurable por el admin.
+ */
+export const QueryExpansionSchema = z.object({
+  queries: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(3)
+    .describe("Consultas de búsqueda complementarias al tema (2-3)"),
+});
+export type QueryExpansion = z.infer<typeof QueryExpansionSchema>;
+
 export const FactSchema = z.object({
   claim: z.string().describe("Hecho concreto y verificable"),
   source: z.string().describe("URL de la fuente de la que proviene el hecho"),
@@ -133,6 +147,22 @@ export type EnrichStepOutput = z.infer<typeof EnrichStepOutputSchema>;
  * a partir de los reportes ya existentes.
  */
 export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
+  /**
+   * Sugerencias de enlaces internos a artículos relacionados del mismo usuario (con el
+   * texto ancla propuesto). Las añade a posteriori el servicio de embeddings; opcional
+   * porque depende de que los embeddings estén operativos y haya artículos previos.
+   */
+  internalLinks: z
+    .array(
+      z.object({
+        articleId: z.string(),
+        title: z.string(),
+        slug: z.string(),
+        anchorText: z.string(),
+        similarity: z.number().min(0).max(1),
+      }),
+    )
+    .optional(),
   aiDetection: z.object({
     score: z.number().min(0).max(100).describe("0=totalmente humano, 100=totalmente IA"),
     label: z.enum(["humano", "mixto", "ia"]),
@@ -230,6 +260,18 @@ export const NewsTypeSchema = z.object({
   voiceBrand: z.string().default(""),
   voiceHouseRules: z.string().default(""),
   voiceExamples: z.array(z.string()).default([]),
+  /**
+   * Genera la imagen destacada (etapa feature-image) con un modelo de imagen. Desactivada
+   * por defecto: añade coste y no todos los flujos la necesitan. Opcional con default para
+   * no romper catálogos ya guardados.
+   */
+  enableFeatureImage: z.boolean().default(false),
+  /**
+   * Frescura de las fuentes: limitar la búsqueda a los últimos N días (0 = sin filtro).
+   * Útil para tipos de actualidad; los proveedores lo traducen a su parámetro nativo.
+   * Opcional con default para no romper catálogos ya guardados.
+   */
+  freshnessDays: z.number().int().min(0).max(365).default(0),
 });
 export type NewsType = z.infer<typeof NewsTypeSchema>;
 

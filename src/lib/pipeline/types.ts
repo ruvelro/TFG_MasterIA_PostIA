@@ -15,11 +15,17 @@ import type {
   ValidatorConfig,
 } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
-import type { SearchResult } from "@/lib/search";
+import type { SearchOptions, SearchResult } from "@/lib/search";
 
 /** Una fuente con su contenido ya descargado (la "fuente de verdad" del artículo). */
 export interface PipelineSource extends SearchResult {
   content: string;
+  /**
+   * Marcada por la heurística anti-inyección de `research`: el cuerpo descargado contenía
+   * órdenes dirigidas al modelo, así que se degradó al extracto de búsqueda. Viaja en el
+   * contexto para que `sourcesToText` la anote en el prompt de extracción.
+   */
+  suspicious?: boolean;
 }
 
 /**
@@ -38,6 +44,10 @@ export interface PipelineContext {
   revisionInstructions?: string;
   /** Contexto adicional aportado por el usuario (datos, enlaces, matices); se inyecta en los prompts. */
   context?: string;
+  /** Idioma del artículo (texto libre para los prompts, p. ej. "inglés"). Default: español. */
+  language?: string;
+  /** Artículo del que este run es una revisión (Revision Mode): el hijo enlaza al padre. */
+  parentArticleId?: string;
   /**
    * Si el usuario pidió revisar la estructura antes de redactar. Se persiste en el contexto para
    * sobrevivir a la pausa de extracción: al reanudar desde `awaiting_review` el orquestador lo
@@ -54,6 +64,8 @@ export interface PipelineContext {
   humanizeAttempts?: number;
   article?: FixerOutput;
   enrichment?: ArticleEnrichment;
+  /** Ruta relativa de la imagen destacada generada (etapa feature-image), si la hay. */
+  featuredImagePath?: string;
 }
 
 export interface TokenUsage {
@@ -76,8 +88,22 @@ export interface PipelineDeps {
     prompt: string;
     schema: z.ZodType<T>;
   }) => Promise<{ object: T; usage: TokenUsage }>;
-  search: (query: string, limit: number) => Promise<SearchResult[]>;
+  search: (query: string, limit: number, options?: SearchOptions) => Promise<SearchResult[]>;
   fetchContent: (url: string) => Promise<string>;
+  /** Genera una imagen con un modelo de imagen (vía OpenRouter). Devuelve el binario en base64. */
+  runImage: (params: {
+    modelId: string;
+    prompt: string;
+  }) => Promise<{ imageBase64: string; mediaType: string; usage: TokenUsage }>;
+  /**
+   * Persiste una imagen generada y devuelve su ruta relativa (la que se guarda en Article).
+   * Inyectada para que el orquestador no toque el sistema de ficheros (testeable en memoria).
+   */
+  storeImage: (params: {
+    runId: string;
+    imageBase64: string;
+    mediaType: string;
+  }) => Promise<string>;
   /**
    * Estima el coste en USD de una etapa a partir de su modelo y tokens (precios de OpenRouter).
    * Inyectada para no acoplar el orquestador a la red ni a precios concretos: en tests devuelve
@@ -100,6 +126,16 @@ export interface ResolvedPipelineConfig {
   /** Reglas de optimización para motores generativos (GEO). */
   geoRules: string;
   sourceCount: number;
+  /**
+   * Modelo (barato) para la expansión de consultas de research; cadena vacía = desactivada.
+   * Es una micro-llamada auxiliar de research, no una etapa del catálogo.
+   */
+  queryExpansionModel: string;
+  /**
+   * Modelo de imagen de la etapa feature-image; cadena vacía = etapa desactivada. La etapa
+   * además requiere que el tipo de noticia la active (enableFeatureImage).
+   */
+  featureImageModel: string;
   maxFixIterations: number;
   /** Máximo de re-humanizaciones automáticas cuando aiScore supera el umbral. */
   maxHumanizeRetries: number;
@@ -120,7 +156,9 @@ export type RunStatus =
   | "awaiting_blueprint_review"
   | "generating"
   | "completed"
-  | "failed";
+  | "failed"
+  /** El usuario canceló la generación (abort del stream); no es un fallo del pipeline. */
+  | "cancelled";
 
 export type StageStatus = "running" | "done" | "error";
 

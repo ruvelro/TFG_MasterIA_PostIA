@@ -17,7 +17,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 **PostIA** es un generador de artículos de blog mediante IA, desarrollado como Trabajo
 de Fin de Máster. Su núcleo es un **pipeline multi-etapa** donde cada etapa puede usar
 un modelo distinto a través de **OpenRouter**. El catálogo único y ordenado de etapas vive
-en `src/lib/pipeline/stages.ts` (`STAGE_IDS`); son **11**:
+en `src/lib/pipeline/stages.ts` (`STAGE_IDS`); son **12**:
 
 1. **research** — busca N fuentes y descarga su contenido (fuente de verdad). No usa IA.
 2. **extract** — extrae los hechos clave con su cita (Zod). Revisable por el usuario (pausa opcional).
@@ -30,9 +30,11 @@ en `src/lib/pipeline/stages.ts` (`STAGE_IDS`); son **11**:
 9. **fixer** — corrige según los informes, marca negritas y genera la meta SEO final. Bucle de calidad.
 10. **scrub** — elimina meta-referencias de investigación del texto final (regex). No usa IA.
 11. **enrich** — genera titulares alternativos, tags, FAQ, alt de imagen, Schema.org y prompt de imagen.
+12. **feature-image** — genera la imagen destacada con un modelo de imagen a partir del prompt de enrich. Opcional (desactivada por defecto); si falla, el artículo se entrega sin imagen.
 
-Las etapas `humanize`, `factual-review` y `quality-review` son **opcionales** según el tipo de
-noticia. El porqué de la evolución 6→11 está en `docs/decisiones/0006-evolucion-pipeline-11-etapas.md`.
+Las etapas `humanize`, `factual-review`, `quality-review` y `feature-image` son **opcionales**
+según el tipo de noticia. El porqué de la evolución 6→11 está en
+`docs/decisiones/0006-evolucion-pipeline-11-etapas.md`.
 
 El criterio de evaluación del TFG son las **buenas prácticas**, no solo que funcione.
 

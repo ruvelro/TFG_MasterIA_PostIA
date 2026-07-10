@@ -28,6 +28,20 @@ import type {
 
 const noop: StageEventHandler = () => {};
 
+/**
+ * True si el error procede de una CANCELACIÓN (el usuario abortó el stream y la señal se
+ * propagó a las llamadas de IA), no de un fallo real. Distinguirlo permite persistir el
+ * estado `cancelled` y no contaminar las métricas de fiabilidad ni el log de errores.
+ */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+/** Estado terminal de un run que no llegó a completarse: cancelado o fallido. */
+function terminalStatus(error: unknown): RunStatus {
+  return isAbortError(error) ? "cancelled" : "failed";
+}
+
 interface StageMeta {
   model?: string;
   usage?: TokenUsage;
@@ -75,14 +89,17 @@ async function executeStage(
         durationMs: Date.now() - startedAt,
       },
     });
-    // Registro unificado para el panel de monitorización (best-effort, además de la fila de traza).
-    await logError({
-      category: "pipeline",
-      message: `Fallo en la etapa "${stageId}": ${message}`,
-      detail: `runId: ${runId} · intento: ${attempt}${
-        error instanceof Error && error.stack ? `\n${error.stack}` : ""
-      }`,
-    });
+    // Registro unificado para el panel de monitorización (best-effort, además de la fila de
+    // traza). Las cancelaciones del usuario no son fallos: no ensucian el log de errores.
+    if (!isAbortError(error)) {
+      await logError({
+        category: "pipeline",
+        message: `Fallo en la etapa "${stageId}": ${message}`,
+        detail: `runId: ${runId} · intento: ${attempt}${
+          error instanceof Error && error.stack ? `\n${error.stack}` : ""
+        }`,
+      });
+    }
     onEvent({ stageId, status: "error", attempt, message });
     throw error;
   }
@@ -167,6 +184,8 @@ export interface StartParams {
   topic: string;
   /** Contexto adicional del usuario (datos, enlaces, matices) que se inyecta en los prompts. */
   context?: string;
+  /** Idioma del artículo (texto libre para los prompts); si falta, español. */
+  language?: string;
   /** Si es true, el pipeline se detiene tras la extracción para revisión humana de los hechos. */
   pauseForReview?: boolean;
   /** Si es true, el pipeline se detiene tras la estructura para revisión humana del blueprint. */
@@ -190,6 +209,7 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     userId,
     topic,
     context,
+    language,
     pauseForReview = true,
     pauseForBlueprintReview = false,
     newsType,
@@ -208,16 +228,19 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     newsType,
     lengthPreset,
     context,
+    language,
     pauseForBlueprintReview,
   };
 
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
-      ctx.sources = await runResearch(ctx, cfg, deps);
+      const result = await runResearch(ctx, cfg, deps);
+      ctx.sources = result.sources;
       // Las fuentes (con su contenido) se persisten normalizadas: así sobreviven a la pausa de
       // revisión sin inflar el contextJson y se rehidratan al reanudar/revisar.
       await saveSources(run.id, ctx.sources);
-      return { data: ctx.sources };
+      // El modelo/tokens (si hubo expansión de consultas) van a la traza de coste de research.
+      return { model: result.model, usage: result.usage, data: ctx.sources };
     });
     await executeStage({ runId: run.id, stageId: "extract", attempt: 1, onEvent }, async () => {
       const result = await runExtract(ctx, cfg, deps);
@@ -233,7 +256,10 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     await saveContext(run.id, ctx, "generating");
     return await runGenerationTail(run.id, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: run.id },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
@@ -285,7 +311,10 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
     await saveContext(runId, ctx, "generating");
     return await runGenerationTail(runId, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: runId }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: runId },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
@@ -293,6 +322,8 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
 export interface ReviseParams {
   userId: string;
   topic: string;
+  /** Id del artículo original: el nuevo artículo queda enlazado como su revisión (hijo). */
+  sourceArticleId?: string;
   /** Contexto del run original (hechos, estructura, fuentes, tipo, longitud). */
   sourceContext: PipelineContext;
   /** Markdown del artículo original, que se toma como borrador de partida. */
@@ -313,6 +344,7 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
   const {
     userId,
     topic,
+    sourceArticleId,
     sourceContext,
     sourceArticleMarkdown,
     instructions,
@@ -333,15 +365,20 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
     blueprint: sourceContext.blueprint,
     newsType: sourceContext.newsType,
     lengthPreset: sourceContext.lengthPreset,
+    language: sourceContext.language,
     draft: sourceArticleMarkdown,
     revisionInstructions: instructions,
+    parentArticleId: sourceArticleId,
   };
 
   try {
     await saveContext(run.id, ctx, "generating");
     return await runQualityAndFinalize(run.id, ctx, cfg, deps, onEvent);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: run.id },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
@@ -490,10 +527,31 @@ async function runQualityAndFinalize(
   }
 
   // Estado de calidad final: si el bucle agotó sus iteraciones con el informe aún sin superar,
-  // el corrector actuó en la última pasada pero NO hubo una revalidación posterior. Lo
-  // registramos para no entregar como "validado" un artículo cuya última corrección no se
-  // comprobó, y lo dejamos visible en las métricas (qualitySummary.validationPassed).
-  const validationPassed = ctx.report?.passed ?? false;
+  // el corrector actuó en la última pasada y nadie revalidó esa corrección. Cerramos el ciclo
+  // con el validador DETERMINISTA (gratuito): comprueba las reglas bloqueantes sobre el texto
+  // realmente entregado y su veredicto se fusiona en la métrica (validationPassed). Una
+  // revalidación con IA daría más cobertura, pero añadiría el coste de otro juez por
+  // generación; el validador determinista cubre justo las reglas que fuerzan corrección.
+  let validationPassed = ctx.report?.passed ?? false;
+  if (!validationPassed && ctx.draft) {
+    await executeStage(
+      { runId, stageId: "validate", attempt: maxIterations + 1, onEvent },
+      async () => {
+        const finalIssues = runEditorialValidator({
+          draft: ctx.draft!,
+          sources: ctx.sources,
+          forbiddenWords: cfg.forbiddenWords,
+          config: cfg.validatorConfig,
+        });
+        const passed = !finalIssues.some((issue) => issue.severity === "high");
+        // El informe pasa a describir el texto entregado (el anterior describía un borrador
+        // que el corrector ya reescribió).
+        ctx.report = { passed, issues: finalIssues };
+        validationPassed = passed;
+        return { data: ctx.report };
+      },
+    );
+  }
   if (!validationPassed) {
     await logError({
       category: "pipeline",
@@ -551,6 +609,33 @@ async function runQualityAndFinalize(
     return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
 
+  // Imagen destacada (etapa 12, opcional): requiere que el tipo la active Y que el admin
+  // tenga un modelo de imagen configurado. Es un complemento del artículo, no su núcleo:
+  // si el modelo falla, la etapa queda registrada como error pero la generación SIGUE y
+  // entrega el artículo sin imagen (degradación elegante).
+  const runFeatureImageStage =
+    (ctx.newsType?.enableFeatureImage ?? false) &&
+    cfg.featureImageModel.length > 0 &&
+    Boolean(ctx.enrichment?.featuredImagePrompt);
+  if (runFeatureImageStage) {
+    try {
+      await executeStage({ runId, stageId: "feature-image", attempt: 1, onEvent }, async () => {
+        const image = await deps.runImage({
+          modelId: cfg.featureImageModel,
+          prompt: ctx.enrichment!.featuredImagePrompt,
+        });
+        ctx.featuredImagePath = await deps.storeImage({
+          runId,
+          imageBase64: image.imageBase64,
+          mediaType: image.mediaType,
+        });
+        return { model: cfg.featureImageModel, usage: image.usage };
+      });
+    } catch {
+      // Ya registrado por executeStage (fila de traza + log). El artículo se entrega sin imagen.
+    }
+  }
+
   // Coste por etapa (informativo): se calcula y persiste cuando ya existen todas las filas.
   await persistStepCosts(runId, deps);
 
@@ -570,6 +655,8 @@ async function runQualityAndFinalize(
         metaDescription: cleanArticle.metaDescription,
         keywords: JSON.stringify(cleanArticle.keywords),
         metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
+        featuredImagePath: ctx.featuredImagePath ?? null,
+        parentId: ctx.parentArticleId ?? null,
       },
       select: { id: true },
     }),

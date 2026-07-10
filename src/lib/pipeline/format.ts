@@ -17,10 +17,28 @@ import type { PipelineSource } from "@/lib/pipeline/types";
  * formato sea consistente y testeable.
  */
 
+/** Escapa comillas dobles para poder incrustar un valor en un atributo del delimitador. */
+function escapeAttribute(value: string): string {
+  return value.replace(/"/g, "&quot;");
+}
+
+/**
+ * Serializa las fuentes envolviendo cada una en delimitadores inequívocos
+ * (`<fuente n url>…</fuente>`): defensa frente a inyección de prompts. Las plantillas
+ * instruyen al modelo para tratar TODO lo que hay dentro de esos bloques como datos,
+ * nunca como instrucciones. Se neutraliza cualquier `</fuente>` dentro del contenido
+ * para que una página no pueda cerrar su bloque y hacerse pasar por parte del prompt;
+ * las fuentes que la heurística marcó como sospechosas se anotan en el delimitador.
+ */
 export function sourcesToText(sources: PipelineSource[]): string {
   if (sources.length === 0) return "(sin fuentes)";
   return sources
-    .map((source, index) => `[${index + 1}] ${source.title}\n${source.url}\n${source.content}`)
+    .map((source, index) => {
+      const content = source.content.replace(/<(\/?)fuente\b/gi, "&lt;$1fuente");
+      const suspiciousAttr = source.suspicious ? ' sospechosa="true"' : "";
+      const openTag = `<fuente n="${index + 1}" titulo="${escapeAttribute(source.title)}" url="${escapeAttribute(source.url)}"${suspiciousAttr}>`;
+      return `${openTag}\n${content}\n</fuente>`;
+    })
     .join("\n\n");
 }
 

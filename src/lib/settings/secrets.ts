@@ -1,4 +1,4 @@
-import { decryptSecret, encryptSecret, maskSecret } from "@/lib/crypto/secrets";
+import { decryptSecretDetailed, encryptSecret, maskSecret } from "@/lib/crypto/secrets";
 import { prisma } from "@/lib/db/client";
 
 /**
@@ -10,7 +10,24 @@ import { prisma } from "@/lib/db/client";
 /** Devuelve el secreto descifrado, o null si no está configurado. SOLO servidor. */
 export async function getSecret(key: string): Promise<string | null> {
   const row = await prisma.secret.findUnique({ where: { key } });
-  return row ? decryptSecret(row.ciphertext) : null;
+  if (!row) return null;
+
+  const { plaintext, needsRotation } = decryptSecretDetailed(row.ciphertext);
+  if (needsRotation) {
+    // Re-cifrado perezoso (ADR 0007): el secreto venía cifrado con la clave anterior o en
+    // el formato legado; se re-cifra con la clave actual al leerlo. Best-effort: si la
+    // escritura falla, el valor descifrado se devuelve igualmente y se reintentará en la
+    // próxima lectura.
+    try {
+      await prisma.secret.update({
+        where: { key },
+        data: { ciphertext: encryptSecret(plaintext) },
+      });
+    } catch {
+      // Nada: la rotación perezosa no debe romper una lectura válida.
+    }
+  }
+  return plaintext;
 }
 
 /** Guarda (o actualiza) un secreto, cifrándolo en reposo. */

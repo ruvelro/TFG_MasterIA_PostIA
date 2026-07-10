@@ -4,6 +4,7 @@ import {
   factsToText,
   newsTypeDirectivesToText,
 } from "@/lib/pipeline/format";
+import { DEFAULT_ARTICLE_LANGUAGE } from "@/lib/pipeline/language";
 import { appendUserContext, renderTemplate } from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
@@ -35,6 +36,7 @@ export async function runDraft(
       geoRules: cfg.geoRules,
       formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
       context: ctx.context ?? "",
+      language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
     }),
     step.prompt,
     ctx.context,
