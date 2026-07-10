@@ -15,7 +15,7 @@ import type {
   ValidatorConfig,
 } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
-import type { SearchResult } from "@/lib/search";
+import type { SearchOptions, SearchResult } from "@/lib/search";
 
 /** Una fuente con su contenido ya descargado (la "fuente de verdad" del artículo). */
 export interface PipelineSource extends SearchResult {
@@ -82,7 +82,7 @@ export interface PipelineDeps {
     prompt: string;
     schema: z.ZodType<T>;
   }) => Promise<{ object: T; usage: TokenUsage }>;
-  search: (query: string, limit: number) => Promise<SearchResult[]>;
+  search: (query: string, limit: number, options?: SearchOptions) => Promise<SearchResult[]>;
   fetchContent: (url: string) => Promise<string>;
   /**
    * Estima el coste en USD de una etapa a partir de su modelo y tokens (precios de OpenRouter).
@@ -106,6 +106,11 @@ export interface ResolvedPipelineConfig {
   /** Reglas de optimización para motores generativos (GEO). */
   geoRules: string;
   sourceCount: number;
+  /**
+   * Modelo (barato) para la expansión de consultas de research; cadena vacía = desactivada.
+   * Es una micro-llamada auxiliar de research, no una etapa del catálogo.
+   */
+  queryExpansionModel: string;
   maxFixIterations: number;
   /** Máximo de re-humanizaciones automáticas cuando aiScore supera el umbral. */
   maxHumanizeRetries: number;

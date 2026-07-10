@@ -46,6 +46,7 @@ export async function buildPipelineConfig(
     seoRules: generation.styleProfile.seoRules,
     geoRules: generation.styleProfile.geoRules,
     sourceCount: generation.sourceCount,
+    queryExpansionModel: generation.queryExpansionModel,
     maxFixIterations: generation.maxFixIterations,
     maxHumanizeRetries: generation.maxHumanizeRetries,
     aiScoreThreshold: generation.aiScoreThreshold,
@@ -104,7 +105,7 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
         maxRetries: aiMaxRetries,
         timeoutMs: aiTimeoutMs,
       }),
-    search: (query, limit) => searchProvider.search(query, limit),
+    search: (query, limit, options) => searchProvider.search(query, limit, options),
     fetchContent: (url) => fetchReadableText(url),
     // El catálogo de precios se cachea en pricing.ts, así que estas llamadas no golpean la red
     // en cada etapa. Best-effort: si no hay precio, el coste de esa etapa queda como null.

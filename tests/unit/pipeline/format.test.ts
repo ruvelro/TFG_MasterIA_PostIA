@@ -24,6 +24,7 @@ const BASE_TYPE: NewsType = {
   voiceBrand: "",
   voiceHouseRules: "",
   voiceExamples: [],
+  freshnessDays: 0,
 };
 
 const EMPTY_PROFILE: StyleProfile = {
@@ -162,6 +163,7 @@ describe("formateadores de contexto", () => {
       voiceBrand: "",
       voiceHouseRules: "",
       voiceExamples: [],
+      freshnessDays: 0,
     };
     const withType = newsTypeDirectivesToText(newsType);
     expect(withType).toContain("aproximadamente 300 palabras");

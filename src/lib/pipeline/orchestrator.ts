@@ -213,11 +213,13 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
 
   try {
     await executeStage({ runId: run.id, stageId: "research", attempt: 1, onEvent }, async () => {
-      ctx.sources = await runResearch(ctx, cfg, deps);
+      const result = await runResearch(ctx, cfg, deps);
+      ctx.sources = result.sources;
       // Las fuentes (con su contenido) se persisten normalizadas: así sobreviven a la pausa de
       // revisión sin inflar el contextJson y se rehidratan al reanudar/revisar.
       await saveSources(run.id, ctx.sources);
-      return { data: ctx.sources };
+      // El modelo/tokens (si hubo expansión de consultas) van a la traza de coste de research.
+      return { model: result.model, usage: result.usage, data: ctx.sources };
     });
     await executeStage({ runId: run.id, stageId: "extract", attempt: 1, onEvent }, async () => {
       const result = await runExtract(ctx, cfg, deps);

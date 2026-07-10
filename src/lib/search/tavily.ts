@@ -1,4 +1,4 @@
-import type { SearchProvider, SearchResult } from "@/lib/search/types";
+import type { SearchOptions, SearchProvider, SearchResult } from "@/lib/search/types";
 
 const TAVILY_ENDPOINT = "https://api.tavily.com/search";
 
@@ -16,14 +16,20 @@ export class TavilyProvider implements SearchProvider {
 
   constructor(private readonly apiKey: string) {}
 
-  async search(query: string, limit = 5): Promise<SearchResult[]> {
+  async search(query: string, limit = 5, options?: SearchOptions): Promise<SearchResult[]> {
+    const freshnessDays = options?.freshnessDays ?? 0;
     const response = await fetch(TAVILY_ENDPOINT, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${this.apiKey}`,
       },
-      body: JSON.stringify({ query, max_results: limit }),
+      body: JSON.stringify({
+        query,
+        max_results: limit,
+        // Frescura: el parámetro `days` de Tavily solo aplica con el topic "news".
+        ...(freshnessDays > 0 ? { topic: "news", days: freshnessDays } : {}),
+      }),
     });
 
     if (!response.ok) {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   assertSafeUrl,
+  extractArticleText,
   fetchReadableText,
   htmlToText,
   isPrivateIp,
@@ -83,6 +84,32 @@ describe("htmlToText", () => {
   it("elimina etiquetas, script y style y colapsa espacios", () => {
     const html = "<style>.x{}</style><p>Hola <b>mundo</b></p><script>alert(1)</script>";
     expect(htmlToText(html)).toBe("Hola mundo");
+  });
+});
+
+describe("extractArticleText (Readability)", () => {
+  it("aísla el cuerpo del artículo y descarta menús y footer", () => {
+    const paragraph =
+      "La agencia espacial confirmó ayer el lanzamiento de la nueva misión de observación. " +
+      "El cohete despegó sin incidencias y la carga útil quedó en la órbita prevista. ";
+    const html = `<!doctype html><html><head><title>Noticia</title></head><body>
+      <nav><ul><li>Inicio</li><li>Deportes</li><li>Economía</li></ul></nav>
+      <div class="cookie-banner">Usamos cookies para mejorar tu experiencia. Aceptar.</div>
+      <article><h1>Lanzamiento confirmado</h1>
+        <p>${paragraph}</p><p>${paragraph}</p><p>${paragraph}</p>
+      </article>
+      <footer>© 2026 Portal de noticias — Aviso legal — Privacidad</footer>
+    </body></html>`;
+
+    const text = extractArticleText(html);
+    expect(text).toContain("agencia espacial");
+    expect(text).not.toContain("Aviso legal");
+    expect(text).not.toContain("cookies");
+  });
+
+  it("cae al stripping clásico cuando no hay un artículo con entidad", () => {
+    const html = "<html><body><p>Texto muy corto.</p></body></html>";
+    expect(extractArticleText(html)).toBe("Texto muy corto.");
   });
 });
 

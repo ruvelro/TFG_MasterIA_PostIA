@@ -3,6 +3,7 @@ import {
   EnrichStepOutputSchema,
   FactualReviewSchema,
   FactsSchema,
+  QueryExpansionSchema,
   FixerOutputSchema,
   QualityReviewSchema,
   ValidationReportSchema,
@@ -22,7 +23,9 @@ export function createFakePipelineDeps(): PipelineDeps {
     const s = schema as unknown;
     let object: unknown;
 
-    if (s === FactsSchema) {
+    if (s === QueryExpansionSchema) {
+      object = { queries: ["consulta complementaria E2E"] };
+    } else if (s === FactsSchema) {
       object = {
         facts: [{ claim: "Dato de ejemplo generado en modo E2E", source: "https://example.com/0" }],
       };

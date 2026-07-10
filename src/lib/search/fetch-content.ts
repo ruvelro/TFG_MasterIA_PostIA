@@ -1,6 +1,8 @@
 import { lookup as dnsLookup } from "node:dns/promises";
 
+import { Readability } from "@mozilla/readability";
 import ipaddr from "ipaddr.js";
+import { parseHTML } from "linkedom";
 
 // Descarga el contenido de una URL y lo reduce a texto legible, para que la etapa research
 // pueda usar el cuerpo de las webs como fuente de verdad.
@@ -117,6 +119,30 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
+// Por debajo de este tamaño no nos fiamos del extracto de Readability: en páginas atípicas
+// (portadas, listados) puede aislar un bloque residual y perder el contenido real.
+const MIN_READABLE_LENGTH = 200;
+
+/**
+ * Extrae el CUERPO del artículo de una página con Readability (el algoritmo del modo lectura
+ * de Firefox) sobre linkedom (DOM sin navegador): descarta menús, banners de cookies y footers
+ * que el stripping por regex conservaba como si fueran contenido. Si Readability no encuentra
+ * un artículo con entidad, caemos al stripping clásico (mejor ruido que perder la fuente).
+ */
+export function extractArticleText(html: string): string {
+  try {
+    const { document } = parseHTML(html);
+    const article = new Readability(document as unknown as Document, {
+      charThreshold: MIN_READABLE_LENGTH,
+    }).parse();
+    const text = article?.textContent?.replace(/\s+/g, " ").trim() ?? "";
+    if (text.length >= MIN_READABLE_LENGTH) return text;
+  } catch {
+    // linkedom/Readability pueden fallar con HTML muy malformado: degradamos al stripping.
+  }
+  return htmlToText(html);
+}
+
 /**
  * Lee el cuerpo por streaming con contador de bytes y ABORTA la descarga al superar el tope:
  * a diferencia de `text().slice()`, no descarga el resto de un cuerpo gigante para tirarlo.
@@ -191,8 +217,9 @@ export async function fetchReadableText(
         throw new Error(`Tipo de contenido no soportado (${mime || "desconocido"})`);
       }
 
-      const html = await readBodyCapped(response, MAX_BYTES);
-      return htmlToText(html);
+      const body = await readBodyCapped(response, MAX_BYTES);
+      // Para HTML, Readability aísla el cuerpo del artículo; el texto plano solo se normaliza.
+      return mime === "text/plain" ? body.replace(/\s+/g, " ").trim() : extractArticleText(body);
     }
     throw new Error("Demasiadas redirecciones");
   } finally {

@@ -21,6 +21,8 @@ import { SETTING_KEYS } from "./keys";
 export interface GenerationConfig {
   styleProfile: StyleProfile;
   sourceCount: number;
+  /** Modelo de la expansión de consultas de research ("" = desactivada). */
+  queryExpansionModel: string;
   maxFixIterations: number;
   maxHumanizeRetries: number;
   aiScoreThreshold: number;
@@ -46,6 +48,9 @@ export const EMPTY_STYLE_PROFILE: StyleProfile = {
 
 /** Modelo por defecto del analizador de estilo: capaz y de contexto amplio, pero barato. */
 export const DEFAULT_STYLE_ANALYZER_MODEL = "google/gemini-2.5-flash";
+
+/** Modelo por defecto de la expansión de consultas de research: la tarea es trivial, prima el coste. */
+export const DEFAULT_QUERY_EXPANSION_MODEL = "google/gemini-2.5-flash";
 
 const SOURCE_COUNT_DEFAULT = 5;
 
@@ -135,6 +140,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     styleProfile,
     validatorConfig,
     sourceCount,
+    queryExpansionModel,
     maxFixIterations,
     maxHumanizeRetries,
     aiScoreThreshold,
@@ -145,6 +151,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     getStyleProfile(),
     getValidatorConfig(),
     getAppSetting(SETTING_KEYS.sourceCount),
+    getAppSetting(SETTING_KEYS.queryExpansionModel),
     getAppSetting(SETTING_KEYS.maxFixIterations),
     getAppSetting(SETTING_KEYS.maxHumanizeRetries),
     getAppSetting(SETTING_KEYS.aiScoreThreshold),
@@ -158,6 +165,9 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     validatorConfig,
     // Límites defensivos: descargar demasiadas webs o iterar sin fin dispara coste y latencia.
     sourceCount: parseBoundedInt(sourceCount, SOURCE_COUNT_DEFAULT, 1, 10),
+    // Expansión de consultas: null (sin fila) = default de fábrica; guardado vacío = desactivada.
+    queryExpansionModel:
+      queryExpansionModel === null ? DEFAULT_QUERY_EXPANSION_MODEL : queryExpansionModel.trim(),
     maxFixIterations: parseBoundedInt(
       maxFixIterations,
       DEFAULT_PIPELINE_PARAMS.maxFixIterations,

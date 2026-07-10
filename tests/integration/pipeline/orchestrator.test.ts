@@ -25,6 +25,8 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     seoRules: "Usa la keyword en el primer párrafo",
     geoRules: "Responde preguntas frecuentes de forma directa",
     sourceCount: 2,
+    // Desactivada en los tests del orquestador: la expansión tiene sus propios tests unitarios.
+    queryExpansionModel: "",
     maxFixIterations,
     maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
     aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
@@ -381,6 +383,7 @@ describe("orquestador del pipeline", () => {
         voiceBrand: "",
         voiceHouseRules: "",
         voiceExamples: [],
+        freshnessDays: 0,
       },
       cfg: makeConfig(1),
       deps: makeDeps({ validatePasses: true }),
