@@ -1,3 +1,4 @@
+import type { WordPressConfig } from "@/lib/publish/wordpress";
 import type { SearchConfig, SearchProviderId } from "@/lib/search";
 
 import { getAppSetting } from "./app-config";
@@ -13,6 +14,20 @@ import { getSecret } from "./secrets";
 /** Clave de API de OpenRouter en claro, o null si el admin aún no la configuró. */
 export function getOpenRouterApiKey(): Promise<string | null> {
   return getSecret(SECRET_KEYS.openRouter);
+}
+
+/**
+ * Configuración de WordPress resuelta (contraseña descifrada), o null si falta algún campo:
+ * el botón de publicar solo se ofrece cuando la integración está completa.
+ */
+export async function getWordPressConfig(): Promise<WordPressConfig | null> {
+  const [baseUrl, username, appPassword] = await Promise.all([
+    getAppSetting(SETTING_KEYS.wordpressUrl),
+    getAppSetting(SETTING_KEYS.wordpressUsername),
+    getSecret(SECRET_KEYS.wordpressAppPassword),
+  ]);
+  if (!baseUrl?.trim() || !username?.trim() || !appPassword) return null;
+  return { baseUrl: baseUrl.trim(), username: username.trim(), appPassword };
 }
 
 const VALID_PROVIDERS: readonly SearchProviderId[] = ["tavily", "google"];

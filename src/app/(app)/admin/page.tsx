@@ -50,8 +50,11 @@ export default async function AdminPage() {
     openRouter,
     tavily,
     google,
+    wordpressPassword,
     searchProvider,
     googleEngineId,
+    wordpressUrl,
+    wordpressUsername,
     stepConfigs,
     generation,
     analyzerModel,
@@ -62,8 +65,11 @@ export default async function AdminPage() {
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
     getSecretStatus(SECRET_KEYS.googleCse),
+    getSecretStatus(SECRET_KEYS.wordpressAppPassword),
     getAppSetting(SETTING_KEYS.searchProvider),
     getAppSetting(SETTING_KEYS.googleEngineId),
+    getAppSetting(SETTING_KEYS.wordpressUrl),
+    getAppSetting(SETTING_KEYS.wordpressUsername),
     getAllStepConfigs(),
     getGenerationConfig(),
     getStyleAnalyzerModel(),
@@ -133,6 +139,44 @@ export default async function AdminPage() {
               defaultValue={googleEngineId ?? ""}
               className={inputClass}
               placeholder="Sin configurar"
+            />
+          </label>
+
+          <h3 className="pt-2 text-base font-semibold">Publicación en WordPress</h3>
+          <p className="text-muted text-sm">
+            Permite publicar artículos como borrador o post en un WordPress vía REST API. La
+            contraseña es una <em>Application Password</em> del perfil del usuario de WordPress.
+          </p>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">URL del sitio</span>
+            <input
+              name="wordpressUrl"
+              type="url"
+              defaultValue={wordpressUrl ?? ""}
+              className={inputClass}
+              placeholder="https://miblog.com"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Usuario</span>
+            <input
+              name="wordpressUsername"
+              type="text"
+              defaultValue={wordpressUsername ?? ""}
+              className={inputClass}
+              placeholder="Sin configurar"
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Application Password</span>
+            <input
+              name="wordpressAppPassword"
+              type="password"
+              className={inputClass}
+              placeholder={secretPlaceholder(wordpressPassword)}
             />
           </label>
         </AdminForm>
