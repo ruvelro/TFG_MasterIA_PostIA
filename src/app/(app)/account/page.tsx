@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { getCurrentSession } from "@/lib/auth/session";
 
+import { ApiKeysManager } from "./api-keys-manager";
 import { ChangePasswordForm } from "./change-password-form";
 import { PasskeyManager } from "./passkey-manager";
 
@@ -21,6 +22,10 @@ export default async function AccountPage() {
       </div>
 
       <PasskeyManager />
+
+      <hr className="border-muted/20" />
+
+      <ApiKeysManager />
 
       <hr className="border-muted/20" />
 
