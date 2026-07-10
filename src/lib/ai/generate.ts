@@ -94,3 +94,39 @@ export async function runObjectGeneration<T>(
     usage: { inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens },
   };
 }
+
+export interface ImageGenerationResult {
+  /** Binario de la imagen en base64 (sin prefijo data:). */
+  imageBase64: string;
+  /** Tipo MIME real devuelto por el modelo (image/png, image/webp…). */
+  mediaType: string;
+  usage: { inputTokens?: number; outputTokens?: number };
+}
+
+/**
+ * Genera una imagen con un modelo de imagen de OpenRouter (p. ej. Gemini Flash Image).
+ * Estos modelos responden por la API de chat y el AI SDK expone las imágenes generadas en
+ * `result.files`; se toma la primera. Lanza un error claro si el modelo no devolvió imagen
+ * (modelo equivocado o rechazo del prompt).
+ */
+export async function runImageGeneration(params: GenerateParams): Promise<ImageGenerationResult> {
+  const result = await generateText({
+    model: createOpenRouterModel(params.apiKey, params.modelId),
+    prompt: params.prompt,
+    maxRetries: params.maxRetries ?? MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
+  });
+
+  const image = result.files?.find((file) => file.mediaType?.startsWith("image/"));
+  if (!image) {
+    throw new Error(
+      `El modelo "${params.modelId}" no devolvió ninguna imagen (¿es un modelo de imagen?)`,
+    );
+  }
+
+  return {
+    imageBase64: image.base64,
+    mediaType: image.mediaType,
+    usage: { inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens },
+  };
+}

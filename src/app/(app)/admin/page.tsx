@@ -246,6 +246,16 @@ export default async function AdminPage() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modelo de imagen destacada (feature-image)</span>
+              <input
+                name="featureImageModel"
+                type="text"
+                defaultValue={generation.featureImageModel}
+                placeholder="google/gemini-2.5-flash-image · vacío = desactivada"
+                className={`${inputClass} font-mono`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
               <span className="font-medium">Iteraciones máx. del fixer</span>
               <input
                 name="maxFixIterations"

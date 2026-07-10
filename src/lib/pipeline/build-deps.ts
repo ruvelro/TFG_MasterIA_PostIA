@@ -1,6 +1,6 @@
 import type { z } from "zod";
 
-import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
+import { runImageGeneration, runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 import { estimateCostUsd, findModelPrice, getModelPricing } from "@/lib/ai/pricing";
 import {
   assertOverrideModelsAllowed,
@@ -12,6 +12,7 @@ import { AI_STAGE_IDS, type AiStageId, type StepConfig } from "@/lib/pipeline/de
 import { createFakePipelineDeps } from "@/lib/pipeline/fake-deps";
 import { styleProfileToText } from "@/lib/pipeline/format";
 import type { PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
+import { storeFeaturedImage } from "@/lib/publish/image-storage";
 import { createSearchProvider } from "@/lib/search";
 import { fetchReadableText } from "@/lib/search/fetch-content";
 import { getGenerationConfig } from "@/lib/settings/generation-config";
@@ -47,6 +48,7 @@ export async function buildPipelineConfig(
     geoRules: generation.styleProfile.geoRules,
     sourceCount: generation.sourceCount,
     queryExpansionModel: generation.queryExpansionModel,
+    featureImageModel: generation.featureImageModel,
     maxFixIterations: generation.maxFixIterations,
     maxHumanizeRetries: generation.maxHumanizeRetries,
     aiScoreThreshold: generation.aiScoreThreshold,
@@ -107,6 +109,16 @@ export async function buildPipelineDeps(signal?: AbortSignal): Promise<PipelineD
       }),
     search: (query, limit, options) => searchProvider.search(query, limit, options),
     fetchContent: (url) => fetchReadableText(url),
+    runImage: ({ modelId, prompt }) =>
+      runImageGeneration({
+        apiKey,
+        modelId,
+        prompt,
+        abortSignal: signal,
+        maxRetries: aiMaxRetries,
+        timeoutMs: aiTimeoutMs,
+      }),
+    storeImage: storeFeaturedImage,
     // El catálogo de precios se cachea en pricing.ts, así que estas llamadas no golpean la red
     // en cada etapa. Best-effort: si no hay precio, el coste de esa etapa queda como null.
     estimateCost: async (model, inputTokens, outputTokens) => {

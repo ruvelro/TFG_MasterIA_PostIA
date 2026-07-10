@@ -19,6 +19,7 @@ export const STAGE_IDS = [
   "fixer",
   "scrub",
   "enrich",
+  "feature-image",
 ] as const;
 
 export type StageId = (typeof STAGE_IDS)[number];
@@ -107,6 +108,13 @@ export const PIPELINE_STAGES: readonly PipelineStageMeta[] = [
     label: "Enriquecimiento",
     description:
       "Genera titulares alternativos, etiquetas, FAQ, texto alt de imagen, Schema.org y prompt de imagen.",
+    usesAi: true,
+  },
+  {
+    id: "feature-image",
+    label: "Imagen destacada",
+    description:
+      "Genera la imagen destacada con un modelo de imagen a partir del prompt del enriquecimiento. Opcional por tipo de noticia.",
     usesAi: true,
   },
 ] as const;

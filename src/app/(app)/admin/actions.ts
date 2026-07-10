@@ -85,6 +85,7 @@ export async function saveGenerationConfig(
   await setAppSetting(SETTING_KEYS.sourceCount, field(formData, "sourceCount"));
   await setAppSetting(SETTING_KEYS.queryExpansionModel, field(formData, "queryExpansionModel"));
   await setAppSetting(SETTING_KEYS.dailyCostLimitUsd, field(formData, "dailyCostLimitUsd"));
+  await setAppSetting(SETTING_KEYS.featureImageModel, field(formData, "featureImageModel"));
   await setAppSetting(SETTING_KEYS.maxFixIterations, field(formData, "maxFixIterations"));
   await setAppSetting(SETTING_KEYS.maxHumanizeRetries, field(formData, "maxHumanizeRetries"));
   await setAppSetting(SETTING_KEYS.aiScoreThreshold, field(formData, "aiScoreThreshold"));

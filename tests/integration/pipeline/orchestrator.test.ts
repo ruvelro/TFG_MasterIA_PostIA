@@ -27,6 +27,7 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
     sourceCount: 2,
     // Desactivada en los tests del orquestador: la expansión tiene sus propios tests unitarios.
     queryExpansionModel: "",
+    featureImageModel: "modelo/imagen",
     maxFixIterations,
     maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
     aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,
@@ -115,6 +116,13 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
       usage: { inputTokens: 1, outputTokens: 1 },
     }),
     runObject,
+    runImage: async () => ({
+      imageBase64: Buffer.from("png-falso").toString("base64"),
+      mediaType: "image/png",
+      usage: { inputTokens: 1, outputTokens: 1 },
+    }),
+    // No toca disco: devuelve la ruta que persistiría el almacenamiento real.
+    storeImage: async ({ runId }) => `uploads/featured/${runId}.png`,
     // Coste determinista para el test: 1e-6 USD por token, solo cuando hay modelo (etapas IA).
     estimateCost: async (model, inputTokens, outputTokens) =>
       model ? ((inputTokens ?? 0) + (outputTokens ?? 0)) * 1e-6 : null,
@@ -383,6 +391,7 @@ describe("orquestador del pipeline", () => {
         voiceBrand: "",
         voiceHouseRules: "",
         voiceExamples: [],
+        enableFeatureImage: false,
         freshnessDays: 0,
       },
       cfg: makeConfig(1),
@@ -438,6 +447,81 @@ describe("orquestador del pipeline", () => {
     });
     // 1 humanize inicial + 1 re-humanización por aiScore alto.
     expect(humanizeSteps.length).toBe(2);
+  });
+
+  it("genera y persiste la imagen destacada cuando el tipo la activa", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Con imagen destacada",
+      pauseForReview: false,
+      newsType: {
+        id: "con-imagen",
+        label: "Con imagen",
+        description: "",
+        enableHumanize: false,
+        enableFactualReview: false,
+        enableQualityReview: false,
+        sourceStrict: false,
+        structureInstruction: "",
+        targetWordCount: 0,
+        voiceBrand: "",
+        voiceHouseRules: "",
+        voiceExamples: [],
+        enableFeatureImage: true,
+        freshnessDays: 0,
+      },
+      cfg: makeConfig(1),
+      deps: makeDeps({ validatePasses: true }),
+    });
+
+    expect(result.status).toBe("completed");
+    const imageStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "feature-image" },
+    });
+    expect(imageStep?.status).toBe("done");
+    expect(imageStep?.model).toBe("modelo/imagen");
+
+    const article = await prisma.article.findFirst({ where: { runId: result.runId } });
+    expect(article?.featuredImagePath).toBe(`uploads/featured/${result.runId}.png`);
+  });
+
+  it("si el modelo de imagen falla, la generación se entrega sin imagen (degradación)", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    deps.runImage = async () => {
+      throw new Error("modelo de imagen caído");
+    };
+    const result = await startGeneration({
+      userId,
+      topic: "Imagen fallida",
+      pauseForReview: false,
+      newsType: {
+        id: "con-imagen",
+        label: "Con imagen",
+        description: "",
+        enableHumanize: false,
+        enableFactualReview: false,
+        enableQualityReview: false,
+        sourceStrict: false,
+        structureInstruction: "",
+        targetWordCount: 0,
+        voiceBrand: "",
+        voiceHouseRules: "",
+        voiceExamples: [],
+        enableFeatureImage: true,
+        freshnessDays: 0,
+      },
+      cfg: makeConfig(1),
+      deps,
+    });
+
+    expect(result.status).toBe("completed");
+    const imageStep = await prisma.generationStep.findFirst({
+      where: { runId: result.runId, stageId: "feature-image" },
+    });
+    expect(imageStep?.status).toBe("error");
+    const article = await prisma.article.findFirst({ where: { runId: result.runId } });
+    expect(article).not.toBeNull();
+    expect(article?.featuredImagePath).toBeNull();
   });
 
   it("marca el run como cancelled (no failed) cuando el usuario aborta", async () => {

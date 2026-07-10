@@ -60,3 +60,6 @@ prisma/*.db-journal
 
 # Resultados del harness de evaluación (npm run eval)
 /eval-results
+
+# Imágenes destacadas generadas en runtime (etapa feature-image)
+/uploads

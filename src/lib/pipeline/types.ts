@@ -60,6 +60,8 @@ export interface PipelineContext {
   humanizeAttempts?: number;
   article?: FixerOutput;
   enrichment?: ArticleEnrichment;
+  /** Ruta relativa de la imagen destacada generada (etapa feature-image), si la hay. */
+  featuredImagePath?: string;
 }
 
 export interface TokenUsage {
@@ -84,6 +86,20 @@ export interface PipelineDeps {
   }) => Promise<{ object: T; usage: TokenUsage }>;
   search: (query: string, limit: number, options?: SearchOptions) => Promise<SearchResult[]>;
   fetchContent: (url: string) => Promise<string>;
+  /** Genera una imagen con un modelo de imagen (vía OpenRouter). Devuelve el binario en base64. */
+  runImage: (params: {
+    modelId: string;
+    prompt: string;
+  }) => Promise<{ imageBase64: string; mediaType: string; usage: TokenUsage }>;
+  /**
+   * Persiste una imagen generada y devuelve su ruta relativa (la que se guarda en Article).
+   * Inyectada para que el orquestador no toque el sistema de ficheros (testeable en memoria).
+   */
+  storeImage: (params: {
+    runId: string;
+    imageBase64: string;
+    mediaType: string;
+  }) => Promise<string>;
   /**
    * Estima el coste en USD de una etapa a partir de su modelo y tokens (precios de OpenRouter).
    * Inyectada para no acoplar el orquestador a la red ni a precios concretos: en tests devuelve
@@ -111,6 +127,11 @@ export interface ResolvedPipelineConfig {
    * Es una micro-llamada auxiliar de research, no una etapa del catálogo.
    */
   queryExpansionModel: string;
+  /**
+   * Modelo de imagen de la etapa feature-image; cadena vacía = etapa desactivada. La etapa
+   * además requiere que el tipo de noticia la active (enableFeatureImage).
+   */
+  featureImageModel: string;
   maxFixIterations: number;
   /** Máximo de re-humanizaciones automáticas cuando aiScore supera el umbral. */
   maxHumanizeRetries: number;

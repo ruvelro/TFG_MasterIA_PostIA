@@ -24,6 +24,7 @@ function emptyType(index: number): NewsType {
     voiceBrand: "",
     voiceHouseRules: "",
     voiceExamples: [],
+    enableFeatureImage: false,
     freshnessDays: 0,
   };
 }
@@ -132,6 +133,14 @@ function NewsTypeCard({
             onChange={(e) => onPatch({ sourceStrict: e.target.checked })}
           />
           <span>Ceñirse a las fuentes</span>
+        </label>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={type.enableFeatureImage}
+            onChange={(e) => onPatch({ enableFeatureImage: e.target.checked })}
+          />
+          <span>Imagen destacada</span>
         </label>
       </div>
 

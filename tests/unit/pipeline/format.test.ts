@@ -24,6 +24,7 @@ const BASE_TYPE: NewsType = {
   voiceBrand: "",
   voiceHouseRules: "",
   voiceExamples: [],
+  enableFeatureImage: false,
   freshnessDays: 0,
 };
 
@@ -163,6 +164,7 @@ describe("formateadores de contexto", () => {
       voiceBrand: "",
       voiceHouseRules: "",
       voiceExamples: [],
+      enableFeatureImage: false,
       freshnessDays: 0,
     };
     const withType = newsTypeDirectivesToText(newsType);
