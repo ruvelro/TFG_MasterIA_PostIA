@@ -87,6 +87,24 @@ export function ArticleEnrichmentView({ enrichment }: { enrichment: ArticleEnric
       )}
 
       {/* FAQ */}
+      {enrichment.internalLinks && enrichment.internalLinks.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <h3 className="text-sm font-semibold">Enlaces internos sugeridos</h3>
+          <ul className="flex flex-col gap-1 text-sm">
+            {enrichment.internalLinks.map((link) => (
+              <li key={link.articleId}>
+                <a href={`/articles/${link.articleId}`} className="text-primary underline">
+                  {link.anchorText}
+                </a>{" "}
+                <span className="text-muted text-xs">
+                  (/{link.slug} · afinidad {Math.round(link.similarity * 100)}%)
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {enrichment.faq.length > 0 && (
         <details className={sectionClass}>
           <summary className="cursor-pointer text-sm font-semibold">

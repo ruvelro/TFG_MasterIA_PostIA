@@ -30,6 +30,7 @@ export const SETTING_KEYS = {
   queryExpansionModel: "query_expansion_model",
   dailyCostLimitUsd: "daily_cost_limit_usd",
   featureImageModel: "feature_image_model",
+  embeddingsModel: "embeddings_model",
   // Configuración (JSON) del validador editorial determinista.
   validatorConfig: "editorial_validator_config",
   // Catálogo (JSON) de tipos de noticia (presets del pipeline).
