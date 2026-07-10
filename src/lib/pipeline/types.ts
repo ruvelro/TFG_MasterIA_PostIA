@@ -131,7 +131,9 @@ export type RunStatus =
   | "awaiting_blueprint_review"
   | "generating"
   | "completed"
-  | "failed";
+  | "failed"
+  /** El usuario canceló la generación (abort del stream); no es un fallo del pipeline. */
+  | "cancelled";
 
 export type StageStatus = "running" | "done" | "error";
 

@@ -28,6 +28,20 @@ import type {
 
 const noop: StageEventHandler = () => {};
 
+/**
+ * True si el error procede de una CANCELACIÓN (el usuario abortó el stream y la señal se
+ * propagó a las llamadas de IA), no de un fallo real. Distinguirlo permite persistir el
+ * estado `cancelled` y no contaminar las métricas de fiabilidad ni el log de errores.
+ */
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
+
+/** Estado terminal de un run que no llegó a completarse: cancelado o fallido. */
+function terminalStatus(error: unknown): RunStatus {
+  return isAbortError(error) ? "cancelled" : "failed";
+}
+
 interface StageMeta {
   model?: string;
   usage?: TokenUsage;
@@ -75,14 +89,17 @@ async function executeStage(
         durationMs: Date.now() - startedAt,
       },
     });
-    // Registro unificado para el panel de monitorización (best-effort, además de la fila de traza).
-    await logError({
-      category: "pipeline",
-      message: `Fallo en la etapa "${stageId}": ${message}`,
-      detail: `runId: ${runId} · intento: ${attempt}${
-        error instanceof Error && error.stack ? `\n${error.stack}` : ""
-      }`,
-    });
+    // Registro unificado para el panel de monitorización (best-effort, además de la fila de
+    // traza). Las cancelaciones del usuario no son fallos: no ensucian el log de errores.
+    if (!isAbortError(error)) {
+      await logError({
+        category: "pipeline",
+        message: `Fallo en la etapa "${stageId}": ${message}`,
+        detail: `runId: ${runId} · intento: ${attempt}${
+          error instanceof Error && error.stack ? `\n${error.stack}` : ""
+        }`,
+      });
+    }
     onEvent({ stageId, status: "error", attempt, message });
     throw error;
   }
@@ -235,7 +252,10 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     await saveContext(run.id, ctx, "generating");
     return await runGenerationTail(run.id, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: run.id },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
@@ -287,7 +307,10 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
     await saveContext(runId, ctx, "generating");
     return await runGenerationTail(runId, ctx, cfg, deps, onEvent, pauseForBlueprintReview);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: runId }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: runId },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
@@ -343,7 +366,10 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
     await saveContext(run.id, ctx, "generating");
     return await runQualityAndFinalize(run.id, ctx, cfg, deps, onEvent);
   } catch (error) {
-    await prisma.generationRun.update({ where: { id: run.id }, data: { status: "failed" } });
+    await prisma.generationRun.update({
+      where: { id: run.id },
+      data: { status: terminalStatus(error) },
+    });
     throw error;
   }
 }
