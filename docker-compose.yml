@@ -24,6 +24,9 @@ services:
       - "${APP_PORT:-38291}:3000"
     volumes:
       - postia-data:/data
+      # Imágenes destacadas generadas por la etapa feature-image (se escriben en /app/uploads).
+      # Volumen propio para que persistan entre reconstrucciones de la imagen.
+      - postia-uploads:/app/uploads
     # Reaper de procesos (PID 1) para una parada limpia.
     init: true
     # ── Endurecimiento de seguridad ──────────────────────────────────────────
@@ -48,3 +51,4 @@ services:
 
 volumes:
   postia-data:
+  postia-uploads:
