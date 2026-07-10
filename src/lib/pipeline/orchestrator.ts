@@ -490,10 +490,31 @@ async function runQualityAndFinalize(
   }
 
   // Estado de calidad final: si el bucle agotó sus iteraciones con el informe aún sin superar,
-  // el corrector actuó en la última pasada pero NO hubo una revalidación posterior. Lo
-  // registramos para no entregar como "validado" un artículo cuya última corrección no se
-  // comprobó, y lo dejamos visible en las métricas (qualitySummary.validationPassed).
-  const validationPassed = ctx.report?.passed ?? false;
+  // el corrector actuó en la última pasada y nadie revalidó esa corrección. Cerramos el ciclo
+  // con el validador DETERMINISTA (gratuito): comprueba las reglas bloqueantes sobre el texto
+  // realmente entregado y su veredicto se fusiona en la métrica (validationPassed). Una
+  // revalidación con IA daría más cobertura, pero añadiría el coste de otro juez por
+  // generación; el validador determinista cubre justo las reglas que fuerzan corrección.
+  let validationPassed = ctx.report?.passed ?? false;
+  if (!validationPassed && ctx.draft) {
+    await executeStage(
+      { runId, stageId: "validate", attempt: maxIterations + 1, onEvent },
+      async () => {
+        const finalIssues = runEditorialValidator({
+          draft: ctx.draft!,
+          sources: ctx.sources,
+          forbiddenWords: cfg.forbiddenWords,
+          config: cfg.validatorConfig,
+        });
+        const passed = !finalIssues.some((issue) => issue.severity === "high");
+        // El informe pasa a describir el texto entregado (el anterior describía un borrador
+        // que el corrector ya reescribió).
+        ctx.report = { passed, issues: finalIssues };
+        validationPassed = passed;
+        return { data: ctx.report };
+      },
+    );
+  }
   if (!validationPassed) {
     await logError({
       category: "pipeline",
