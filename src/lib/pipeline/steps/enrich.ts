@@ -1,3 +1,4 @@
+import { DEFAULT_ARTICLE_LANGUAGE } from "@/lib/pipeline/language";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import { EnrichStepOutputSchema, type EnrichStepOutput } from "@/lib/pipeline/schemas";
 import type {
@@ -26,6 +27,7 @@ export async function runEnrich(
     topic: ctx.topic,
     targetKeyword: ctx.blueprint.targetKeyword,
     article: ctx.article.contentMarkdown,
+    language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
   });
 
   const { object, usage } = await deps.runObject({

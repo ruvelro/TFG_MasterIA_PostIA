@@ -107,6 +107,13 @@ La clave de OpenRouter y las del buscador se guardan **cifradas** en la BD y se 
 `/admin` (ver [seguridad.md](seguridad.md)). El proveedor de búsqueda (Tavily o Google CSE)
 también se elige ahí; el research lo consume a través de la interfaz `SearchProvider`.
 
+## Idioma del artículo
+
+El idioma es un parámetro de la generación (campo opcional del formulario y de la API;
+por defecto, español). Viaja en el contexto del pipeline y las plantillas lo reciben como
+`{{language}}` (redacción y enriquecimiento), de modo que un mismo portal puede producir
+piezas en varios idiomas sin tocar la configuración.
+
 ## Detalle de la etapa research
 
 La calidad del pipeline está acotada por lo que entra en research, así que la búsqueda se

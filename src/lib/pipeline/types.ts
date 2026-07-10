@@ -44,6 +44,10 @@ export interface PipelineContext {
   revisionInstructions?: string;
   /** Contexto adicional aportado por el usuario (datos, enlaces, matices); se inyecta en los prompts. */
   context?: string;
+  /** Idioma del artículo (texto libre para los prompts, p. ej. "inglés"). Default: español. */
+  language?: string;
+  /** Artículo del que este run es una revisión (Revision Mode): el hijo enlaza al padre. */
+  parentArticleId?: string;
   /**
    * Si el usuario pidió revisar la estructura antes de redactar. Se persiste en el contexto para
    * sobrevivir a la pausa de extracción: al reanudar desde `awaiting_review` el orquestador lo

@@ -573,9 +573,22 @@ describe("orquestador del pipeline", () => {
   });
 
   it("reviseGeneration regenera desde un borrador existente sin investigar", async () => {
+    // Artículo original al que la revisión debe quedar enlazada (versionado padre→hijo).
+    const original = await prisma.article.create({
+      data: {
+        userId,
+        title: "Original",
+        slug: "original",
+        contentMarkdown: "# Artículo original",
+        metaDescription: "meta",
+      },
+      select: { id: true },
+    });
+
     const result = await reviseGeneration({
       userId,
       topic: "Tema original",
+      sourceArticleId: original.id,
       sourceContext: {
         topic: "Tema original",
         sources: [],
@@ -601,8 +614,34 @@ describe("orquestador del pipeline", () => {
     expect(stageIds).not.toContain("blueprint");
     expect(stageIds).toEqual(expect.arrayContaining(["validate", "fixer", "scrub", "enrich"]));
 
-    // Produce un artículo nuevo en un run nuevo.
+    // Produce un artículo nuevo en un run nuevo, enlazado al original (versionado).
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article).not.toBeNull();
+    expect(article?.parentId).toBe(original.id);
+  });
+
+  it("inyecta el idioma solicitado en el prompt de redacción", async () => {
+    const deps = makeDeps({ validatePasses: true });
+    const prompts: string[] = [];
+    const originalRunText = deps.runText;
+    deps.runText = async (params) => {
+      prompts.push(params.prompt);
+      return originalRunText(params);
+    };
+
+    const result = await startGeneration({
+      userId,
+      topic: "Artículo en inglés",
+      pauseForReview: false,
+      language: "inglés",
+      cfg: makeConfig(1),
+      deps,
+    });
+
+    expect(result.status).toBe("completed");
+    // El prompt del redactor (draft) lleva el idioma pedido en lugar del español fijo.
+    expect(prompts.some((prompt) => prompt.includes("en inglés"))).toBe(true);
+    // Y el idioma sobrevive en el contexto persistido (pausas, revisiones).
+    expect(result.context.language).toBe("inglés");
   });
 });

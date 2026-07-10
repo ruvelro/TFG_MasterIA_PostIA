@@ -49,6 +49,7 @@ export async function POST(request: NextRequest): Promise<Response> {
   const {
     topic,
     context,
+    language,
     pauseForReview,
     pauseForBlueprintReview,
     newsTypeId,
@@ -62,6 +63,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         userId,
         topic,
         context,
+        language,
         pauseForReview,
         pauseForBlueprintReview,
         newsTypeId,

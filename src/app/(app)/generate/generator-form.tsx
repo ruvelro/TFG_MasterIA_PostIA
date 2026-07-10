@@ -49,6 +49,7 @@ export function GeneratorForm({
   const [context, setContext] = useState("");
   const [pauseForReview, setPauseForReview] = useState(true);
   const [pauseForBlueprintReview, setPauseForBlueprintReview] = useState(false);
+  const [language, setLanguage] = useState("");
   const [newsTypeId, setNewsTypeId] = useState(newsTypes[0]?.id ?? "");
   const [lengthPresetId, setLengthPresetId] = useState(lengthPresets[0]?.id ?? "");
   const [overrides, setOverrides] = useState<OverridesState>(EMPTY_OVERRIDES);
@@ -88,6 +89,7 @@ export function GeneratorForm({
     if (topic.trim().length < 5) return;
     onSubmit(topic.trim(), {
       context: context.trim() || undefined,
+      language: language.trim() || undefined,
       pauseForReview,
       pauseForBlueprintReview,
       newsTypeId: newsTypeId || undefined,
@@ -186,6 +188,17 @@ export function GeneratorForm({
           </select>
         </label>
       ) : null}
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Idioma del artículo (opcional)</span>
+        <input
+          value={language}
+          onChange={(event) => setLanguage(event.target.value)}
+          placeholder="español (por defecto) · p. ej. inglés, catalán…"
+          className={inputClass}
+          maxLength={40}
+        />
+      </label>
 
       <label className="flex items-center gap-2 text-sm">
         <input

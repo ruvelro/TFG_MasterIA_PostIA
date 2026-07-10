@@ -184,6 +184,8 @@ export interface StartParams {
   topic: string;
   /** Contexto adicional del usuario (datos, enlaces, matices) que se inyecta en los prompts. */
   context?: string;
+  /** Idioma del artículo (texto libre para los prompts); si falta, español. */
+  language?: string;
   /** Si es true, el pipeline se detiene tras la extracción para revisión humana de los hechos. */
   pauseForReview?: boolean;
   /** Si es true, el pipeline se detiene tras la estructura para revisión humana del blueprint. */
@@ -207,6 +209,7 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     userId,
     topic,
     context,
+    language,
     pauseForReview = true,
     pauseForBlueprintReview = false,
     newsType,
@@ -225,6 +228,7 @@ export async function startGeneration(params: StartParams): Promise<GenerationRe
     newsType,
     lengthPreset,
     context,
+    language,
     pauseForBlueprintReview,
   };
 
@@ -318,6 +322,8 @@ export async function resumeGeneration(params: ResumeParams): Promise<Generation
 export interface ReviseParams {
   userId: string;
   topic: string;
+  /** Id del artículo original: el nuevo artículo queda enlazado como su revisión (hijo). */
+  sourceArticleId?: string;
   /** Contexto del run original (hechos, estructura, fuentes, tipo, longitud). */
   sourceContext: PipelineContext;
   /** Markdown del artículo original, que se toma como borrador de partida. */
@@ -338,6 +344,7 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
   const {
     userId,
     topic,
+    sourceArticleId,
     sourceContext,
     sourceArticleMarkdown,
     instructions,
@@ -358,8 +365,10 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
     blueprint: sourceContext.blueprint,
     newsType: sourceContext.newsType,
     lengthPreset: sourceContext.lengthPreset,
+    language: sourceContext.language,
     draft: sourceArticleMarkdown,
     revisionInstructions: instructions,
+    parentArticleId: sourceArticleId,
   };
 
   try {
@@ -647,6 +656,7 @@ async function runQualityAndFinalize(
         keywords: JSON.stringify(cleanArticle.keywords),
         metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
         featuredImagePath: ctx.featuredImagePath ?? null,
+        parentId: ctx.parentArticleId ?? null,
       },
       select: { id: true },
     }),
