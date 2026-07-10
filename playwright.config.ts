@@ -33,6 +33,9 @@ export default defineConfig({
     timeout: 120_000,
     // Playwright añade estas variables a las del proceso; el resto (.env) las carga Next.
     // `E2E=true` desactiva el rate limiting de auth para que la suite sea determinista.
-    env: { DATABASE_URL: E2E_DATABASE_URL, E2E: "true" },
+    // `APP_URL` se FIJA al base URL que sirve Playwright: es el `baseURL` de Better Auth y su
+    // origen de confianza; si dependiera del `.env` de cada máquina (que en local puede
+    // apuntar a otro puerto y en CI no existe), el registro fallaría con "Invalid origin".
+    env: { DATABASE_URL: E2E_DATABASE_URL, E2E: "true", APP_URL: BASE_URL },
   },
 });

@@ -18,6 +18,14 @@ export const metadata: Metadata = {
     "Genera artículos de blog con un pipeline de IA multi-etapa: research, esquema, redacción, validación y SEO.",
 };
 
+// La CSP con nonce por petición (ver `proxy.ts`) solo funciona con render DINÁMICO: Next
+// inyecta el nonce en sus scripts durante el SSR a partir de la cabecera de la petición, y
+// una página estática se genera en build (sin petición, sin nonce) → con `strict-dynamic`
+// el navegador bloquearía todos sus scripts y no habría hidratación. Forzarlo en el layout
+// raíz cubre todas las rutas; las de `(app)` ya eran dinámicas por usar la sesión, así que el
+// coste real recae solo en login/registro/landing, irrelevante para esta app.
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{
