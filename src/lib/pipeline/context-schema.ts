@@ -52,6 +52,7 @@ export const PipelineContextSchema = z.object({
   humanizeAttempts: z.number().int().optional(),
   article: FixerOutputSchema.optional(),
   enrichment: ArticleEnrichmentSchema.optional(),
+  featuredImagePath: z.string().optional(),
 });
 
 /**

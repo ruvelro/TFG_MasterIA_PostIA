@@ -105,6 +105,14 @@ export function createFakePipelineDeps(): PipelineDeps {
       usage: {},
     }),
     runObject,
+    // Imagen falsa determinista (PNG de 1x1) sin red; el almacenamiento no toca disco.
+    runImage: async () => ({
+      imageBase64:
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      mediaType: "image/png",
+      usage: {},
+    }),
+    storeImage: async ({ runId }) => `uploads/featured/${runId}.png`,
     // En e2e no consultamos precios reales: el coste no es el objeto de la prueba.
     estimateCost: async () => null,
   };

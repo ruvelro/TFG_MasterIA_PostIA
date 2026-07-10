@@ -245,6 +245,12 @@ export const NewsTypeSchema = z.object({
   voiceHouseRules: z.string().default(""),
   voiceExamples: z.array(z.string()).default([]),
   /**
+   * Genera la imagen destacada (etapa feature-image) con un modelo de imagen. Desactivada
+   * por defecto: añade coste y no todos los flujos la necesitan. Opcional con default para
+   * no romper catálogos ya guardados.
+   */
+  enableFeatureImage: z.boolean().default(false),
+  /**
    * Frescura de las fuentes: limitar la búsqueda a los últimos N días (0 = sin filtro).
    * Útil para tipos de actualidad; los proveedores lo traducen a su parámetro nativo.
    * Opcional con default para no romper catálogos ya guardados.

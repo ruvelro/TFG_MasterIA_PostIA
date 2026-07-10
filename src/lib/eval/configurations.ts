@@ -26,6 +26,7 @@ const NO_HUMANIZE_TYPE: NewsType = {
   voiceBrand: "",
   voiceHouseRules: "",
   voiceExamples: [],
+  enableFeatureImage: false,
   freshnessDays: 0,
 };
 

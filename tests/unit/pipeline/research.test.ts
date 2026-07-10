@@ -24,6 +24,10 @@ function makeDeps(overrides: Partial<PipelineDeps>): PipelineDeps {
     },
     search: async () => [],
     fetchContent: async () => "",
+    runImage: async () => {
+      throw new Error("no aplica");
+    },
+    storeImage: async () => "",
     estimateCost: async () => null,
     ...overrides,
   };
@@ -209,6 +213,7 @@ describe("runResearch", () => {
         voiceBrand: "",
         voiceHouseRules: "",
         voiceExamples: [],
+        enableFeatureImage: false,
         freshnessDays: 7,
       },
     };

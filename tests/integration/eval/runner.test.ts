@@ -24,6 +24,7 @@ const baseCfg: ResolvedPipelineConfig = {
   geoRules: "Responde preguntas directas",
   sourceCount: 2,
   queryExpansionModel: "",
+  featureImageModel: "",
   maxFixIterations: 1,
   maxHumanizeRetries: DEFAULT_PIPELINE_PARAMS.maxHumanizeRetries,
   aiScoreThreshold: DEFAULT_PIPELINE_PARAMS.aiScoreThreshold,

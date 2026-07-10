@@ -82,6 +82,15 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
         </div>
       </header>
 
+      {article.featuredImagePath ? (
+        // eslint-disable-next-line @next/next/no-img-element -- la sirve un route handler con auth; next/image no aporta aquí
+        <img
+          src={`/api/articles/${article.id}/image`}
+          alt={enrichment?.imageAlt[0] ?? article.title}
+          className="border-muted/15 w-full rounded-lg border object-cover"
+        />
+      ) : null}
+
       <GenerationTrace steps={article.run?.steps ?? []} />
 
       {enrichment ? <ArticleEnrichmentView enrichment={enrichment} /> : null}

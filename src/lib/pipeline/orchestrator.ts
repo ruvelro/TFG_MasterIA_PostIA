@@ -600,6 +600,33 @@ async function runQualityAndFinalize(
     return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
 
+  // Imagen destacada (etapa 12, opcional): requiere que el tipo la active Y que el admin
+  // tenga un modelo de imagen configurado. Es un complemento del artículo, no su núcleo:
+  // si el modelo falla, la etapa queda registrada como error pero la generación SIGUE y
+  // entrega el artículo sin imagen (degradación elegante).
+  const runFeatureImageStage =
+    (ctx.newsType?.enableFeatureImage ?? false) &&
+    cfg.featureImageModel.length > 0 &&
+    Boolean(ctx.enrichment?.featuredImagePrompt);
+  if (runFeatureImageStage) {
+    try {
+      await executeStage({ runId, stageId: "feature-image", attempt: 1, onEvent }, async () => {
+        const image = await deps.runImage({
+          modelId: cfg.featureImageModel,
+          prompt: ctx.enrichment!.featuredImagePrompt,
+        });
+        ctx.featuredImagePath = await deps.storeImage({
+          runId,
+          imageBase64: image.imageBase64,
+          mediaType: image.mediaType,
+        });
+        return { model: cfg.featureImageModel, usage: image.usage };
+      });
+    } catch {
+      // Ya registrado por executeStage (fila de traza + log). El artículo se entrega sin imagen.
+    }
+  }
+
   // Coste por etapa (informativo): se calcula y persiste cuando ya existen todas las filas.
   await persistStepCosts(runId, deps);
 
@@ -619,6 +646,7 @@ async function runQualityAndFinalize(
         metaDescription: cleanArticle.metaDescription,
         keywords: JSON.stringify(cleanArticle.keywords),
         metadataJson: ctx.enrichment ? JSON.stringify(ctx.enrichment) : null,
+        featuredImagePath: ctx.featuredImagePath ?? null,
       },
       select: { id: true },
     }),

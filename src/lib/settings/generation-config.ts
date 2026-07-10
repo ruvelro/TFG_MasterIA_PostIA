@@ -25,6 +25,8 @@ export interface GenerationConfig {
   queryExpansionModel: string;
   /** Presupuesto diario de IA por usuario en USD (0 = sin límite). */
   dailyCostLimitUsd: number;
+  /** Modelo de imagen para la etapa feature-image ("" = etapa desactivada globalmente). */
+  featureImageModel: string;
   maxFixIterations: number;
   maxHumanizeRetries: number;
   aiScoreThreshold: number;
@@ -53,6 +55,9 @@ export const DEFAULT_STYLE_ANALYZER_MODEL = "google/gemini-2.5-flash";
 
 /** Modelo por defecto de la expansión de consultas de research: la tarea es trivial, prima el coste. */
 export const DEFAULT_QUERY_EXPANSION_MODEL = "google/gemini-2.5-flash";
+
+/** Modelo de imagen por defecto de la etapa feature-image (generación vía OpenRouter). */
+export const DEFAULT_FEATURE_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 
 const SOURCE_COUNT_DEFAULT = 5;
 
@@ -151,6 +156,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     sourceCount,
     queryExpansionModel,
     dailyCostLimitUsd,
+    featureImageModel,
     maxFixIterations,
     maxHumanizeRetries,
     aiScoreThreshold,
@@ -163,6 +169,7 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     getAppSetting(SETTING_KEYS.sourceCount),
     getAppSetting(SETTING_KEYS.queryExpansionModel),
     getAppSetting(SETTING_KEYS.dailyCostLimitUsd),
+    getAppSetting(SETTING_KEYS.featureImageModel),
     getAppSetting(SETTING_KEYS.maxFixIterations),
     getAppSetting(SETTING_KEYS.maxHumanizeRetries),
     getAppSetting(SETTING_KEYS.aiScoreThreshold),
@@ -180,6 +187,9 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     queryExpansionModel:
       queryExpansionModel === null ? DEFAULT_QUERY_EXPANSION_MODEL : queryExpansionModel.trim(),
     dailyCostLimitUsd: parseBoundedFloat(dailyCostLimitUsd, 0, 0, 10_000),
+    // null (sin fila) = default de fábrica; guardado vacío = etapa desactivada globalmente.
+    featureImageModel:
+      featureImageModel === null ? DEFAULT_FEATURE_IMAGE_MODEL : featureImageModel.trim(),
     maxFixIterations: parseBoundedInt(
       maxFixIterations,
       DEFAULT_PIPELINE_PARAMS.maxFixIterations,
