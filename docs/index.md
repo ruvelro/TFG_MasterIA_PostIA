@@ -9,6 +9,7 @@
 | [stack.md](stack.md)               | Stack tecnológico y justificación de cada elección.       |
 | [seguridad.md](seguridad.md)       | Modelo de amenazas y controles de seguridad.              |
 | [modelo-datos.md](modelo-datos.md) | Entidades de la base de datos y relaciones.               |
+| [evaluacion.md](evaluacion.md)     | Harness de evaluación: calidad, coste y latencia.         |
 | [contribucion.md](contribucion.md) | Flujo de Git, ramas, commits y PRs.                       |
 | [despliegue.md](despliegue.md)     | Despliegue con Docker en un VPS.                          |
 | [decisiones/](decisiones/)         | Registro de decisiones de arquitectura (ADRs).            |
