@@ -59,6 +59,15 @@ export const DEFAULT_QUERY_EXPANSION_MODEL = "google/gemini-2.5-flash";
 /** Modelo de imagen por defecto de la etapa feature-image (generación vía OpenRouter). */
 export const DEFAULT_FEATURE_IMAGE_MODEL = "google/gemini-2.5-flash-image";
 
+/** Modelo de embeddings por defecto (dedupe temática y enlazado interno). */
+export const DEFAULT_EMBEDDINGS_MODEL = "openai/text-embedding-3-small";
+
+/** Modelo de embeddings configurado ("" = función desactivada), o el de fábrica. */
+export async function getEmbeddingsModel(): Promise<string> {
+  const model = await getAppSetting(SETTING_KEYS.embeddingsModel);
+  return model === null ? DEFAULT_EMBEDDINGS_MODEL : model.trim();
+}
+
 const SOURCE_COUNT_DEFAULT = 5;
 
 /** Convierte un ajuste de texto a número (decimal) dentro de un rango, con defecto si no es válido. */

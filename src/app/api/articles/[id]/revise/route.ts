@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { requireSession } from "@/lib/auth/authorize";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { indexArticleAndSuggestLinks } from "@/lib/embeddings/service";
 import { generateRateLimiter } from "@/lib/http/rate-limit";
 import { checkDailyBudget } from "@/lib/observability/cost-budget";
 import { reviseGenerationForUser } from "@/lib/pipeline/service";
@@ -61,6 +62,8 @@ export async function POST(
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
+      // Reindexa el artículo revisado: su embedding y sus enlaces pueden cambiar.
+      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
     }
   });
 }

@@ -147,6 +147,22 @@ export type EnrichStepOutput = z.infer<typeof EnrichStepOutputSchema>;
  * a partir de los reportes ya existentes.
  */
 export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
+  /**
+   * Sugerencias de enlaces internos a artículos relacionados del mismo usuario (con el
+   * texto ancla propuesto). Las añade a posteriori el servicio de embeddings; opcional
+   * porque depende de que los embeddings estén operativos y haya artículos previos.
+   */
+  internalLinks: z
+    .array(
+      z.object({
+        articleId: z.string(),
+        title: z.string(),
+        slug: z.string(),
+        anchorText: z.string(),
+        similarity: z.number().min(0).max(1),
+      }),
+    )
+    .optional(),
   aiDetection: z.object({
     score: z.number().min(0).max(100).describe("0=totalmente humano, 100=totalmente IA"),
     label: z.enum(["humano", "mixto", "ia"]),

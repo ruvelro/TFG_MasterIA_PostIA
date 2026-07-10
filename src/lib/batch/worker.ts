@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db/client";
+import { indexArticleAndSuggestLinks } from "@/lib/embeddings/service";
 import { checkDailyBudget } from "@/lib/observability/cost-budget";
 import { logError } from "@/lib/observability/error-log";
 import { startGeneration } from "@/lib/pipeline/orchestrator";
@@ -130,6 +131,8 @@ export async function processBatch(
           costUsd: cost._sum.costUsd ?? 0,
         },
       });
+      // Indexado para dedupe/enlazado interno (best-effort; no espera al resultado).
+      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await prisma.batchItem.update({

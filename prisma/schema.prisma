@@ -255,9 +255,27 @@ model Article {
 
   user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   run  GenerationRun? @relation(fields: [runId], references: [id], onDelete: SetNull)
+  embedding ArticleEmbedding?
 
   @@index([userId])
 }
+
+// Embedding del artículo (título + meta description) para deduplicación temática y
+// enlazado interno. El vector se guarda como JSON: SQLite no tiene tipo vectorial y, a la
+// escala de un portal personal, la similitud coseno en JS sobre unos cientos de filas es
+// más que suficiente (no hace falta un índice vectorial).
+model ArticleEmbedding {
+  id         String   @id @default(cuid())
+  articleId  String   @unique
+  // Modelo con el que se calculó: si el admin lo cambia, los vectores antiguos no son
+  // comparables y se ignoran (se comparan solo embeddings del mismo modelo).
+  model      String
+  vectorJson String
+  createdAt  DateTime @default(now())
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+}
+
 
 // Lote de generación: una lista de temas que se procesa en segundo plano, con presupuesto
 // de coste opcional. Los artículos resultantes quedan como borradores del usuario.

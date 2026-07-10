@@ -5,6 +5,7 @@ import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
 import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 import { getAppSetting } from "@/lib/settings/app-config";
 import {
+  getEmbeddingsModel,
   getGenerationConfig,
   getStyleAnalyzerModel,
   getValidatorConfig,
@@ -58,6 +59,7 @@ export default async function AdminPage() {
     stepConfigs,
     generation,
     analyzerModel,
+    embeddingsModel,
     validator,
     newsTypes,
     lengthPresets,
@@ -73,6 +75,7 @@ export default async function AdminPage() {
     getAllStepConfigs(),
     getGenerationConfig(),
     getStyleAnalyzerModel(),
+    getEmbeddingsModel(),
     getValidatorConfig(),
     getNewsTypes(),
     getLengthPresets(),
@@ -252,6 +255,16 @@ export default async function AdminPage() {
                 type="text"
                 defaultValue={generation.featureImageModel}
                 placeholder="google/gemini-2.5-flash-image · vacío = desactivada"
+                className={`${inputClass} font-mono`}
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-sm">
+              <span className="font-medium">Modelo de embeddings (dedupe y enlazado)</span>
+              <input
+                name="embeddingsModel"
+                type="text"
+                defaultValue={embeddingsModel}
+                placeholder="openai/text-embedding-3-small · vacío = desactivado"
                 className={`${inputClass} font-mono`}
               />
             </label>

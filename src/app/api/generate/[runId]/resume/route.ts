@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth/authorize";
 import { prisma } from "@/lib/db/client";
 import { streamJsonEvents } from "@/lib/http/event-stream";
+import { indexArticleAndSuggestLinks } from "@/lib/embeddings/service";
 import { generateRateLimiter } from "@/lib/http/rate-limit";
 import { checkDailyBudget } from "@/lib/observability/cost-budget";
 import { resumeGenerationForRun } from "@/lib/pipeline/service";
@@ -88,6 +89,8 @@ export async function POST(
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
+      // Indexado para dedupe/enlazado interno: best-effort, fuera del camino crítico.
+      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
     }
   });
 }
