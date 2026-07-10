@@ -329,13 +329,38 @@ describe("orquestador del pipeline", () => {
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
-    // Con maxFixIterations=2 y validación que nunca pasa, debe validar 2 veces.
-    expect(validateSteps.length).toBe(2);
+    // Con maxFixIterations=2 y validación que nunca pasa: 2 validaciones del bucle + la
+    // revalidación determinista final que comprueba la última corrección del fixer.
+    expect(validateSteps.length).toBe(3);
     const attempts = validateSteps.map((s) => s.attempt).sort();
-    expect(attempts).toEqual([1, 2]);
+    expect(attempts).toEqual([1, 2, 3]);
 
-    // El bucle se agotó sin superar la validación: el artículo NO se marca como revalidado.
+    // La revalidación final no encontró problemas bloqueantes en el texto entregado: la
+    // última pasada del fixer queda comprobada y la métrica lo refleja.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+  });
+
+  it("la revalidación final mantiene el suspenso si persisten problemas bloqueantes", async () => {
+    // La validación IA nunca pasa Y el artículo final del fixer contiene una palabra
+    // prohibida ("clave" aparece en su Markdown): la revalidación determinista posterior a
+    // la última corrección debe suspender el artículo entregado.
+    const result = await startGeneration({
+      userId,
+      topic: "Ciberseguridad",
+      pauseForReview: false,
+      cfg: { ...makeConfig(2), forbiddenWords: ["clave"] },
+      deps: makeDeps({ validatePasses: false }),
+    });
+
+    expect(result.status).toBe("completed");
+    const validateSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "validate" },
+    });
+    expect(validateSteps.length).toBe(3); // 2 del bucle + revalidación final
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
+    // El informe final describe el texto entregado, con el problema bloqueante visible.
+    expect(result.context.report?.passed).toBe(false);
+    expect(result.context.report?.issues.some((i) => i.severity === "high")).toBe(true);
   });
 
   it("respeta los toggles del tipo de noticia y omite las etapas desactivadas", async () => {
