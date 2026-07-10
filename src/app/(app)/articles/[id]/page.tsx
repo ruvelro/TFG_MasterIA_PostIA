@@ -6,9 +6,11 @@ import { Markdown } from "@/components/markdown";
 import { getArticleForUser } from "@/lib/articles/repository";
 import { getCurrentSession } from "@/lib/auth/session";
 import { ArticleEnrichmentSchema, type ArticleEnrichment } from "@/lib/pipeline/schemas";
+import { getWordPressConfig } from "@/lib/settings/integrations";
 
 import { DeleteArticleButton } from "../delete-article-button";
 import { GenerationTrace } from "../generation-trace";
+import { PublishPanel } from "../publish-panel";
 import { ReviseArticle } from "../revise-article";
 
 // Las keywords se guardan como JSON; parseamos de forma defensiva (nunca debe romper la vista).
@@ -46,6 +48,8 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
 
   const keywords = parseKeywords(article.keywords);
   const enrichment = parseEnrichment(article.metadataJson);
+  // Solo se ofrece publicar si la integración con WordPress está completa (config del admin).
+  const wordpressConfigured = (await getWordPressConfig()) !== null;
 
   return (
     <article className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-12">
@@ -85,6 +89,8 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
       <div className="border-muted/15 bg-foreground/[0.02] rounded-lg border p-6">
         <Markdown>{article.contentMarkdown}</Markdown>
       </div>
+
+      <PublishPanel articleId={article.id} wordpressConfigured={wordpressConfigured} />
 
       <ReviseArticle articleId={article.id} />
 

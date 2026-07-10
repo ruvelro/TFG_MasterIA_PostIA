@@ -5,11 +5,15 @@ export const SECRET_KEYS = {
   openRouter: "openrouter_api_key",
   tavily: "tavily_api_key",
   googleCse: "google_cse_api_key",
+  wordpressAppPassword: "wordpress_app_password",
 } as const;
 
 export const SETTING_KEYS = {
   searchProvider: "search_provider",
   googleEngineId: "google_cse_engine_id",
+  // Publicación en WordPress (la Application Password va en SECRET_KEYS).
+  wordpressUrl: "wordpress_url",
+  wordpressUsername: "wordpress_username",
   // Configuración de generación.
   sourceCount: "research_source_count",
   maxFixIterations: "max_fix_iterations",
