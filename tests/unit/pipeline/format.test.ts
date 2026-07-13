@@ -3,13 +3,14 @@ import { describe, expect, it } from "vitest";
 import {
   blueprintToText,
   composeEditorialVoice,
+  computeNewsArticleJsonLd,
   factsToText,
   newsTypeDirectivesToText,
   reportToText,
   sourcesToText,
   styleProfileToText,
 } from "@/lib/pipeline/format";
-import type { NewsType, StyleProfile } from "@/lib/pipeline/schemas";
+import type { FixerOutput, NewsType, StyleProfile } from "@/lib/pipeline/schemas";
 
 const BASE_TYPE: NewsType = {
   id: "t",
@@ -206,6 +207,34 @@ describe("formateadores de contexto", () => {
       expect(result).toContain(BASE_TYPE.label);
       // La voz global va primero (el complemento se añade después).
       expect(result.indexOf("VOZ GLOBAL")).toBeLessThan(result.indexOf("Ágil y directo"));
+    });
+  });
+
+  describe("computeNewsArticleJsonLd", () => {
+    const article: FixerOutput = {
+      contentMarkdown: "# Título",
+      title: "Energía solar en España",
+      slug: "energia-solar-espana",
+      metaDescription: "La fotovoltaica crece con fuerza.",
+      keywords: ["energía solar", "fotovoltaica"],
+    };
+
+    it("construye un NewsArticle de Schema.org a partir de los datos del fixer", () => {
+      const jsonLd = computeNewsArticleJsonLd(article);
+      expect(jsonLd["@context"]).toBe("https://schema.org");
+      expect(jsonLd["@type"]).toBe("NewsArticle");
+      expect(jsonLd.headline).toBe("Energía solar en España");
+      expect(jsonLd.description).toBe("La fotovoltaica crece con fuerza.");
+      // Las keywords se unen en la cadena que espera Schema.org.
+      expect(jsonLd.keywords).toBe("energía solar, fotovoltaica");
+      // datePublished es una fecha ISO válida.
+      expect(() => new Date(jsonLd.datePublished as string).toISOString()).not.toThrow();
+    });
+
+    it("no incluye la clave 'propertyNames' que rompía la validación de Azure", () => {
+      // El bug original venía de un z.record que generaba `propertyNames` en el JSON Schema.
+      // Al ser un objeto plano y fijo, este JSON-LD nunca la contiene.
+      expect(Object.keys(computeNewsArticleJsonLd(article))).not.toContain("propertyNames");
     });
   });
 });

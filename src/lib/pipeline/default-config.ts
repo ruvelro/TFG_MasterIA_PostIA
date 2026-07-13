@@ -301,8 +301,6 @@ export const DEFAULT_STEP_CONFIG: Record<AiStageId, StepConfig> = {
       "- faq: 0-6 pares pregunta/respuesta. SOLO preguntas que el artículo responde de forma directa;",
       "  respuestas de 1-2 frases basadas en hechos del artículo (no inventes).",
       "- imageAlt: 1-3 descripciones alt de la imagen destacada, descriptivas y <=125 caracteres.",
-      "- jsonLdNewsArticle: JSON-LD Schema.org NewsArticle con al menos @context, @type, headline,",
-      "  description, keywords y datePublished (ISO de hoy).",
       "- featuredImagePrompt: prompt en inglés (<=200 palabras) para la imagen destacada. Estilo",
       "  editorial/fotoperiodístico coherente con el tema; sin texto superpuesto, sin logos, sin",
       "  representar a personas reales identificables.",

@@ -3,6 +3,7 @@ import type {
   Blueprint,
   Facts,
   FactualReview,
+  FixerOutput,
   LengthPreset,
   NewsType,
   QualityReview,
@@ -241,5 +242,26 @@ export function computeQualitySummary(
     qualityRisk,
     warningsCount,
     validationPassed,
+  };
+}
+
+/**
+ * Construye el JSON-LD Schema.org NewsArticle a partir de datos YA disponibles en el contexto
+ * (título, meta description y keywords que fijó el fixer). Es determinista y no requiere IA:
+ * antes se le pedía al modelo que generase este objeto libremente, pero un `z.record` en el
+ * esquema de salida rompía la validación estricta de `response_format` en proveedores como
+ * Azure OpenAI (rechazan la palabra clave `propertyNames` del JSON Schema resultante), y de
+ * paso dependía de que el modelo no olvidara ningún campo obligatorio de Schema.org.
+ */
+export function computeNewsArticleJsonLd(
+  article: FixerOutput,
+): ArticleEnrichment["jsonLdNewsArticle"] {
+  return {
+    "@context": "https://schema.org",
+    "@type": "NewsArticle",
+    headline: article.title,
+    description: article.metaDescription,
+    keywords: article.keywords.join(", "),
+    datePublished: new Date().toISOString(),
   };
 }

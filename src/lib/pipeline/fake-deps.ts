@@ -68,12 +68,6 @@ export function createFakePipelineDeps(): PipelineDeps {
           { question: "¿Qué es esto?", answer: "Un artículo de ejemplo generado en modo E2E." },
         ],
         imageAlt: ["Ilustración de ejemplo para el artículo E2E"],
-        jsonLdNewsArticle: {
-          "@context": "https://schema.org",
-          "@type": "NewsArticle",
-          headline: "Artículo de ejemplo",
-          datePublished: new Date().toISOString().slice(0, 10),
-        },
         featuredImagePrompt:
           "A clean illustration representing an example article in E2E test mode.",
       };

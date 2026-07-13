@@ -4,7 +4,11 @@ import { parsePipelineContext } from "@/lib/pipeline/context-schema";
 import { getSourcesByRun, saveSources } from "@/lib/pipeline/sources-repository";
 import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
-import { computeAiDetection, computeQualitySummary } from "@/lib/pipeline/format";
+import {
+  computeAiDetection,
+  computeNewsArticleJsonLd,
+  computeQualitySummary,
+} from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
 import { runDraft } from "@/lib/pipeline/steps/draft";
 import { runEditorialValidator } from "@/lib/pipeline/steps/editorial-validator";
@@ -603,9 +607,16 @@ async function runQualityAndFinalize(
           validationPassed,
         };
 
+  const jsonLdNewsArticle = computeNewsArticleJsonLd(cleanArticle);
+
   await executeStage({ runId, stageId: "enrich", attempt: 1, onEvent }, async () => {
     const result = await runEnrich(ctx, cfg, deps);
-    ctx.enrichment = { ...result.enrichStepOutput, aiDetection, qualitySummary };
+    ctx.enrichment = {
+      ...result.enrichStepOutput,
+      aiDetection,
+      qualitySummary,
+      jsonLdNewsArticle,
+    };
     return { model: result.model, usage: result.usage, data: ctx.enrichment };
   });
 

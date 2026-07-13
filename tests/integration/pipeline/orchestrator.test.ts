@@ -94,7 +94,6 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
         tags: ["test", "e2e"],
         faq: [],
         imageAlt: ["Alt de prueba"],
-        jsonLdNewsArticle: { "@context": "https://schema.org", "@type": "NewsArticle" },
         featuredImagePrompt: "An example test image prompt.",
       };
     } else {
