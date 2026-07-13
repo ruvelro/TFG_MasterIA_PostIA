@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { prisma } from "@/lib/db/client";
-import { getCostStats } from "@/lib/observability/cost-stats";
+import { getCostBreakdown, getCostStats } from "@/lib/observability/cost-stats";
 
 // getCostStats exige rol admin (defensa en profundidad). Aquí probamos la AGREGACIÓN, no la
 // autorización, así que dejamos requireAdmin como un no-op (no hay contexto de request en el test).
@@ -56,5 +56,63 @@ describe("getCostStats", () => {
     // Los datos se han creado ahora, así que caen dentro de la ventana de 30 días.
     expect(stats.periodUsd).toBeGreaterThanOrEqual(0.0035);
     expect(stats.periodDays).toBe(30);
+  });
+});
+
+describe("getCostBreakdown", () => {
+  it("agrega coste y tokens por etapa y por modelo, con coste medio por ejecución", async () => {
+    // Etapas con stageId y modelo propios para asertar sobre filas concretas sin depender del
+    // resto de datos del fichero de test.
+    const run = await prisma.generationRun.create({
+      data: { userId, topic: "Desglose", status: "completed" },
+    });
+    await prisma.generationStep.createMany({
+      data: [
+        {
+          runId: run.id,
+          stageId: "bd-draft",
+          model: "modelo/x",
+          status: "done",
+          costUsd: 0.01,
+          tokensInput: 100,
+          tokensOutput: 200,
+        },
+        {
+          runId: run.id,
+          stageId: "bd-draft",
+          model: "modelo/x",
+          status: "done",
+          costUsd: 0.03,
+          tokensInput: 300,
+          tokensOutput: 400,
+        },
+        {
+          runId: run.id,
+          stageId: "bd-validate",
+          model: "modelo/y",
+          status: "done",
+          costUsd: 0.02,
+          tokensInput: 50,
+          tokensOutput: 60,
+        },
+      ],
+    });
+
+    const breakdown = await getCostBreakdown();
+
+    const draft = breakdown.byStage.find((r) => r.key === "bd-draft");
+    expect(draft?.steps).toBe(2);
+    expect(draft?.totalUsd).toBeCloseTo(0.04, 10);
+    expect(draft?.tokensInput).toBe(400);
+    expect(draft?.tokensOutput).toBe(600);
+    expect(draft?.avgUsdPerStep).toBeCloseTo(0.02, 10);
+
+    const modelX = breakdown.byModel.find((r) => r.key === "modelo/x");
+    expect(modelX?.steps).toBe(2);
+    expect(modelX?.totalUsd).toBeCloseTo(0.04, 10);
+
+    // Ambos desgloses están ordenados de mayor a menor coste total.
+    const stageCosts = breakdown.byStage.map((r) => r.totalUsd);
+    expect([...stageCosts]).toEqual([...stageCosts].sort((a, b) => b - a));
   });
 });

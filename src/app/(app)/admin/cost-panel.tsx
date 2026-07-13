@@ -1,4 +1,9 @@
-import { getCostStats } from "@/lib/observability/cost-stats";
+import {
+  getCostBreakdown,
+  getCostStats,
+  type CostBreakdownRow,
+} from "@/lib/observability/cost-stats";
+import { PIPELINE_STAGES } from "@/lib/pipeline/stages";
 
 // Los costes por generación son importes muy pequeños (céntimos o fracciones), así que mostramos
 // 4 decimales para que no se redondeen a 0,00 $. Es instrumentación informativa, no contable.
@@ -11,13 +16,74 @@ function formatUsd(value: number): string {
   });
 }
 
+function formatInt(value: number): string {
+  return value.toLocaleString("es-ES");
+}
+
+const STAGE_LABEL = new Map<string, string>(
+  PIPELINE_STAGES.map((stage) => [stage.id, stage.label]),
+);
+
+/**
+ * Tabla de desglose de coste (por etapa o por modelo). Comparte estructura para no duplicar
+ * marcado: muestra volumen (ejecuciones y tokens), coste total y coste medio por ejecución, que
+ * es lo que permite comparar el coste unitario entre dimensiones con distinto volumen.
+ */
+function BreakdownTable({
+  rows,
+  keyHeader,
+  labelFor,
+}: {
+  rows: CostBreakdownRow[];
+  keyHeader: string;
+  labelFor?: (key: string) => string;
+}) {
+  if (rows.length === 0) return <p className="text-muted text-sm">Sin datos todavía.</p>;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-muted/20 text-muted border-b text-left">
+            <th className="py-2 font-medium">{keyHeader}</th>
+            <th className="py-2 text-right font-medium">Ejec.</th>
+            <th className="py-2 text-right font-medium">Tokens in</th>
+            <th className="py-2 text-right font-medium">Tokens out</th>
+            <th className="py-2 text-right font-medium">Coste total</th>
+            <th className="py-2 text-right font-medium">Coste/ejec.</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.key} className="border-muted/10 border-b">
+              <td className="py-2">
+                {labelFor ? (
+                  labelFor(row.key)
+                ) : (
+                  <span className="font-mono text-xs">{row.key}</span>
+                )}
+              </td>
+              <td className="py-2 text-right tabular-nums">{formatInt(row.steps)}</td>
+              <td className="py-2 text-right tabular-nums">{formatInt(row.tokensInput)}</td>
+              <td className="py-2 text-right tabular-nums">{formatInt(row.tokensOutput)}</td>
+              <td className="py-2 text-right tabular-nums">{formatUsd(row.totalUsd)}</td>
+              <td className="text-muted py-2 text-right tabular-nums">
+                {formatUsd(row.avgUsdPerStep)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * Panel de coste (server component). Agrega el coste estimado ya persistido por etapa y lo muestra
  * por usuario. Se renderiza dentro del panel de Admin, ya protegido por rol, así que la consulta
  * (que cruza datos de todos los usuarios) está autorizada.
  */
 export async function CostPanel() {
-  const stats = await getCostStats(30);
+  const [stats, breakdown] = await Promise.all([getCostStats(30), getCostBreakdown()]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -65,6 +131,30 @@ export async function CostPanel() {
           </tbody>
         </table>
       )}
+
+      {/* ── Desglose por etapa: dónde se concentra el coste del pipeline ── */}
+      <div className="mt-2 flex flex-col gap-2">
+        <h3 className="font-medium">Coste por etapa</h3>
+        <p className="text-muted text-xs">
+          Reparto del coste entre las etapas del pipeline. Respalda con datos la decisión de usar un
+          modelo distinto por paso: revela qué etapas dominan el gasto.
+        </p>
+        <BreakdownTable
+          rows={breakdown.byStage}
+          keyHeader="Etapa"
+          labelFor={(key) => STAGE_LABEL.get(key) ?? key}
+        />
+      </div>
+
+      {/* ── Desglose por modelo: coste unitario de cada modelo empleado ── */}
+      <div className="flex flex-col gap-2">
+        <h3 className="font-medium">Coste por modelo</h3>
+        <p className="text-muted text-xs">
+          Coste y tokens agregados por modelo de OpenRouter. Útil para comparar el coste unitario
+          antes de escalar una etapa a un modelo más caro.
+        </p>
+        <BreakdownTable rows={breakdown.byModel} keyHeader="Modelo" />
+      </div>
     </section>
   );
 }
