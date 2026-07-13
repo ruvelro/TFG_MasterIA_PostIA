@@ -44,11 +44,16 @@ describe("aggregateEvalRecords", () => {
     expect(base?.avgJudgeOverall).toBeCloseTo(62, 5); // (72+52)/2
     expect(base?.avgCostUsd).toBeCloseTo(0.03, 5);
     expect(base?.validationPassRate).toBeCloseTo(0.5, 5);
+    // Desviación típica muestral (n-1) sobre los dos casos completados con dato.
+    expect(base?.sdJudgeOverall).toBeCloseTo(Math.sqrt(200), 5); // sd de {72, 52}
+    expect(base?.sdCostUsd).toBeCloseTo(0.01 * Math.SQRT2, 5); // sd de {0.02, 0.04}
 
     // La línea base no tiene validación del pipeline: la tasa no aplica.
     const single = aggregates.find((a) => a.configId === "llamada-unica");
     expect(single?.validationPassRate).toBeNull();
     expect(single?.avgCostUsd).toBeCloseTo(0.005, 5);
+    // Un solo caso: la desviación típica no es estimable.
+    expect(single?.sdJudgeOverall).toBeNull();
   });
 
   it("renderiza una tabla Markdown con una fila por configuración", () => {
@@ -58,5 +63,15 @@ describe("aggregateEvalRecords", () => {
     expect(table).toContain("| base |");
     expect(table).toContain("| economico |");
     expect(table.split("\n")).toHaveLength(4); // cabecera + separador + 2 filas
+  });
+
+  it("muestra media ± desviación típica cuando hay al menos dos casos", () => {
+    const table = renderMarkdownReport(
+      aggregateEvalRecords([
+        record({ judge, costUsd: 0.02 }),
+        record({ judge: { ...judge, overall: 52 }, costUsd: 0.04 }),
+      ]),
+    );
+    expect(table).toContain("±");
   });
 });

@@ -22,6 +22,8 @@ export interface EvalRecord {
   topicId: string;
   topic: string;
   configId: string;
+  /** Índice de repetición (1-based) cuando el mismo caso se ejecuta varias veces para varianza. */
+  repeat?: number;
   mode: "pipeline" | "single-call";
   status: "completed" | "error";
   error?: string;
