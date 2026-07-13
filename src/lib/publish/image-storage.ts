@@ -23,17 +23,38 @@ const MIME_BY_EXTENSION: Record<string, string> = {
   webp: "image/webp",
 };
 
+/** Extensión de fichero para un tipo MIME de imagen (png por defecto si es desconocido). */
+export function extensionForMediaType(mediaType: string): string {
+  return EXTENSION_BY_MIME[mediaType] ?? "png";
+}
+
+/** Persiste una imagen destacada desde su binario y devuelve la ruta RELATIVA. */
+export async function storeFeaturedImageBuffer(params: {
+  /** Nombre base del fichero (sin extensión): el runId o el articleId según el origen. */
+  basename: string;
+  data: Buffer;
+  mediaType: string;
+}): Promise<string> {
+  const relativePath = join(
+    FEATURED_DIR,
+    `${params.basename}.${extensionForMediaType(params.mediaType)}`,
+  );
+  await mkdir(FEATURED_DIR, { recursive: true });
+  await writeFile(relativePath, params.data);
+  return relativePath;
+}
+
 /** Persiste una imagen generada y devuelve su ruta RELATIVA (la que se guarda en Article). */
 export async function storeFeaturedImage(params: {
   runId: string;
   imageBase64: string;
   mediaType: string;
 }): Promise<string> {
-  const extension = EXTENSION_BY_MIME[params.mediaType] ?? "png";
-  const relativePath = join(FEATURED_DIR, `${params.runId}.${extension}`);
-  await mkdir(FEATURED_DIR, { recursive: true });
-  await writeFile(relativePath, Buffer.from(params.imageBase64, "base64"));
-  return relativePath;
+  return storeFeaturedImageBuffer({
+    basename: params.runId,
+    data: Buffer.from(params.imageBase64, "base64"),
+    mediaType: params.mediaType,
+  });
 }
 
 /**

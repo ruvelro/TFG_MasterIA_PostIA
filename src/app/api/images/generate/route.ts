@@ -1,5 +1,7 @@
 import { runImageGeneration } from "@/lib/ai/generate";
 import { requireSession, UnauthenticatedError } from "@/lib/auth/authorize";
+import { createGeneratedImage, setGeneratedImagePath } from "@/lib/images/repository";
+import { storeGeneratedImage } from "@/lib/images/storage";
 import { generateRateLimiter } from "@/lib/http/rate-limit";
 import { logError } from "@/lib/observability/error-log";
 import { getImageStyles } from "@/lib/settings/image-styles";
@@ -64,7 +66,30 @@ export async function POST(request: Request): Promise<Response> {
       prompt,
       timeoutMs: IMAGE_TIMEOUT_MS,
     });
-    return Response.json({ imageBase64: image.imageBase64, mediaType: image.mediaType });
+
+    // Se persiste para la galería del usuario: primero la fila (obtiene el id) y luego el fichero
+    // con ese id como nombre. Se guarda el prompt SIN el sufijo del estilo (lo que el usuario tecleó).
+    const row = await createGeneratedImage({
+      userId: session.user.id,
+      prompt: parsed.data.prompt,
+      styleId: parsed.data.styleId ?? null,
+      model: parsed.data.model,
+      path: "",
+      mediaType: image.mediaType,
+    });
+    const path = await storeGeneratedImage({
+      userId: session.user.id,
+      imageId: row.id,
+      imageBase64: image.imageBase64,
+      mediaType: image.mediaType,
+    });
+    await setGeneratedImagePath(row.id, path);
+
+    return Response.json({
+      id: row.id,
+      imageBase64: image.imageBase64,
+      mediaType: image.mediaType,
+    });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Error desconocido generando la imagen";
