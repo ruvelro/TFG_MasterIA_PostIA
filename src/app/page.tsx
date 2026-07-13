@@ -94,6 +94,21 @@ function IconRefresh({ className }: IconProps) {
     </svg>
   );
 }
+function IconImage({ className }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      className={className}
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <circle cx="8.5" cy="9.5" r="1.5" />
+      <path d="m4 17 5-5 4 4 3-3 4 4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 const FEATURES = [
   {
@@ -131,6 +146,12 @@ const FEATURES = [
     title: "Revisión dirigida",
     description:
       "¿Algo que cambiar? Reedita cualquier artículo con instrucciones y se regenera sin volver a investigar, reaprovechando todo el trabajo previo.",
+  },
+  {
+    Icon: IconImage,
+    title: "Generador de imágenes",
+    description:
+      "Crea imágenes sueltas —destacadas, de relleno o genéricas— eligiendo modelo, prompt y estilo. Los estilos se configuran una vez y se reutilizan en cada generación.",
   },
 ];
 

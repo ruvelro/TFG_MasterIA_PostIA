@@ -37,6 +37,8 @@ export const SETTING_KEYS = {
   newsTypes: "news_types",
   // Catálogo (JSON) de presets de longitud.
   lengthPresets: "length_presets",
+  // Catálogo (JSON) de estilos del generador de imágenes independiente.
+  imageStyles: "image_styles",
   // Claves heredadas (perfil plano): se usan como semilla del perfil estructurado.
   legacyEditorialVoice: "editorial_voice",
   legacySeoRules: "seo_rules",

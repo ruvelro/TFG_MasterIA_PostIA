@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth/authorize";
 import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
 import {
+  ImageStyleCatalogSchema,
   LengthPresetCatalogSchema,
   NewsTypeCatalogSchema,
   StyleProfileSchema,
@@ -12,6 +13,7 @@ import {
 } from "@/lib/pipeline/schemas";
 import { setAppSetting } from "@/lib/settings/app-config";
 import { serializeStyleProfile, serializeValidatorConfig } from "@/lib/settings/generation-config";
+import { serializeImageStyles } from "@/lib/settings/image-styles";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { serializeLengthPresets } from "@/lib/settings/length-presets";
 import { serializeNewsTypes } from "@/lib/settings/news-types";
@@ -214,6 +216,30 @@ export async function saveLengthPresets(presetsInput: unknown): Promise<void> {
   await setAppSetting(SETTING_KEYS.lengthPresets, serializeLengthPresets(parsed.data));
   revalidatePath("/admin");
   revalidatePath("/generate");
+}
+
+/**
+ * Guarda el catálogo de estilos del generador de imágenes. Llega ensamblado desde el formulario
+ * cliente y se valida con Zod (incluida la unicidad de ids) antes de persistirlo como JSON.
+ */
+export async function saveImageStyles(stylesInput: unknown): Promise<void> {
+  await requireAdmin();
+
+  const parsed = ImageStyleCatalogSchema.safeParse(stylesInput);
+  if (!parsed.success) {
+    throw new Error("Catálogo de estilos de imagen inválido");
+  }
+  if (parsed.data.length === 0) {
+    throw new Error("Debe existir al menos un estilo de imagen");
+  }
+  const ids = parsed.data.map((s) => s.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new Error("Los identificadores de estilo deben ser únicos");
+  }
+
+  await setAppSetting(SETTING_KEYS.imageStyles, serializeImageStyles(parsed.data));
+  revalidatePath("/admin");
+  revalidatePath("/images");
 }
 
 /** Guarda el modelo y el prompt de una etapa del pipeline. */

@@ -302,6 +302,27 @@ export type LengthPreset = z.infer<typeof LengthPresetSchema>;
 
 export const LengthPresetCatalogSchema = z.array(LengthPresetSchema);
 
+// ── Estilos de imagen (catálogo editable) ─────────────────────────────────────
+
+/**
+ * Un estilo de imagen define un modificador estético reutilizable para el generador de imágenes
+ * independiente (p. ej. "Fotoperiodístico", "Ilustración plana"). El `promptSuffix` se añade al
+ * prompt del usuario para dirigir el aspecto sin que tenga que reescribir la descripción estética
+ * cada vez. Se guarda como JSON en `AppSetting`; el usuario elige uno al generar.
+ */
+export const ImageStyleSchema = z.object({
+  id: z
+    .string()
+    .min(1)
+    .regex(/^[a-z0-9-]+$/, "Solo minúsculas, números y guiones"),
+  label: z.string().min(1),
+  /** Texto que se concatena al prompt para inducir el estilo. Puede ir vacío ("sin estilo"). */
+  promptSuffix: z.string().default(""),
+});
+export type ImageStyle = z.infer<typeof ImageStyleSchema>;
+
+export const ImageStyleCatalogSchema = z.array(ImageStyleSchema);
+
 // ── Validador editorial determinista (configurable) ───────────────────────────
 
 /**
