@@ -18,7 +18,10 @@ import { buildPipelineConfig, buildPipelineDeps } from "@/lib/pipeline/build-dep
  *
  * Uso:
  *   npm run eval -- [--configs base,economico,llamada-unica] [--topics ia-regulacion-ue,...]
- *                   [--limit 3] [--judge-model openai/gpt-4o] [--out eval-results]
+ *                   [--limit 3] [--repeats 3] [--judge-model openai/gpt-4o] [--out eval-results]
+ *
+ * `--repeats N` ejecuta cada caso N veces para estimar la varianza (los LLMs no son
+ * deterministas); el informe muestra media ± desviación típica por configuración.
  *
  * Requiere la clave de OpenRouter y el buscador configurados en la app (BD), igual que una
  * generación normal. Los runs se persisten a nombre de un usuario "eval@postia.local".
@@ -32,6 +35,7 @@ const { values } = parseArgs({
     configs: { type: "string" },
     topics: { type: "string" },
     limit: { type: "string" },
+    repeats: { type: "string" },
     "judge-model": { type: "string" },
     out: { type: "string" },
   },
@@ -82,38 +86,50 @@ async function main(): Promise<void> {
     );
   }
 
+  // Repeticiones del mismo caso: dan varias muestras por (tema × configuración) para estimar la
+  // varianza. Con LLMs no deterministas, una sola ejecución puede engañar; repetir la acota.
+  const repeats = Math.max(1, values.repeats ? Number.parseInt(values.repeats, 10) : 1);
+
   const outDir = values.out ?? "eval-results";
   mkdirSync(outDir, { recursive: true });
   const outFile = join(outDir, `eval-${new Date().toISOString().replace(/[:.]/g, "-")}.jsonl`);
 
-  const total = topics.length * configurations.length;
+  const total = topics.length * configurations.length * repeats;
   let done = 0;
+  const repeatSuffix = repeats > 1 ? ` × ${repeats} repeticiones` : "";
   console.log(
-    `Evaluando ${topics.length} temas × ${configurations.length} configuraciones → ${outFile}\n`,
+    `Evaluando ${topics.length} temas × ${configurations.length} configuraciones${repeatSuffix} → ${outFile}\n`,
   );
 
   // Secuencial a propósito: N casos en paralelo dispararían el rate limit del proveedor y
   // contaminarían la medición de latencia.
   for (const configuration of configurations) {
     for (const golden of topics) {
-      done += 1;
-      process.stdout.write(`[${done}/${total}] ${configuration.id} × ${golden.id} … `);
-      const record = await runEvalCase({
-        golden,
-        configuration,
-        baseCfg,
-        deps,
-        userId,
-        judgeModel,
-      });
-      appendFileSync(outFile, `${JSON.stringify(record)}\n`);
-      if (record.status === "completed") {
-        const cost = record.costUsd != null ? `$${record.costUsd.toFixed(4)}` : "s/coste";
-        console.log(
-          `ok (${(record.latencyMs / 1000).toFixed(1)}s · ${cost} · juez=${record.judge?.overall ?? "-"})`,
-        );
-      } else {
-        console.log(`ERROR: ${record.error}`);
+      for (let repeat = 1; repeat <= repeats; repeat += 1) {
+        done += 1;
+        const tag =
+          repeats > 1
+            ? `${configuration.id} × ${golden.id} #${repeat}`
+            : `${configuration.id} × ${golden.id}`;
+        process.stdout.write(`[${done}/${total}] ${tag} … `);
+        const record = await runEvalCase({
+          golden,
+          configuration,
+          baseCfg,
+          deps,
+          userId,
+          judgeModel,
+        });
+        if (repeats > 1) record.repeat = repeat;
+        appendFileSync(outFile, `${JSON.stringify(record)}\n`);
+        if (record.status === "completed") {
+          const cost = record.costUsd != null ? `$${record.costUsd.toFixed(4)}` : "s/coste";
+          console.log(
+            `ok (${(record.latencyMs / 1000).toFixed(1)}s · ${cost} · juez=${record.judge?.overall ?? "-"})`,
+          );
+        } else {
+          console.log(`ERROR: ${record.error}`);
+        }
       }
     }
   }
