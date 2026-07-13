@@ -39,3 +39,19 @@ export async function deleteArticleForUser(articleId: string, userId: string): P
   const result = await prisma.article.deleteMany({ where: { id: articleId, userId } });
   return result.count > 0;
 }
+
+/**
+ * Fija la imagen destacada del artículo. `userId` va en el `where` como defensa en profundidad:
+ * solo el propietario puede cambiarla. Devuelve true si se actualizó (false si no era suyo).
+ */
+export async function setArticleFeaturedImage(
+  articleId: string,
+  userId: string,
+  featuredImagePath: string,
+): Promise<boolean> {
+  const result = await prisma.article.updateMany({
+    where: { id: articleId, userId },
+    data: { featuredImagePath },
+  });
+  return result.count > 0;
+}

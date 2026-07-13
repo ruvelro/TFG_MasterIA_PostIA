@@ -41,6 +41,7 @@ model User {
   runs     GenerationRun[]
   batches  Batch[]
   apiKeys  ApiKey[]
+  images   GeneratedImage[]
 }
 
 model Session {
@@ -280,6 +281,27 @@ model ArticleEmbedding {
   createdAt  DateTime @default(now())
 
   article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+}
+
+// Imagen generada con el generador de imágenes independiente (no la de un artículo). Se persiste
+// para poder ofrecer una galería por usuario y reutilizar una imagen como destacada de un
+// artículo. El binario vive en el volumen de uploads; aquí solo se guardan la ruta y los metadatos.
+model GeneratedImage {
+  id        String   @id @default(cuid())
+  userId    String
+  // Prompt del usuario (sin el sufijo del estilo) y estilo elegido, para mostrarlos en la galería.
+  prompt    String
+  styleId   String?
+  // Modelo de OpenRouter con el que se generó.
+  model     String
+  // Ruta relativa al directorio de uploads del fichero de imagen.
+  path      String
+  mediaType String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 
