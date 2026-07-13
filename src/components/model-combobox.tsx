@@ -26,7 +26,7 @@ let modelsPromise: Promise<OpenRouterModel[]> | null = null;
 
 function loadModels(): Promise<OpenRouterModel[]> {
   if (!modelsPromise) {
-    modelsPromise = fetch("/api/admin/openrouter-models", {
+    modelsPromise = fetch("/api/openrouter-models", {
       headers: { Accept: "application/json" },
     })
       .then((res) => (res.ok ? res.json() : { models: [] }))

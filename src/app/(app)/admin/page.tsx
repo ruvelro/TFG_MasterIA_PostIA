@@ -11,11 +11,13 @@ import {
   getValidatorConfig,
   serializeScrubPatterns,
 } from "@/lib/settings/generation-config";
+import { getImageStyles } from "@/lib/settings/image-styles";
 import { SECRET_KEYS, SETTING_KEYS } from "@/lib/settings/keys";
 import { getLengthPresets } from "@/lib/settings/length-presets";
 import { getNewsTypes } from "@/lib/settings/news-types";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
+import { ModelCombobox } from "@/components/model-combobox";
 
 import {
   saveGenerationConfig,
@@ -28,8 +30,8 @@ import { AdminTabs, type AdminTab } from "./admin-tabs";
 import { CostPanel } from "./cost-panel";
 import { EditorialStyleForm } from "./editorial-style-form";
 import { ErrorLogPanel } from "./error-log-panel";
+import { ImageStylesForm } from "./image-styles-form";
 import { LengthPresetsForm } from "./length-presets-form";
-import { ModelCombobox } from "./model-combobox";
 import { NewsTypesForm } from "./news-types-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
@@ -64,6 +66,7 @@ export default async function AdminPage() {
     validator,
     newsTypes,
     lengthPresets,
+    imageStyles,
   ] = await Promise.all([
     getSecretStatus(SECRET_KEYS.openRouter),
     getSecretStatus(SECRET_KEYS.tavily),
@@ -80,6 +83,7 @@ export default async function AdminPage() {
     getValidatorConfig(),
     getNewsTypes(),
     getLengthPresets(),
+    getImageStyles(),
   ]);
 
   const inputClass =
@@ -205,6 +209,11 @@ export default async function AdminPage() {
       id: "lengths",
       label: "Longitudes",
       content: <LengthPresetsForm initialPresets={lengthPresets} />,
+    },
+    {
+      id: "image-styles",
+      label: "Imágenes",
+      content: <ImageStylesForm initialStyles={imageStyles} />,
     },
     {
       id: "generation",
