@@ -29,6 +29,7 @@ import { CostPanel } from "./cost-panel";
 import { EditorialStyleForm } from "./editorial-style-form";
 import { ErrorLogPanel } from "./error-log-panel";
 import { LengthPresetsForm } from "./length-presets-form";
+import { ModelCombobox } from "./model-combobox";
 import { NewsTypesForm } from "./news-types-form";
 
 const STAGE_LABEL = new Map(PIPELINE_STAGES.map((stage) => [stage.id, stage.label]));
@@ -474,12 +475,7 @@ export default async function AdminPage() {
 
                 <label className="flex flex-col gap-1 text-sm">
                   <span className="font-medium">Modelo (OpenRouter)</span>
-                  <input
-                    name="model"
-                    type="text"
-                    defaultValue={config.model}
-                    className={inputClass}
-                  />
+                  <ModelCombobox name="model" defaultValue={config.model} className={inputClass} />
                 </label>
 
                 <label className="flex flex-col gap-1 text-sm">
