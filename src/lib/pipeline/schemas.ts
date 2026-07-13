@@ -132,9 +132,6 @@ export const EnrichStepOutputSchema = z.object({
   imageAlt: z
     .array(z.string())
     .describe("1-3 textos alt descriptivos para la imagen destacada (≤125 chars cada uno)"),
-  jsonLdNewsArticle: z
-    .record(z.string(), z.unknown())
-    .describe("Objeto Schema.org NewsArticle completo para SEO estructurado"),
   featuredImagePrompt: z
     .string()
     .describe("Prompt en inglés para generar la imagen destacada con IA (≤200 palabras)"),
@@ -142,9 +139,13 @@ export const EnrichStepOutputSchema = z.object({
 export type EnrichStepOutput = z.infer<typeof EnrichStepOutputSchema>;
 
 /**
- * Output de enriquecimiento completo: los 6 campos creativos del step `enrich` más
- * `aiDetection` y `qualitySummary`, que el orquestador computa sin llamadas IA adicionales
- * a partir de los reportes ya existentes.
+ * Output de enriquecimiento completo: los campos creativos del step `enrich` más
+ * `aiDetection`, `qualitySummary` y `jsonLdNewsArticle`, que el orquestador computa sin
+ * llamadas IA adicionales a partir de datos ya disponibles en el contexto (título, meta
+ * description y keywords del fixer). Que sea determinista evita depender de que el modelo
+ * genere un JSON-LD válido —y de paso, el tipo de `z.record` que usaba antes rompía la
+ * validación de esquema estricta de algunos proveedores (p. ej. Azure OpenAI: `propertyNames`
+ * no está permitido en su `response_format`).
  */
 export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
   /**
@@ -167,6 +168,9 @@ export const ArticleEnrichmentSchema = EnrichStepOutputSchema.extend({
     score: z.number().min(0).max(100).describe("0=totalmente humano, 100=totalmente IA"),
     label: z.enum(["humano", "mixto", "ia"]),
   }),
+  jsonLdNewsArticle: z
+    .record(z.string(), z.unknown())
+    .describe("Objeto Schema.org NewsArticle completo para SEO estructurado"),
   qualitySummary: z.object({
     groundedness: z
       .number()
