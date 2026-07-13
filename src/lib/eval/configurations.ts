@@ -1,4 +1,4 @@
-import { AI_STAGE_IDS } from "@/lib/pipeline/default-config";
+import { AI_STAGE_IDS, type AiStageId } from "@/lib/pipeline/default-config";
 import type { NewsType } from "@/lib/pipeline/schemas";
 import type { ResolvedPipelineConfig } from "@/lib/pipeline/types";
 
@@ -11,6 +11,17 @@ import type { ResolvedPipelineConfig } from "@/lib/pipeline/types";
 
 /** Modelo económico al que se fuerzan todas las etapas en la variante barata. */
 export const ECONOMY_MODEL = "google/gemini-2.5-flash";
+
+/**
+ * Modelo "de gama alta" con el que se sube UNA etapa concreta en las variantes por etapa, para
+ * medir su valor marginal frente al económico. Es un parámetro de investigación: cámbialo por el
+ * modelo capaz que quieras comparar. Se elige distinto del juez por defecto (gpt-4o) para no
+ * disparar el aviso de solapamiento juez↔pipeline.
+ */
+export const CAPABLE_MODEL = "anthropic/claude-3.5-sonnet";
+
+/** Etapas "juez" del pipeline: las que emiten dictámenes de calidad y fidelidad. */
+const JUDGE_STAGES = ["validate", "factual-review", "quality-review"] as const;
 
 /** Tipo de noticia sintético para la variante sin humanización (resto de etapas intactas). */
 const NO_HUMANIZE_TYPE: NewsType = {
@@ -53,6 +64,23 @@ function withUniformModel(base: ResolvedPipelineConfig, model: string): Resolved
   return { ...base, steps, queryExpansionModel: base.queryExpansionModel ? model : "" };
 }
 
+/**
+ * Sube (o cambia) el modelo de UNAS etapas concretas, dejando el resto igual. Es la pieza clave
+ * de las variantes por etapa: aislar el efecto de mejorar el modelo de una sola etapa permite
+ * medir su valor marginal (calidad ganada por dólar extra) en vez de mezclarlo con el resto.
+ */
+function withStageModel(
+  base: ResolvedPipelineConfig,
+  stageIds: readonly AiStageId[],
+  model: string,
+): ResolvedPipelineConfig {
+  const steps = { ...base.steps };
+  for (const stageId of stageIds) {
+    steps[stageId] = { ...steps[stageId], model };
+  }
+  return { ...base, steps };
+}
+
 export const EVAL_CONFIGURATIONS: readonly EvalConfiguration[] = [
   {
     id: "base",
@@ -84,6 +112,18 @@ export const EVAL_CONFIGURATIONS: readonly EvalConfiguration[] = [
     description: "Como base, con hasta tres pasadas del bucle de calidad",
     mode: "pipeline",
     apply: (base) => ({ ...base, maxFixIterations: 3 }),
+  },
+  {
+    id: "juez-capaz",
+    description: `Etapas juez (validación, factual, calidad) con ${CAPABLE_MODEL}; resto igual`,
+    mode: "pipeline",
+    apply: (base) => withStageModel(base, JUDGE_STAGES, CAPABLE_MODEL),
+  },
+  {
+    id: "draft-capaz",
+    description: `Solo la redacción con ${CAPABLE_MODEL}; resto igual`,
+    mode: "pipeline",
+    apply: (base) => withStageModel(base, ["draft"], CAPABLE_MODEL),
   },
   {
     id: "llamada-unica",
