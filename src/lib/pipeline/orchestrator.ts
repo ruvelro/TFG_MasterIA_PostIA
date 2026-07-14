@@ -15,7 +15,7 @@ import { runEditorialValidator } from "@/lib/pipeline/steps/editorial-validator"
 import { runEnrich } from "@/lib/pipeline/steps/enrich";
 import { runExtract } from "@/lib/pipeline/steps/extract";
 import { runFactualReview } from "@/lib/pipeline/steps/factual-review";
-import { runFixer } from "@/lib/pipeline/steps/fixer";
+import { runArticleFinalizer, runFixer } from "@/lib/pipeline/steps/fixer";
 import { runHumanize } from "@/lib/pipeline/steps/humanize";
 import { runQualityReview } from "@/lib/pipeline/steps/quality-review";
 import { runResearch } from "@/lib/pipeline/steps/research";
@@ -454,17 +454,13 @@ async function runQualityAndFinalize(
   const runFactualReviewStage = ctx.newsType?.enableFactualReview ?? true;
   const runQualityReviewStage = ctx.newsType?.enableQualityReview ?? true;
 
-  // Bucle de calidad: validar → revisar → puntuar → corregir si es necesario.
-  const maxIterations = Math.max(cfg.maxFixIterations, 1);
-  for (let attempt = 1; attempt <= maxIterations; attempt++) {
+  const reviewCurrentDraft = async (attempt: number): Promise<void> => {
     await executeStage({ runId, stageId: "validate", attempt, onEvent }, async () => {
       const result = await runValidate(ctx, cfg, deps);
       ctx.report = result.report;
       return { model: result.model, usage: result.usage, data: result.report };
     });
 
-    // Capa determinista (sin IA): fusiona sus hallazgos en el informe de validación. Los de
-    // severidad alta marcan el informe como NO superado para que el corrector los resuelva.
     if (ctx.draft && ctx.report) {
       const editorialIssues = runEditorialValidator({
         draft: ctx.draft,
@@ -496,6 +492,15 @@ async function runQualityAndFinalize(
         return { model: result.model, usage: result.usage, data: result.qualityReport };
       });
     }
+  };
+
+  // Bucle de calidad: revisar el contenido actual y aplicar como máximo una transformación antes
+  // de volver a medirlo. Así ningún informe se reutiliza sobre un texto diferente al evaluado.
+  const maxIterations = Math.max(cfg.maxFixIterations, 1);
+  let contentNeedsReview = false;
+  for (let attempt = 1; attempt <= maxIterations; attempt++) {
+    await reviewCurrentDraft(attempt);
+    contentNeedsReview = false;
 
     // Re-humanización: solo si el tipo activa humanize Y quality-review (necesita el aiScore).
     const aiScore = ctx.qualityReport?.aiScore ?? 0;
@@ -515,71 +520,40 @@ async function runQualityAndFinalize(
         async () => {
           const result = await runHumanize(ctx, cfg, deps);
           ctx.draft = result.draft;
+          ctx.article = undefined;
           return { model: result.model, usage: result.usage };
         },
       );
+      contentNeedsReview = true;
+      continue;
     }
 
     if (!ctx.report?.passed) {
       await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
         const result = await runFixer(ctx, cfg, deps);
-        ctx.article = result.article;
         ctx.draft = result.article.contentMarkdown;
+        ctx.article = undefined;
         return { model: result.model, usage: result.usage };
       });
+      contentNeedsReview = true;
     }
   }
 
-  // Estado de calidad final: si el bucle agotó sus iteraciones con el informe aún sin superar,
-  // el corrector actuó en la última pasada y nadie revalidó esa corrección. Cerramos el ciclo
-  // con el validador DETERMINISTA (gratuito): comprueba las reglas bloqueantes sobre el texto
-  // realmente entregado y su veredicto se fusiona en la métrica (validationPassed). Una
-  // revalidación con IA daría más cobertura, pero añadiría el coste de otro juez por
-  // generación; el validador determinista cubre justo las reglas que fuerzan corrección.
-  let validationPassed = ctx.report?.passed ?? false;
-  if (!validationPassed && ctx.draft) {
-    await executeStage(
-      { runId, stageId: "validate", attempt: maxIterations + 1, onEvent },
-      async () => {
-        const finalIssues = runEditorialValidator({
-          draft: ctx.draft!,
-          sources: ctx.sources,
-          forbiddenWords: cfg.forbiddenWords,
-          config: cfg.validatorConfig,
-        });
-        const passed = !finalIssues.some((issue) => issue.severity === "high");
-        // El informe pasa a describir el texto entregado (el anterior describía un borrador
-        // que el corrector ya reescribió).
-        ctx.report = { passed, issues: finalIssues };
-        validationPassed = passed;
-        return { data: ctx.report };
-      },
-    );
-  }
-  if (!validationPassed) {
-    await logError({
-      category: "pipeline",
-      message: "Artículo entregado sin superar la validación final (se agotaron las iteraciones)",
-      detail: `runId: ${runId} · iteraciones: ${maxIterations}`,
-    });
+  // Si la última iteración transformó el texto, se repiten los tres jueces. Sus métricas deben
+  // describir el contenido entregado, no la versión anterior que motivó la corrección.
+  if (contentNeedsReview) {
+    await reviewCurrentDraft(maxIterations + 1);
   }
 
-  // Si la validación pasó a la primera sin necesidad de fixer, aún falta producir el
-  // artículo estructurado con la meta SEO; el fixer lo hace sin correcciones pendientes.
-  if (!ctx.article) {
-    await executeStage(
-      { runId, stageId: "fixer", attempt: maxIterations + 1, onEvent },
-      async () => {
-        const result = await runFixer(ctx, cfg, deps);
-        ctx.article = result.article;
-        ctx.draft = result.article.contentMarkdown;
-        return { model: result.model, usage: result.usage };
-      },
-    );
-  }
+  // La metadata se genera con un esquema separado. El cuerpo aprobado se copia literalmente.
+  await executeStage({ runId, stageId: "fixer", attempt: maxIterations + 2, onEvent }, async () => {
+    const result = await runArticleFinalizer(ctx, cfg, deps);
+    ctx.article = result.article;
+    return { model: result.model, usage: result.usage };
+  });
 
   const article = ctx.article;
-  if (!article) throw new Error("El fixer no produjo un artículo");
+  if (!article) throw new Error("El finalizador no produjo un artículo");
 
   // Limpieza determinista: elimina meta-referencias de investigación del texto final.
   await executeStage({ runId, stageId: "scrub", attempt: 1, onEvent }, async () => {
@@ -587,10 +561,41 @@ async function runQualityAndFinalize(
       ...article,
       contentMarkdown: runScrub(article.contentMarkdown, cfg.scrubPatterns),
     };
+    ctx.draft = ctx.article.contentMarkdown;
     return {};
   });
 
   const cleanArticle = ctx.article!;
+
+  // Comprobación final sobre el Markdown exacto que se guardará, ya pasado por scrub.
+  await executeStage(
+    { runId, stageId: "validate", attempt: maxIterations + 2, onEvent },
+    async () => {
+      const finalIssues = runEditorialValidator({
+        draft: cleanArticle.contentMarkdown,
+        sources: ctx.sources,
+        forbiddenWords: cfg.forbiddenWords,
+        config: cfg.validatorConfig,
+      });
+      const hasBlocking = finalIssues.some((issue) => issue.severity === "high");
+      ctx.report = {
+        passed: (ctx.report?.passed ?? false) && !hasBlocking,
+        issues: [...(ctx.report?.issues ?? []), ...finalIssues],
+      };
+      return { data: ctx.report };
+    },
+  );
+
+  const aiScoreAccepted =
+    !runQualityReviewStage || (ctx.qualityReport?.aiScore ?? 0) < cfg.aiScoreThreshold;
+  const validationPassed = (ctx.report?.passed ?? false) && aiScoreAccepted;
+  if (!validationPassed) {
+    await logError({
+      category: "pipeline",
+      message: "Artículo entregado sin superar la validación final (se agotaron las iteraciones)",
+      detail: `runId: ${runId} · iteraciones: ${maxIterations}`,
+    });
+  }
 
   // Enriquecimiento: primero se calculan las métricas derivadas (sin IA) y luego el step
   // enrich genera los campos creativos. El orquestador los une en un único objeto.

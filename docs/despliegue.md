@@ -41,6 +41,9 @@ La app queda en `http://TU_IP:38291` (o el `APP_PORT` que definas).
 
 - **Migraciones:** se aplican solas al arrancar el contenedor (`prisma migrate deploy` en el
   entrypoint), también al actualizar.
+- **Prompts de fábrica:** después de migrar, el entrypoint sobrescribe los prompts persistidos
+  con los incluidos en la imagen y actualiza el umbral anti-IA. Conserva el modelo configurado
+  por etapa, las claves, el perfil de estilo y el resto de ajustes del administrador.
 - **Actualizar:** `git pull && docker compose up -d --build`.
 - **Logs:** `docker compose logs -f`.
 - **Parar / arrancar:** `docker compose down` / `docker compose up -d`.

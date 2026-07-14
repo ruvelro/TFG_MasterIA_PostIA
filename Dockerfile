@@ -37,6 +37,7 @@ COPY . .
 ENV DATABASE_URL="file:/tmp/build.db" \
     AUTH_SECRET="build-time-placeholder-not-a-real-secret" \
     ENCRYPTION_KEY="MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY="
+RUN npx tsx scripts/export-runtime-defaults.ts /tmp/runtime-defaults.json
 RUN npm run build
 
 # Elimina las dependencias de desarrollo (prisma y dotenv son dependencies, se conservan
@@ -68,6 +69,8 @@ COPY --from=builder --chown=node:node /app/prisma ./prisma
 COPY --from=builder --chown=node:node /app/package.json ./package.json
 COPY --from=builder --chown=node:node /app/next.config.ts ./next.config.ts
 COPY --from=builder --chown=node:node /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder --chown=node:node /app/scripts/sync-runtime-defaults.mjs ./scripts/sync-runtime-defaults.mjs
+COPY --from=builder --chown=node:node /tmp/runtime-defaults.json ./runtime-defaults.json
 COPY --chown=node:node docker-entrypoint.sh ./docker-entrypoint.sh
 RUN chmod +x docker-entrypoint.sh
 

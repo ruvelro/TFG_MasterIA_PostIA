@@ -1,4 +1,5 @@
 import {
+  ArticleMetadataSchema,
   BlueprintSchema,
   EnrichStepOutputSchema,
   FactualReviewSchema,
@@ -63,6 +64,13 @@ export function createFakePipelineDeps(): PipelineDeps {
         aiScore: 30,
         issues: [],
         suggestions: [],
+      };
+    } else if (s === ArticleMetadataSchema) {
+      object = {
+        title: "Artículo de ejemplo",
+        slug: "articulo-de-ejemplo",
+        metaDescription: "Meta description de ejemplo para el modo E2E.",
+        keywords: ["ejemplo", "e2e"],
       };
     } else if (s === EnrichStepOutputSchema) {
       object = {

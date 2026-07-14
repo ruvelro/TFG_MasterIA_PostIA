@@ -131,6 +131,36 @@ describe("runEditorialValidator", () => {
     expect(issues.every((i) => i.severity === "high")).toBe(true);
   });
 
+  it("bloquea fuentes, conclusiones formularias y exceso de encabezados", () => {
+    const sections = Array.from(
+      { length: 9 },
+      (_unused, index) => `## Apartado ${index + 1}\n\nDato breve.`,
+    );
+    const issues = runEditorialValidator({
+      draft: [
+        "# Titular",
+        "",
+        "Entradilla periodística con el dato principal.",
+        "",
+        ...sections,
+        "## Conclusión: resumen final",
+        "",
+        "Repetición de lo ya contado.",
+        "",
+        "## Fuentes citadas",
+        "",
+        "- Medio de ejemplo.",
+      ].join("\n"),
+      sources: [],
+      forbiddenWords: [],
+      config: BASE,
+    });
+
+    expect(issues.some((issue) => issue.description.includes("Conclusión"))).toBe(true);
+    expect(issues.some((issue) => issue.description.includes("Fuentes citadas"))).toBe(true);
+    expect(issues.some((issue) => issue.description.includes("Estructura fragmentada"))).toBe(true);
+  });
+
   it("la configuración por defecto trae las tres reglas activas", () => {
     expect(DEFAULT_VALIDATOR_CONFIG.forbiddenWords.enabled).toBe(true);
     expect(DEFAULT_VALIDATOR_CONFIG.aiPatterns.enabled).toBe(true);
