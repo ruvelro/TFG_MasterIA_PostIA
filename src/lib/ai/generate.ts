@@ -1,4 +1,4 @@
-import { generateObject, generateText } from "ai";
+import { generateObject, generateText, NoObjectGeneratedError } from "ai";
 import type { z } from "zod";
 
 import { createOpenRouterModel } from "@/lib/ai/openrouter";
@@ -74,8 +74,9 @@ export interface ObjectGenerationResult<T> {
 }
 
 function extractJsonCandidate(text: string): string | null {
-  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const source = fenceMatch?.[1] ?? text;
+  const cleaned = text.replace(/^\uFEFF/, "").trim();
+  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const source = fenceMatch?.[1] ?? cleaned;
   const start = source.search(/[\[{]/);
   if (start === -1) return null;
 
@@ -118,19 +119,74 @@ function extractJsonCandidate(text: string): string | null {
   return null;
 }
 
+function normalizeJsonCandidate(candidate: string): string[] {
+  const normalized = candidate
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/,\s*([}\]])/g, "$1")
+    .trim();
+  return normalized === candidate ? [candidate] : [candidate, normalized];
+}
+
 export async function repairStructuredObjectText(options: {
   text: string;
 }): Promise<string | null> {
   const candidate = extractJsonCandidate(options.text);
   if (!candidate) return null;
 
-  try {
-    JSON.parse(candidate);
-    return candidate;
-  } catch {
-    // Si el fragmento no es JSON válido, dejamos que el SDK conserve el error original.
-    return null;
+  for (const attempt of normalizeJsonCandidate(candidate)) {
+    try {
+      JSON.parse(attempt);
+      return attempt;
+    } catch {
+      // Probamos la siguiente normalización antes de conservar el error original del SDK.
+    }
   }
+
+  return null;
+}
+
+export async function parseStructuredObjectFromText<T>(params: {
+  text: string;
+  schema: z.ZodType<T>;
+}): Promise<T | null> {
+  const repaired = await repairStructuredObjectText({ text: params.text });
+  if (!repaired) return null;
+
+  const parsed = JSON.parse(repaired) as unknown;
+  const validation = await params.schema.safeParseAsync(parsed);
+  return validation.success ? validation.data : null;
+}
+
+function buildFallbackObjectPrompt(prompt: string): string {
+  return [
+    prompt,
+    "",
+    "IMPORTANTE: la respuesta anterior no pudo parsearse como objeto estructurado.",
+    "Devuelve ahora ÚNICAMENTE JSON válido, sin Markdown, sin comentarios, sin texto antes ni después.",
+    "El JSON debe cumplir exactamente los campos solicitados en la tarea. Usa comillas dobles y",
+    "no incluyas trailing commas.",
+  ].join("\n");
+}
+
+async function fallbackTextObjectGeneration<T>(
+  params: GenerateParams & { schema: z.ZodType<T> },
+): Promise<ObjectGenerationResult<T> | null> {
+  const result = await generateText({
+    model: createOpenRouterModel(params.apiKey, params.modelId),
+    system: params.system,
+    prompt: buildFallbackObjectPrompt(params.prompt),
+    maxRetries: params.maxRetries ?? MAX_RETRIES,
+    abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
+  });
+
+  const object = await parseStructuredObjectFromText({ text: result.text, schema: params.schema });
+  if (!object) return null;
+
+  return {
+    object,
+    usage: { inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens },
+  };
 }
 
 /**
@@ -140,20 +196,39 @@ export async function repairStructuredObjectText(options: {
 export async function runObjectGeneration<T>(
   params: GenerateParams & { schema: z.ZodType<T> },
 ): Promise<ObjectGenerationResult<T>> {
-  const result = await generateObject({
-    model: createOpenRouterModel(params.apiKey, params.modelId),
-    schema: params.schema,
-    system: params.system,
-    prompt: params.prompt,
-    maxRetries: params.maxRetries ?? MAX_RETRIES,
-    abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
-    experimental_repairText: repairStructuredObjectText,
-  });
+  try {
+    const result = await generateObject({
+      model: createOpenRouterModel(params.apiKey, params.modelId),
+      schema: params.schema,
+      system: params.system,
+      prompt: params.prompt,
+      maxRetries: params.maxRetries ?? MAX_RETRIES,
+      abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
+      experimental_repairText: repairStructuredObjectText,
+    });
 
-  return {
-    object: result.object,
-    usage: { inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens },
-  };
+    return {
+      object: result.object,
+      usage: { inputTokens: result.usage?.inputTokens, outputTokens: result.usage?.outputTokens },
+    };
+  } catch (error) {
+    if (!NoObjectGeneratedError.isInstance(error)) throw error;
+
+    const repairedOriginal = error.text
+      ? await parseStructuredObjectFromText({ text: error.text, schema: params.schema })
+      : null;
+    if (repairedOriginal) {
+      return {
+        object: repairedOriginal,
+        usage: { inputTokens: error.usage?.inputTokens, outputTokens: error.usage?.outputTokens },
+      };
+    }
+
+    const fallback = await fallbackTextObjectGeneration(params);
+    if (fallback) return fallback;
+
+    throw error;
+  }
 }
 
 export interface ImageGenerationResult {
