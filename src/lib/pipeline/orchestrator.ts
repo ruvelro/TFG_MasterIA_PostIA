@@ -520,9 +520,18 @@ async function runQualityAndFinalize(
     }
   };
 
-  // Humanize y fixer tienen presupuestos independientes. Cada transformación se vuelve a medir
-  // antes de decidir la siguiente, por lo que ningún informe se aplica sobre un texto distinto
-  // del que evaluó. El número de ciclos queda acotado por la suma de ambos presupuestos.
+  const fixCurrentDraft = async (attempt: number): Promise<void> => {
+    await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
+      const result = await runFixer(ctx, cfg, deps);
+      ctx.draft = result.article.contentMarkdown;
+      ctx.article = undefined;
+      return { model: result.model, usage: result.usage };
+    });
+  };
+
+  // Humanize y fixer tienen presupuestos independientes. Primero se resuelven los problemas
+  // factuales, editoriales y SEO; cuando solo queda el tono IA, la última humanización pule el
+  // texto ya corregido. Cada transformación se vuelve a medir antes de decidir la siguiente.
   let reviewAttempt = 0;
   let fixerAttempts = 0;
   for (;;) {
@@ -540,13 +549,24 @@ async function runQualityAndFinalize(
     const qualityRiskAccepted =
       !runQualityReviewStage ||
       (ctx.qualityReport !== undefined && computeQualityRisk(ctx.qualityReport) === "low");
+    const validationPassed = ctx.report?.passed ?? false;
+    const validationIssues = ctx.report?.issues ?? [];
+    const hasNonAiValidationIssue =
+      !validationPassed &&
+      (validationIssues.length === 0 ||
+        validationIssues.some((issue) => issue.category !== "ai-tone"));
+    const needsEditorialFix =
+      hasNonAiValidationIssue || !factualRiskAccepted || !qualityRiskAccepted;
     const draftAccepted =
-      (ctx.report?.passed ?? false) &&
-      aiScoreAccepted &&
-      factualRiskAccepted &&
-      qualityRiskAccepted;
+      validationPassed && aiScoreAccepted && factualRiskAccepted && qualityRiskAccepted;
 
     if (draftAccepted) break;
+
+    if (needsEditorialFix && fixerAttempts < cfg.maxFixIterations) {
+      fixerAttempts += 1;
+      await fixCurrentDraft(fixerAttempts);
+      continue;
+    }
 
     if (needsHumanize) {
       ctx.humanizeAttempts = (ctx.humanizeAttempts ?? 0) + 1;
@@ -562,14 +582,11 @@ async function runQualityAndFinalize(
       continue;
     }
 
+    // Si el juez sigue suspendiendo el artículo por un motivo puramente estilístico después de
+    // agotar humanize, el fixer conserva la oportunidad de corregirlo antes de entregarlo.
     if (fixerAttempts < cfg.maxFixIterations) {
       fixerAttempts += 1;
-      await executeStage({ runId, stageId: "fixer", attempt: fixerAttempts, onEvent }, async () => {
-        const result = await runFixer(ctx, cfg, deps);
-        ctx.draft = result.article.contentMarkdown;
-        ctx.article = undefined;
-        return { model: result.model, usage: result.usage };
-      });
+      await fixCurrentDraft(fixerAttempts);
       continue;
     }
 

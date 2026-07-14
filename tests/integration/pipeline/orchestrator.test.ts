@@ -481,15 +481,26 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(3);
   });
 
-  it("conserva dos correcciones después de agotar la re-humanización", async () => {
-    // El aiScore sigue alto después de la re-humanización y del primer fixer. El segundo fixer
-    // debe seguir disponible y conseguir que la cuarta revisión apruebe el contenido.
+  it("reserva la re-humanización final hasta después de las correcciones editoriales", async () => {
+    const transformationOrder: string[] = [];
     const result = await startGeneration({
       userId,
       topic: "Robótica",
       pauseForReview: false,
       cfg: makeConfig(2),
-      deps: makeDeps({ validatePasses: true, aiScores: [85, 85, 85, 20] }),
+      deps: makeDeps({
+        validatePasses: true,
+        aiScores: [85, 85, 85, 20],
+        qualityAverages: [68, 68, 85, 85],
+      }),
+      onEvent(event) {
+        if (
+          event.status === "running" &&
+          (event.stageId === "humanize" || event.stageId === "fixer")
+        ) {
+          transformationOrder.push(`${event.stageId}:${event.attempt}`);
+        }
+      },
     });
 
     expect(result.status).toBe("completed");
@@ -502,6 +513,13 @@ describe("orquestador del pipeline", () => {
       where: { runId: result.runId, stageId: "fixer" },
     });
     expect(fixerSteps).toHaveLength(3); // dos correcciones + finalizador de metadatos
+    expect(transformationOrder).toEqual([
+      "humanize:1",
+      "fixer:1",
+      "fixer:2",
+      "humanize:2",
+      "fixer:3",
+    ]);
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
   });
 
