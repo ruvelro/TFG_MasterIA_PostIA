@@ -23,7 +23,18 @@ export const DEFAULT_VALIDATOR_CONFIG: ValidatorConfig = {
   forbiddenWords: { enabled: true, severity: "error" },
   aiPatterns: { enabled: true, severity: "warning", patterns: DEFAULT_AI_PATTERNS },
   sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 8 },
+  attributionOveruse: { enabled: true, severity: "warning", maxPerThousandWords: 6 },
 };
+
+/** Fórmulas habituales de atribución que, en exceso, delatan un texto-agregador. */
+const ATTRIBUTION_PATTERNS: RegExp[] = [
+  /\bseg[uú]n\b/gi,
+  /\binform[oó]\b/gi,
+  /\bde acuerdo con\b/gi,
+  /\brecogid[oa] por\b/gi,
+  /\bcitad[oa] por\b/gi,
+  /\bfuentes? (citadas?|consultadas?|revisadas?)\b/gi,
+];
 
 export interface EditorialValidatorInput {
   draft: string;
@@ -47,6 +58,18 @@ function toIssueSeverity(severity: "error" | "warning"): "high" | "medium" {
 /** Normaliza texto para comparar solapamiento: minúsculas y espacios colapsados. */
 function normalize(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+/** Cuenta palabras con soporte básico para español; basta para calcular ratios editoriales. */
+function countWords(text: string): number {
+  return text.match(/\b[\wÁÉÍÓÚÜÑáéíóúüñ'-]+\b/g)?.length ?? 0;
+}
+
+function countAttributions(text: string): number {
+  return ATTRIBUTION_PATTERNS.reduce((total, pattern) => {
+    pattern.lastIndex = 0;
+    return total + (text.match(pattern)?.length ?? 0);
+  }, 0);
 }
 
 /**
@@ -114,6 +137,22 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
           suggestion: "Reformula con tus palabras para evitar la copia literal.",
         });
       }
+    }
+  }
+
+  // 4. Exceso de atribuciones visibles: obliga al corrector a integrar datos con voz propia.
+  if (config.attributionOveruse.enabled) {
+    const attributionCount = countAttributions(draft);
+    const wordCount = Math.max(countWords(draft), 1);
+    const perThousand = (attributionCount / wordCount) * 1000;
+    if (attributionCount > 0 && perThousand > config.attributionOveruse.maxPerThousandWords) {
+      issues.push({
+        category: "ai-tone",
+        severity: toIssueSeverity(config.attributionOveruse.severity),
+        description: `Exceso de atribuciones visibles: ${attributionCount} en ${wordCount} palabras.`,
+        suggestion:
+          "Integra los datos con voz editorial propia y deja atribución explícita solo para datos discutibles, citas, cuotas o predicciones.",
+      });
     }
   }
 

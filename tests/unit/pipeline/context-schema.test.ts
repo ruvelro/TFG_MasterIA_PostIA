@@ -25,6 +25,22 @@ describe("parsePipelineContext", () => {
     expect(parsed.sources[0].content).toBe("");
   });
 
+  it("rehidrata blueprints antiguos con los nuevos campos editoriales", () => {
+    const ctx = {
+      topic: "t",
+      sources: [],
+      blueprint: {
+        title: "T",
+        angle: "Ángulo heredado",
+        targetKeyword: "kw",
+        sections: [{ heading: "H", summary: "S" }],
+      },
+    };
+    const parsed = parsePipelineContext(JSON.stringify(ctx));
+    expect(parsed.blueprint?.readerPromise).toBe("Ángulo heredado");
+    expect(parsed.blueprint?.excludeOrCompress).toEqual([]);
+  });
+
   it("lanza un error claro si el JSON está corrupto", () => {
     expect(() => parsePipelineContext("{no es json")).toThrow(/corrupto/i);
   });

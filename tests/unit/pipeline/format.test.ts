@@ -104,11 +104,17 @@ describe("formateadores de contexto", () => {
     const text = blueprintToText({
       title: "Titular",
       angle: "Ángulo",
+      readerPromise: "Promesa",
+      mainThesis: "Tesis",
+      leadAngle: "Dato de apertura",
+      excludeOrCompress: ["Dato menor"],
       targetKeyword: "kw",
       sections: [{ heading: "Intro", summary: "resumen" }],
     });
     expect(text).toContain("Titular");
     expect(text).toContain("Intro");
+    expect(text).toContain("Tesis");
+    expect(text).toContain("Dato menor");
   });
 
   it("reportToText resume los problemas y avisa si no hay", () => {

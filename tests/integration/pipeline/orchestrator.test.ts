@@ -53,6 +53,10 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
       object = {
         title: "Titular",
         angle: "Ángulo",
+        readerPromise: "Promesa",
+        mainThesis: "Tesis",
+        leadAngle: "Lead",
+        excludeOrCompress: ["Dato menor"],
         targetKeyword: "kw",
         sections: [{ heading: "H", summary: "S" }],
       };
@@ -278,6 +282,10 @@ describe("orquestador del pipeline", () => {
     const editedBlueprint = {
       title: "Titular editado",
       angle: "Ángulo editado",
+      readerPromise: "Promesa editada",
+      mainThesis: "Tesis editada",
+      leadAngle: "Lead editado",
+      excludeOrCompress: ["Dato editado menor"],
       targetKeyword: "ia",
       sections: [{ heading: "Intro editada", summary: "Resumen editado" }],
     };
@@ -592,7 +600,16 @@ describe("orquestador del pipeline", () => {
         topic: "Tema original",
         sources: [],
         facts: { facts: [{ claim: "Hecho previo", source: "https://e.example/0" }] },
-        blueprint: { title: "T", angle: "A", targetKeyword: "kw", sections: [] },
+        blueprint: {
+          title: "T",
+          angle: "A",
+          readerPromise: "P",
+          mainThesis: "Tesis",
+          leadAngle: "Lead",
+          excludeOrCompress: [],
+          targetKeyword: "kw",
+          sections: [],
+        },
       },
       sourceArticleMarkdown: "# Artículo original\nContenido a revisar.",
       instructions: "Acorta la introducción.",

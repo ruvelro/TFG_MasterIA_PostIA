@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   ArticleEnrichmentSchema,
+  BlueprintSectionSchema,
   BlueprintSchema,
   FactsSchema,
   FactualReviewSchema,
@@ -35,6 +36,23 @@ const SourceSchema = z.object({
   suspicious: z.boolean().optional(),
 });
 
+const LegacyBlueprintSchema = z
+  .object({
+    title: z.string(),
+    angle: z.string(),
+    targetKeyword: z.string(),
+    sections: z.array(BlueprintSectionSchema),
+  })
+  .transform((blueprint) => ({
+    ...blueprint,
+    readerPromise: blueprint.angle,
+    mainThesis: blueprint.angle,
+    leadAngle: blueprint.angle,
+    excludeOrCompress: [],
+  }));
+
+const ContextBlueprintSchema = BlueprintSchema.or(LegacyBlueprintSchema);
+
 export const PipelineContextSchema = z.object({
   topic: z.string(),
   sources: z.array(SourceSchema),
@@ -46,7 +64,7 @@ export const PipelineContextSchema = z.object({
   parentArticleId: z.string().optional(),
   pauseForBlueprintReview: z.boolean().optional(),
   facts: FactsSchema.optional(),
-  blueprint: BlueprintSchema.optional(),
+  blueprint: ContextBlueprintSchema.optional(),
   draft: z.string().optional(),
   report: ValidationReportSchema.optional(),
   factualReport: FactualReviewSchema.optional(),

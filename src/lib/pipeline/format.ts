@@ -141,6 +141,12 @@ export function blueprintToText(blueprint: Blueprint): string {
   return [
     `Titular: ${blueprint.title}`,
     `Ángulo: ${blueprint.angle}`,
+    `Promesa al lector: ${blueprint.readerPromise}`,
+    `Tesis principal: ${blueprint.mainThesis}`,
+    `Entradilla debe abrir con: ${blueprint.leadAngle}`,
+    `Omitir o comprimir: ${
+      blueprint.excludeOrCompress.length > 0 ? blueprint.excludeOrCompress.join("; ") : "(nada)"
+    }`,
     `Keyword objetivo: ${blueprint.targetKeyword}`,
     "Secciones:",
     sections,

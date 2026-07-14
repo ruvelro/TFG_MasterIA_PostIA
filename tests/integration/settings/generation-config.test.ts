@@ -125,9 +125,31 @@ describe("getValidatorConfig — validador editorial determinista", () => {
       forbiddenWords: { enabled: false, severity: "warning" as const },
       aiPatterns: { enabled: true, severity: "error" as const, patterns: ["foo"] },
       sourceOverlap: { enabled: true, severity: "warning" as const, minPhraseWords: 10 },
+      attributionOveruse: {
+        enabled: true,
+        severity: "warning" as const,
+        maxPerThousandWords: 8,
+      },
     };
     await setAppSetting(SETTING_KEYS.validatorConfig, serializeValidatorConfig(config));
     expect(await getValidatorConfig()).toEqual(config);
+  });
+
+  it("rellena la regla de atribuciones en configuraciones antiguas", async () => {
+    await setAppSetting(
+      SETTING_KEYS.validatorConfig,
+      JSON.stringify({
+        forbiddenWords: { enabled: false, severity: "warning" },
+        aiPatterns: { enabled: true, severity: "error", patterns: ["foo"] },
+        sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 10 },
+      }),
+    );
+    expect(await getValidatorConfig()).toEqual({
+      forbiddenWords: { enabled: false, severity: "warning" },
+      aiPatterns: { enabled: true, severity: "error", patterns: ["foo"] },
+      sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 10 },
+      attributionOveruse: DEFAULT_VALIDATOR_CONFIG.attributionOveruse,
+    });
   });
 
   it("cae a la configuración de fábrica si el JSON es inválido", async () => {

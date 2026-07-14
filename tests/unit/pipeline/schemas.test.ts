@@ -20,6 +20,10 @@ describe("esquemas del pipeline", () => {
       BlueprintSchema.safeParse({
         title: "t",
         angle: "a",
+        readerPromise: "p",
+        mainThesis: "tesis",
+        leadAngle: "lead",
+        excludeOrCompress: ["secundario"],
         targetKeyword: "k",
         sections: [{ heading: "h", summary: "s" }],
       }).success,
