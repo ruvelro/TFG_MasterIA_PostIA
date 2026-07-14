@@ -45,6 +45,7 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
 function makeDeps(options: {
   validatePasses: boolean;
   aiScore?: number;
+  aiScores?: number[];
   factualRisks?: FactualReview["riskLevel"][];
   factualSufficiencies?: boolean[];
   qualityAverages?: number[];
@@ -52,6 +53,7 @@ function makeDeps(options: {
   const {
     validatePasses,
     aiScore = 20,
+    aiScores = [aiScore],
     factualRisks = ["low"],
     factualSufficiencies = [true],
     qualityAverages = [85],
@@ -104,13 +106,14 @@ function makeDeps(options: {
     } else if (s === QualityReviewSchema) {
       const qualityAverage =
         qualityAverages[Math.min(qualityReviewIndex, qualityAverages.length - 1)] ?? 85;
+      const currentAiScore = aiScores[Math.min(qualityReviewIndex, aiScores.length - 1)] ?? aiScore;
       qualityReviewIndex += 1;
       object = {
         structureScore: qualityAverage,
         factualSupportScore: qualityAverage,
         seoScore: qualityAverage,
         wordCount: 300,
-        aiScore,
+        aiScore: currentAiScore,
         issues: [],
         suggestions: [],
       };
@@ -380,7 +383,7 @@ describe("orquestador del pipeline", () => {
       deps: makeDeps({ validatePasses: false }),
     });
 
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("needs_review");
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
@@ -393,6 +396,8 @@ describe("orquestador del pipeline", () => {
     // El juez IA sigue suspendiendo el texto tras agotar correcciones: la comprobación
     // determinista no debe convertir ese suspenso en aprobado.
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
+    const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: result.runId } });
+    expect(run.status).toBe("needs_review");
   });
 
   it("la revalidación final mantiene el suspenso si persisten problemas bloqueantes", async () => {
@@ -407,7 +412,7 @@ describe("orquestador del pipeline", () => {
       deps: makeDeps({ validatePasses: false }),
     });
 
-    expect(result.status).toBe("completed");
+    expect(result.status).toBe("needs_review");
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
@@ -476,14 +481,15 @@ describe("orquestador del pipeline", () => {
     expect(validateSteps.length).toBe(3);
   });
 
-  it("dispara una re-humanización cuando aiScore supera el umbral", async () => {
-    // aiScore=85 supera el umbral → debe humanizar 2 veces (1 inicial + 1 reintento).
+  it("conserva dos correcciones después de agotar la re-humanización", async () => {
+    // El aiScore sigue alto después de la re-humanización y del primer fixer. El segundo fixer
+    // debe seguir disponible y conseguir que la cuarta revisión apruebe el contenido.
     const result = await startGeneration({
       userId,
       topic: "Robótica",
       pauseForReview: false,
       cfg: makeConfig(2),
-      deps: makeDeps({ validatePasses: true, aiScore: 85 }),
+      deps: makeDeps({ validatePasses: true, aiScores: [85, 85, 85, 20] }),
     });
 
     expect(result.status).toBe("completed");
@@ -492,6 +498,11 @@ describe("orquestador del pipeline", () => {
     });
     // 1 humanize inicial + 1 re-humanización por aiScore alto.
     expect(humanizeSteps.length).toBe(2);
+    const fixerSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "fixer" },
+    });
+    expect(fixerSteps).toHaveLength(3); // dos correcciones + finalizador de metadatos
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
   });
 
   it("corrige un riesgo factual medio y solo aprueba después de volver a riesgo bajo", async () => {

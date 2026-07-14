@@ -132,7 +132,9 @@ export async function processBatch(
         },
       });
       // Indexado para dedupe/enlazado interno (best-effort; no espera al resultado).
-      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
+      if (result.status === "completed" && result.articleId) {
+        void indexArticleAndSuggestLinks(result.articleId);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await prisma.batchItem.update({

@@ -21,7 +21,8 @@ Authorization: Bearer postia_…
 ### `POST /api/v1/generate`
 
 Inicia una generación y transmite el progreso en **NDJSON** (el mismo streaming que usa la
-UI): un objeto JSON por línea con eventos `stage` y, al final, `completed` con el artículo.
+UI): un objeto JSON por línea con eventos `stage` y, al final, `completed` con el artículo
+aprobado o `needs_review` con el borrador que agotó las correcciones.
 Las pausas de revisión humana van desactivadas (la API es desatendida).
 
 ```bash

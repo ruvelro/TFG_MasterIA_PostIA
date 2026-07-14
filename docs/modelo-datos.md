@@ -36,13 +36,15 @@
 - **GenerationRun** — una ejecución del pipeline para un tema dado. Su `status` recorre:
 
   ```
-  researching → awaiting_review → awaiting_blueprint_review → generating → completed | failed
+  researching → awaiting_review → awaiting_blueprint_review → generating
+      → completed | needs_review | failed
   ```
 
   Las pausas de revisión humana (`awaiting_review` tras los hechos,
   `awaiting_blueprint_review` tras la estructura) son **opcionales** según el tipo de
-  noticia. `contextJson` guarda un snapshot serializado del `PipelineContext` para **pausar**
-  y **reanudar** la generación. Las fuentes **no** viajan en ese JSON (pesan demasiado): se
+  noticia. `needs_review` indica que se guardó un borrador tras agotar las correcciones sin
+  superar todos los jueces. `contextJson` guarda un snapshot serializado del `PipelineContext`
+  para **pausar** y **reanudar** la generación. Las fuentes **no** viajan en ese JSON (pesan demasiado): se
   normalizan en `GenerationSource` y se rehidratan al reanudar/revisar.
 
 - **GenerationSource** — fuente de investigación de un run (la "fuente de verdad" del

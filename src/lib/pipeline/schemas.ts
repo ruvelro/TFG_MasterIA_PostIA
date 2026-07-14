@@ -84,10 +84,12 @@ export type FixerOutput = z.infer<typeof FixerOutputSchema>;
 // ── Revisión factual ──────────────────────────────────────────────────────────
 
 export const FactualClaimSchema = z.object({
-  claim: z.string().describe("Afirmación tal y como aparece en el artículo"),
+  claim: z.string().describe("Afirmación factual verificable tal y como aparece en el artículo"),
   status: z
     .enum(["confirmed", "doubtful", "discarded"])
-    .describe("confirmed: respaldada por fuentes; doubtful: cuestionable; discarded: sin respaldo"),
+    .describe(
+      "Solo para hechos: confirmed si está respaldado; doubtful si es cuestionable; discarded si contradice las fuentes. No clasifica opiniones ni hipótesis editoriales marcadas como tales",
+    ),
   reason: z.string().describe("Breve explicación del estado asignado"),
 });
 
@@ -97,7 +99,9 @@ export const FactualReviewSchema = z.object({
   summary: z.string().describe("Resumen ejecutivo de la revisión factual"),
   researchSufficiency: z
     .object({
-      sufficient: z.boolean().describe("¿Son las fuentes suficientes para respaldar el artículo?"),
+      sufficient: z
+        .boolean()
+        .describe("¿Son las fuentes suficientes para respaldar los datos factuales del artículo?"),
       reason: z.string().describe("Breve explicación"),
     })
     .describe("Evaluación de si las fuentes consultadas bastan para respaldar el contenido"),
@@ -112,7 +116,7 @@ export const QualityReviewSchema = z.object({
     .number()
     .min(0)
     .max(100)
-    .describe("Porcentaje de afirmaciones con respaldo factual"),
+    .describe("Porcentaje de afirmaciones factuales con respaldo; excluye análisis señalado"),
   seoScore: z.number().min(0).max(100).describe("Cumplimiento de reglas SEO/GEO"),
   wordCount: z.number().int().describe("Recuento de palabras del artículo"),
   aiScore: z

@@ -156,6 +156,8 @@ export type RunStatus =
   | "awaiting_blueprint_review"
   | "generating"
   | "completed"
+  /** El artículo se guardó como borrador, pero agotó correcciones sin superar los jueces. */
+  | "needs_review"
   | "failed"
   /** El usuario canceló la generación (abort del stream); no es un fallo del pipeline. */
   | "cancelled";

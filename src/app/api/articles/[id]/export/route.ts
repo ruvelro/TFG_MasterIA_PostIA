@@ -2,6 +2,10 @@ import type { NextRequest } from "next/server";
 
 import { getArticleForUser } from "@/lib/articles/repository";
 import { requireSession } from "@/lib/auth/authorize";
+import {
+  composeMarkdownDocument,
+  stripLeadingMarkdownTitle,
+} from "@/lib/publish/markdown-document";
 import { markdownToHtml } from "@/lib/publish/markdown-html";
 
 export const runtime = "nodejs";
@@ -34,7 +38,7 @@ export async function GET(
   }
 
   if (format === "md") {
-    return new Response(article.contentMarkdown, {
+    return new Response(composeMarkdownDocument(article.title, article.contentMarkdown), {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="${article.slug}.md"`,
@@ -50,7 +54,7 @@ export async function GET(
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
-  const body = await markdownToHtml(article.contentMarkdown);
+  const body = await markdownToHtml(stripLeadingMarkdownTitle(article.contentMarkdown));
   const html = [
     "<!doctype html>",
     '<html lang="es">',

@@ -1,5 +1,6 @@
 import { composeEditorialVoice, factsToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
+import { sanitizeValidationReport } from "@/lib/pipeline/review-sanitizer";
 import { ValidationReportSchema, type ValidationReport } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -36,5 +37,5 @@ export async function runValidate(
     prompt,
     schema: ValidationReportSchema,
   });
-  return { report: object, model: step.model, usage };
+  return { report: sanitizeValidationReport(object), model: step.model, usage };
 }

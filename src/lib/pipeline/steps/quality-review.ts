@@ -1,4 +1,5 @@
 import { renderTemplate } from "@/lib/pipeline/render-template";
+import { sanitizeQualityReview } from "@/lib/pipeline/review-sanitizer";
 import { QualityReviewSchema, type QualityReview } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -32,5 +33,5 @@ export async function runQualityReview(
     prompt,
     schema: QualityReviewSchema,
   });
-  return { qualityReport: object, model: step.model, usage };
+  return { qualityReport: sanitizeQualityReview(object), model: step.model, usage };
 }
