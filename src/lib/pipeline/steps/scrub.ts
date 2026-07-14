@@ -7,6 +7,10 @@ import type { ScrubPattern } from "@/lib/pipeline/schemas";
  */
 export const DEFAULT_SCRUB_PATTERNS: ScrubPattern[] = [
   { pattern: "seg[uú]n las fuentes consultadas[,.]?", replacement: "" },
+  { pattern: "en las fuentes revisadas[,.]?", replacement: "" },
+  { pattern: "en los datos revisados[,.]?", replacement: "" },
+  { pattern: "las fuentes revisadas (citan|recogen|se[nñ]alan|indican)[,.]?", replacement: "" },
+  { pattern: "las fuentes consultadas (citan|recogen|se[nñ]alan|indican)[,.]?", replacement: "" },
   { pattern: "tras investigar[,.]?", replacement: "" },
   { pattern: "bas[aá]ndonos en los datos[,.]?", replacement: "" },
   { pattern: "de acuerdo con la investigaci[oó]n realizada[,.]?", replacement: "" },

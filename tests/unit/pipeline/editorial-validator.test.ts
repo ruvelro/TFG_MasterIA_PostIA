@@ -36,19 +36,19 @@ describe("runEditorialValidator", () => {
     expect(issues).toHaveLength(0);
   });
 
-  it("detecta patrones de IA y mapea aviso → medium; ignora regex inválida", () => {
+  it("detecta patrones de IA y mapea error → high; ignora regex inválida", () => {
     const issues = runEditorialValidator({
       draft: "En conclusión, todo salió bien.",
       sources: [],
       forbiddenWords: [],
       config: {
         ...BASE,
-        aiPatterns: { enabled: true, severity: "warning", patterns: ["en conclusi[oó]n", "("] },
+        aiPatterns: { enabled: true, severity: "error", patterns: ["en conclusi[oó]n", "("] },
       },
     });
     expect(issues).toHaveLength(1); // el patrón inválido "(" se ignora sin lanzar
     expect(issues[0].category).toBe("ai-tone");
-    expect(issues[0].severity).toBe("medium");
+    expect(issues[0].severity).toBe("high");
   });
 
   it("detecta copia literal de las fuentes a partir del mínimo de palabras", () => {
@@ -101,17 +101,42 @@ describe("runEditorialValidator", () => {
       forbiddenWords: [],
       config: {
         ...BASE,
-        attributionOveruse: { enabled: true, severity: "warning", maxPerThousandWords: 6 },
+        attributionOveruse: { enabled: true, severity: "error", maxPerThousandWords: 6 },
       },
     });
     expect(issues.some((i) => i.category === "ai-tone")).toBe(true);
     expect(issues[0].description).toContain("Exceso de atribuciones");
+    expect(issues[0].severity).toBe("high");
+  });
+
+  it("bloquea arranques con lista o secciones de plantilla", () => {
+    const issues = runEditorialValidator({
+      draft: [
+        "# Titular",
+        "",
+        "*Actualizado: 14 de julio de 2026*",
+        "",
+        "## Resumen rápido",
+        "",
+        "- Primer punto.",
+      ].join("\n"),
+      sources: [],
+      forbiddenWords: [],
+      config: BASE,
+    });
+    expect(issues.some((i) => i.description.includes("Arranque no periodístico"))).toBe(true);
+    expect(issues.some((i) => i.description.includes("Sección con formato de plantilla"))).toBe(
+      true,
+    );
+    expect(issues.every((i) => i.severity === "high")).toBe(true);
   });
 
   it("la configuración por defecto trae las tres reglas activas", () => {
     expect(DEFAULT_VALIDATOR_CONFIG.forbiddenWords.enabled).toBe(true);
     expect(DEFAULT_VALIDATOR_CONFIG.aiPatterns.enabled).toBe(true);
+    expect(DEFAULT_VALIDATOR_CONFIG.aiPatterns.severity).toBe("error");
     expect(DEFAULT_VALIDATOR_CONFIG.sourceOverlap.enabled).toBe(true);
     expect(DEFAULT_VALIDATOR_CONFIG.attributionOveruse.enabled).toBe(true);
+    expect(DEFAULT_VALIDATOR_CONFIG.attributionOveruse.severity).toBe("error");
   });
 });

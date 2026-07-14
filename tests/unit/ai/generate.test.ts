@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
-import { buildAbortSignal, repairStructuredObjectText } from "@/lib/ai/generate";
+import {
+  buildAbortSignal,
+  parseStructuredObjectFromText,
+  repairStructuredObjectText,
+} from "@/lib/ai/generate";
+import { buildStructuredRecoveryPrompt } from "@/lib/ai/structured-output";
 
 describe("buildAbortSignal", () => {
   it("sin señal de usuario devuelve una señal viva (solo timeout)", () => {
@@ -59,9 +65,61 @@ describe("repairStructuredObjectText", () => {
     ).resolves.toBe('{"summary":"Dato con } dentro del texto","items":["{literal}"]}');
   });
 
+  it("normaliza comillas tipográficas y trailing commas", async () => {
+    await expect(
+      repairStructuredObjectText({
+        text: "```json\n{“items”:[“uno”,],}\n```",
+      }),
+    ).resolves.toBe('{"items":["uno"]}');
+  });
+
   it("devuelve null si no hay JSON reparable", async () => {
     await expect(
       repairStructuredObjectText({ text: "No puedo generar esa estructura." }),
     ).resolves.toBe(null);
+  });
+});
+
+describe("parseStructuredObjectFromText", () => {
+  it("devuelve un objeto validado contra Zod desde texto reparable", async () => {
+    const schema = z.object({ score: z.number(), issues: z.array(z.string()) });
+    await expect(
+      parseStructuredObjectFromText({
+        text: 'Respuesta:\n```json\n{"score":87,"issues":[]}\n```',
+        schema,
+      }),
+    ).resolves.toEqual({ score: 87, issues: [] });
+  });
+
+  it("devuelve null si el JSON no cumple el esquema", async () => {
+    const schema = z.object({ score: z.number() });
+    await expect(
+      parseStructuredObjectFromText({
+        text: '{"score":"alto"}',
+        schema,
+      }),
+    ).resolves.toBeNull();
+  });
+});
+
+describe("buildStructuredRecoveryPrompt", () => {
+  it("incluye el contrato JSON Schema completo en cada intento de recuperación", () => {
+    const schema = z.object({
+      riskLevel: z.enum(["low", "medium", "high"]),
+      claims: z.array(z.object({ claim: z.string(), confirmed: z.boolean() })),
+    });
+
+    const prompt = buildStructuredRecoveryPrompt({
+      prompt: "Revisa el artículo",
+      schema,
+      attempt: 2,
+    });
+
+    expect(prompt).toContain("Revisa el artículo");
+    expect(prompt).toContain("intento 2");
+    expect(prompt).toContain('"required": [');
+    expect(prompt).toContain('"riskLevel"');
+    expect(prompt).toContain('"enum": [');
+    expect(prompt).toContain('"confirmed"');
   });
 });
