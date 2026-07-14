@@ -443,14 +443,15 @@ densidad, citas) y fusiona sus hallazgos en el informe de `validate`.
 
 ### 6.5. Bucle de calidad y revisión humana
 
-Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
-pasadas: ejecuta los jueces y, en función de sus resultados, **re-humaniza** (si el `aiScore`
-supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige con **fixer**. La aprobación
+Tras la primera humanización, el orquestador ejecuta los jueces y, en función de sus resultados,
+**re-humaniza** (si el `aiScore` supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige
+con **fixer**. Ambas transformaciones tienen presupuestos independientes, de modo que una
+rehumanización no reduce las `maxFixIterations` disponibles. La aprobación
 final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
-un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se
-vuelve a evaluar; si ocurre en la última pasada, se ejecuta una revisión final adicional. Los
-metadatos SEO se generan después con un contrato separado que conserva literalmente el cuerpo
-aprobado.
+un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se vuelve
+a evaluar antes de decidir la siguiente. Los metadatos SEO se generan después con un contrato
+separado que conserva literalmente el cuerpo
+aprobado. Si se agotan ambos presupuestos, el borrador se conserva con estado `needs_review`.
 
 La **revisión humana** se implementa como dos puntos de **pausa** del orquestador, que
 persiste el estado en `GenerationRun.contextJson`: tras `extract` (estado `awaiting_review`,
@@ -465,7 +466,7 @@ Session, Verification, Passkey) las gestiona Better Auth. La **configuración gl
 AppSetting, PipelineStepConfig) la administra el rol admin. Y el **dominio** propio:
 
 - **GenerationRun** — una ejecución del pipeline. Su `status` recorre
-  `researching → awaiting_review → awaiting_blueprint_review → generating → completed | failed`.
+  `researching → awaiting_review → awaiting_blueprint_review → generating → completed | needs_review | failed`.
 - **GenerationSource** — cada fuente con su contenido descargado (en tabla propia, porque el
   cuerpo de varias webs puede pesar cientos de KB y no debe replicarse en cada snapshot).
 - **GenerationStep** — traza de cada etapa: modelo, intento, duración, tokens y **coste
@@ -614,8 +615,8 @@ valor en claro jamás se devuelve al cliente: en la interfaz solo se muestra enm
 El progreso se transmite como **NDJSON sobre una respuesta POST** mantenida abierta
 (`streamJsonEvents` → `ReadableStream`), en lugar de SSE clásico, porque el disparo necesita
 cuerpo (tema, _overrides_, hechos editados). El cliente lee `response.body` y parsea por
-líneas. Hay dos endpoints: `POST /api/generate` (inicio, termina en `awaiting_review` o
-`completed`) y `POST /api/generate/[runId]/resume` (reanuda tras la revisión). El estado se
+líneas. Hay dos endpoints: `POST /api/generate` (inicio, termina en `awaiting_review`,
+`completed` o `needs_review`) y `POST /api/generate/[runId]/resume` (reanuda tras la revisión). El estado se
 persiste igualmente en la BD, de modo que un corte del stream no pierde el trabajo.
 
 ### 7.9. Validación y salidas estructuradas con Zod

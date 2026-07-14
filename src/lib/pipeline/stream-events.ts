@@ -22,7 +22,7 @@ export type GenerationStreamEvent =
   | { type: "awaiting_review"; runId: string; facts: Facts }
   | { type: "awaiting_blueprint_review"; runId: string; blueprint: Blueprint }
   | {
-      type: "completed";
+      type: "completed" | "needs_review";
       runId: string;
       articleId?: string;
       article: FixerOutput;

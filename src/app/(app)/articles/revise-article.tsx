@@ -6,7 +6,7 @@ import { useState } from "react";
 // Evento del stream de revisión (subconjunto del contrato de generación que nos interesa aquí).
 type ReviseEvent =
   | { type: "stage"; stageId: string; status: string }
-  | { type: "completed"; articleId?: string }
+  | { type: "completed" | "needs_review"; articleId?: string }
   | { type: "error"; message: string };
 
 /**
@@ -24,13 +24,15 @@ export function ReviseArticle({ articleId }: { articleId: string }) {
   function handleEvent(event: ReviseEvent) {
     if (event.type === "stage") {
       setProgress(`Revisando… (${event.stageId})`);
-    } else if (event.type === "completed") {
-      setProgress("Revisión completada.");
+    } else if (event.type === "completed" || event.type === "needs_review") {
+      setProgress(
+        event.type === "completed" ? "Revisión completada." : "Borrador pendiente de revisión.",
+      );
       if (event.articleId) {
         router.push(`/articles/${event.articleId}`);
         router.refresh();
       }
-    } else {
+    } else if (event.type === "error") {
       setError(event.message);
     }
   }

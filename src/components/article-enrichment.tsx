@@ -53,7 +53,7 @@ export function ArticleEnrichmentView({ enrichment }: { enrichment: ArticleEnric
           >
             {enrichment.qualitySummary.validationPassed
               ? "Validación superada"
-              : "No revalidado tras la última corrección"}
+              : "Revisión editorial pendiente"}
           </span>
         </div>
       </div>

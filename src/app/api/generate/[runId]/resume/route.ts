@@ -83,14 +83,16 @@ export async function POST(
       });
     } else if (result.context.article) {
       emit({
-        type: "completed",
+        type: result.status === "needs_review" ? "needs_review" : "completed",
         runId: result.runId,
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
       // Indexado para dedupe/enlazado interno: best-effort, fuera del camino crítico.
-      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
+      if (result.status === "completed" && result.articleId) {
+        void indexArticleAndSuggestLinks(result.articleId);
+      }
     }
   });
 }

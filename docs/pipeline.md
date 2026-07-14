@@ -61,17 +61,17 @@ revisiones están desactivadas, el pipeline corre de principio a fin.
 
 ## Bucle de calidad
 
-Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
-pasadas: ejecuta los jueces (`validate` + validador determinista, y según el tipo
-`factual-review` y `quality-review`) y, en función de sus resultados, aplica **una sola
-transformación** antes de volver a medir: re-humaniza si el `aiScore` supera
-`aiScoreThreshold` o corrige con **fixer**. El artículo solo se aprueba cuando la validación
+Tras la primera humanización, el orquestador ejecuta los jueces (`validate` + validador
+determinista, y según el tipo `factual-review` y `quality-review`) y aplica **una sola
+transformación** antes de volver a medir. La rehumanización y el **fixer** tienen presupuestos
+independientes (`maxHumanizeRetries` y `maxFixIterations`), por lo que rehumanizar no consume una
+corrección. El artículo solo se aprueba cuando la validación
 editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
 los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
 corrector mientras queden iteraciones.
 
-Si la última pasada transforma el texto, los jueces se ejecutan una vez más para que sus
-informes describan el contenido realmente entregado. Cerrado el bucle, una llamada separada
+Si se agotan ambos presupuestos sin aprobar, el artículo se conserva para el editor pero el run
+termina como `needs_review`, no como `completed`. Cerrado el bucle, una llamada separada
 genera únicamente `title`, `slug`, `metaDescription` y `keywords`: el Markdown aprobado se
 conserva literalmente. `scrub` limpia el texto y un último validador determinista comprueba el
 contenido exacto que se persistirá antes de `enrich`.

@@ -16,7 +16,8 @@ Transmitir el progreso como **NDJSON sobre una respuesta POST mantenida abierta*
 (`streamJsonEvents` → `ReadableStream`), no con `EventSource`/SSE clásico, porque el disparo
 necesita cuerpo (POST). El cliente lee `response.body` y parsea por líneas (`splitNdjson`).
 
-- Dos endpoints: `POST /api/generate` (start, termina en `awaiting_review` o `completed`) y
+- Dos endpoints: `POST /api/generate` (start, termina en `awaiting_review`, `completed` o
+  `needs_review`) y
   `POST /api/generate/[runId]/resume` (reanuda tras la revisión).
 - El estado se persiste igualmente en la BD (`GenerationRun`/`GenerationStep`), así que un
   corte del stream no pierde el trabajo (recuperable desde el historial).

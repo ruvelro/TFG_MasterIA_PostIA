@@ -520,29 +520,33 @@ async function runQualityAndFinalize(
     }
   };
 
-  // Bucle de calidad: revisar el contenido actual y aplicar como máximo una transformación antes
-  // de volver a medirlo. Así ningún informe se reutiliza sobre un texto diferente al evaluado.
-  const maxIterations = Math.max(cfg.maxFixIterations, 1);
-  let contentNeedsReview = false;
-  for (let attempt = 1; attempt <= maxIterations; attempt++) {
-    await reviewCurrentDraft(attempt);
-    contentNeedsReview = false;
+  // Humanize y fixer tienen presupuestos independientes. Cada transformación se vuelve a medir
+  // antes de decidir la siguiente, por lo que ningún informe se aplica sobre un texto distinto
+  // del que evaluó. El número de ciclos queda acotado por la suma de ambos presupuestos.
+  let reviewAttempt = 0;
+  let fixerAttempts = 0;
+  for (;;) {
+    reviewAttempt += 1;
+    await reviewCurrentDraft(reviewAttempt);
 
-    // Re-humanización: solo si el tipo activa humanize Y quality-review (necesita el aiScore).
     const aiScore = ctx.qualityReport?.aiScore ?? 0;
+    const aiScoreAccepted = !runQualityReviewStage || aiScore < cfg.aiScoreThreshold;
     const needsHumanize =
       runHumanizeStage &&
       runQualityReviewStage &&
-      aiScore >= cfg.aiScoreThreshold &&
+      !aiScoreAccepted &&
       (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
     const factualRiskAccepted = !runFactualReviewStage || isFactualReviewAccepted(ctx);
     const qualityRiskAccepted =
       !runQualityReviewStage ||
       (ctx.qualityReport !== undefined && computeQualityRisk(ctx.qualityReport) === "low");
+    const draftAccepted =
+      (ctx.report?.passed ?? false) &&
+      aiScoreAccepted &&
+      factualRiskAccepted &&
+      qualityRiskAccepted;
 
-    // Solo termina cuando pasan todos los jueces. Un riesgo factual o de calidad medio también
-    // requiere corrección: no basta con quedar justo por debajo del umbral anti-IA.
-    if (ctx.report?.passed && !needsHumanize && factualRiskAccepted && qualityRiskAccepted) break;
+    if (draftAccepted) break;
 
     if (needsHumanize) {
       ctx.humanizeAttempts = (ctx.humanizeAttempts ?? 0) + 1;
@@ -555,29 +559,26 @@ async function runQualityAndFinalize(
           return { model: result.model, usage: result.usage };
         },
       );
-      contentNeedsReview = true;
       continue;
     }
 
-    if (!ctx.report?.passed || !factualRiskAccepted || !qualityRiskAccepted) {
-      await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
+    if (fixerAttempts < cfg.maxFixIterations) {
+      fixerAttempts += 1;
+      await executeStage({ runId, stageId: "fixer", attempt: fixerAttempts, onEvent }, async () => {
         const result = await runFixer(ctx, cfg, deps);
         ctx.draft = result.article.contentMarkdown;
         ctx.article = undefined;
         return { model: result.model, usage: result.usage };
       });
-      contentNeedsReview = true;
+      continue;
     }
+
+    break;
   }
 
-  // Si la última iteración transformó el texto, se repiten los tres jueces. Sus métricas deben
-  // describir el contenido entregado, no la versión anterior que motivó la corrección.
-  if (contentNeedsReview) {
-    await reviewCurrentDraft(maxIterations + 1);
-  }
-
-  // La metadata se genera con un esquema separado. El cuerpo aprobado se copia literalmente.
-  await executeStage({ runId, stageId: "fixer", attempt: maxIterations + 2, onEvent }, async () => {
+  // La metadata se genera con un esquema separado. El cuerpo revisado se copia literalmente,
+  // incluso si agotó el presupuesto y queda pendiente de revisión humana.
+  await executeStage({ runId, stageId: "fixer", attempt: fixerAttempts + 1, onEvent }, async () => {
     const result = await runArticleFinalizer(ctx, cfg, deps);
     ctx.article = result.article;
     return { model: result.model, usage: result.usage };
@@ -600,7 +601,7 @@ async function runQualityAndFinalize(
 
   // Comprobación final sobre el Markdown exacto que se guardará, ya pasado por scrub.
   await executeStage(
-    { runId, stageId: "validate", attempt: maxIterations + 2, onEvent },
+    { runId, stageId: "validate", attempt: reviewAttempt + 1, onEvent },
     async () => {
       const finalIssues = runEditorialValidator({
         draft: cleanArticle.contentMarkdown,
@@ -628,8 +629,8 @@ async function runQualityAndFinalize(
   if (!validationPassed) {
     await logError({
       category: "pipeline",
-      message: "Artículo entregado sin superar la validación final (se agotaron las iteraciones)",
-      detail: `runId: ${runId} · iteraciones: ${maxIterations}`,
+      message: "Artículo pendiente de revisión editorial (se agotaron las correcciones)",
+      detail: `runId: ${runId} · humanizaciones: ${ctx.humanizeAttempts ?? 0} · correcciones: ${fixerAttempts}`,
     });
   }
 
@@ -693,9 +694,11 @@ async function runQualityAndFinalize(
 
   const run = await prisma.generationRun.findUniqueOrThrow({ where: { id: runId } });
 
-  // Atomicidad: crear el artículo y marcar el run como `completed` deben ocurrir juntos. Si
+  const finalStatus: RunStatus = validationPassed ? "completed" : "needs_review";
+
+  // Atomicidad: crear el artículo y marcar el estado final deben ocurrir juntos. Si
   // fueran dos escrituras sueltas, un fallo entre medias dejaría un artículo huérfano con el
-  // run sin completar. La transacción garantiza la invariante "artículo creado ⟺ run completado".
+  // run sin terminar. La transacción garantiza la invariante "artículo creado ⟺ run terminal".
   const [created] = await prisma.$transaction([
     prisma.article.create({
       data: {
@@ -714,9 +717,9 @@ async function runQualityAndFinalize(
     }),
     prisma.generationRun.update({
       where: { id: runId },
-      data: { status: "completed", contextJson: serializeContext(ctx) },
+      data: { status: finalStatus, contextJson: serializeContext(ctx) },
     }),
   ]);
 
-  return { runId, status: "completed", context: ctx, articleId: created.id };
+  return { runId, status: finalStatus, context: ctx, articleId: created.id };
 }
