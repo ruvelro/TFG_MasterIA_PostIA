@@ -2,6 +2,16 @@ import { generateObject, generateText, NoObjectGeneratedError } from "ai";
 import type { z } from "zod";
 
 import { createOpenRouterModel } from "@/lib/ai/openrouter";
+import {
+  buildStructuredRecoveryPrompt,
+  parseStructuredObjectFromText,
+  repairStructuredObjectText,
+} from "@/lib/ai/structured-output";
+
+export {
+  parseStructuredObjectFromText,
+  repairStructuredObjectText,
+} from "@/lib/ai/structured-output";
 
 /**
  * Reintentos automáticos por llamada. OpenRouter devuelve errores transitorios (429, 5xx) con
@@ -16,6 +26,15 @@ const MAX_RETRIES = 2;
  * los modelos lentos con prompts largos.
  */
 const REQUEST_TIMEOUT_MS = 120_000;
+
+/**
+ * Los informes factuales y el fixer pueden producir JSON extenso. Sin un límite explícito,
+ * algunos modelos terminan la respuesta a mitad del objeto y el SDK informa de un fallo de parseo.
+ */
+const STRUCTURED_OUTPUT_MAX_TOKENS = 16_384;
+
+/** Los reintentos del SDK no se aplican a JSON inválido, así que se recupera fuera del SDK. */
+const STRUCTURED_RECOVERY_ATTEMPTS = 2;
 
 export interface GenerateParams {
   apiKey: string;
@@ -73,109 +92,14 @@ export interface ObjectGenerationResult<T> {
   usage: { inputTokens?: number; outputTokens?: number };
 }
 
-function extractJsonCandidate(text: string): string | null {
-  const cleaned = text.replace(/^\uFEFF/, "").trim();
-  const fenceMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  const source = fenceMatch?.[1] ?? cleaned;
-  const start = source.search(/[\[{]/);
-  if (start === -1) return null;
-
-  const stack: string[] = [];
-  let inString = false;
-  let escaped = false;
-
-  for (let index = start; index < source.length; index += 1) {
-    const char = source[index];
-
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (char === "\\") {
-        escaped = true;
-      } else if (char === '"') {
-        inString = false;
-      }
-      continue;
-    }
-
-    if (char === '"') {
-      inString = true;
-      continue;
-    }
-
-    if (char === "{" || char === "[") {
-      stack.push(char);
-      continue;
-    }
-
-    if (char !== "}" && char !== "]") continue;
-
-    const opening = stack.pop();
-    const expected = opening === "{" ? "}" : "]";
-    if (char !== expected) return null;
-    if (stack.length === 0) return source.slice(start, index + 1);
-  }
-
-  return null;
-}
-
-function normalizeJsonCandidate(candidate: string): string[] {
-  const normalized = candidate
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/,\s*([}\]])/g, "$1")
-    .trim();
-  return normalized === candidate ? [candidate] : [candidate, normalized];
-}
-
-export async function repairStructuredObjectText(options: {
-  text: string;
-}): Promise<string | null> {
-  const candidate = extractJsonCandidate(options.text);
-  if (!candidate) return null;
-
-  for (const attempt of normalizeJsonCandidate(candidate)) {
-    try {
-      JSON.parse(attempt);
-      return attempt;
-    } catch {
-      // Probamos la siguiente normalización antes de conservar el error original del SDK.
-    }
-  }
-
-  return null;
-}
-
-export async function parseStructuredObjectFromText<T>(params: {
-  text: string;
-  schema: z.ZodType<T>;
-}): Promise<T | null> {
-  const repaired = await repairStructuredObjectText({ text: params.text });
-  if (!repaired) return null;
-
-  const parsed = JSON.parse(repaired) as unknown;
-  const validation = await params.schema.safeParseAsync(parsed);
-  return validation.success ? validation.data : null;
-}
-
-function buildFallbackObjectPrompt(prompt: string): string {
-  return [
-    prompt,
-    "",
-    "IMPORTANTE: la respuesta anterior no pudo parsearse como objeto estructurado.",
-    "Devuelve ahora ÚNICAMENTE JSON válido, sin Markdown, sin comentarios, sin texto antes ni después.",
-    "El JSON debe cumplir exactamente los campos solicitados en la tarea. Usa comillas dobles y",
-    "no incluyas trailing commas.",
-  ].join("\n");
-}
-
 async function fallbackTextObjectGeneration<T>(
-  params: GenerateParams & { schema: z.ZodType<T> },
+  params: GenerateParams & { schema: z.ZodType<T>; attempt: number },
 ): Promise<ObjectGenerationResult<T> | null> {
   const result = await generateText({
     model: createOpenRouterModel(params.apiKey, params.modelId),
     system: params.system,
-    prompt: buildFallbackObjectPrompt(params.prompt),
+    prompt: buildStructuredRecoveryPrompt(params),
+    maxOutputTokens: STRUCTURED_OUTPUT_MAX_TOKENS,
     maxRetries: params.maxRetries ?? MAX_RETRIES,
     abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
   });
@@ -202,6 +126,7 @@ export async function runObjectGeneration<T>(
       schema: params.schema,
       system: params.system,
       prompt: params.prompt,
+      maxOutputTokens: STRUCTURED_OUTPUT_MAX_TOKENS,
       maxRetries: params.maxRetries ?? MAX_RETRIES,
       abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
       experimental_repairText: repairStructuredObjectText,
@@ -224,10 +149,21 @@ export async function runObjectGeneration<T>(
       };
     }
 
-    const fallback = await fallbackTextObjectGeneration(params);
-    if (fallback) return fallback;
+    let lastRecoveryError: unknown;
+    for (let attempt = 1; attempt <= STRUCTURED_RECOVERY_ATTEMPTS; attempt += 1) {
+      try {
+        const fallback = await fallbackTextObjectGeneration({ ...params, attempt });
+        if (fallback) return fallback;
+      } catch (recoveryError) {
+        if (params.abortSignal?.aborted) throw recoveryError;
+        lastRecoveryError = recoveryError;
+      }
+    }
 
-    throw error;
+    throw new Error(
+      `No se pudo recuperar la salida estructurada tras ${STRUCTURED_RECOVERY_ATTEMPTS} intentos`,
+      { cause: lastRecoveryError ?? error },
+    );
   }
 }
 
