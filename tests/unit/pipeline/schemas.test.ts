@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ArticleMetadataSchema,
   BlueprintSchema,
   FactsSchema,
   FixerOutputSchema,
@@ -50,5 +51,17 @@ describe("esquemas del pipeline", () => {
         keywords: ["a"],
       }).success,
     ).toBe(true);
+  });
+
+  it("ArticleMetadataSchema no permite que el finalizador reescriba el cuerpo", () => {
+    const result = ArticleMetadataSchema.safeParse({
+      title: "Título",
+      slug: "titulo",
+      metaDescription: "Descripción",
+      keywords: ["tema"],
+      contentMarkdown: "Texto que no pertenece a este contrato",
+    });
+    expect(result.success).toBe(true);
+    expect(result.data).not.toHaveProperty("contentMarkdown");
   });
 });

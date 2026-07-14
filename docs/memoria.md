@@ -432,7 +432,7 @@ research → extract → [revisión humana opcional]
 | 6   | **validate**       | Sí (juez)     | Informe estructurado: fidelidad, tono, editorial, SEO/GEO.                                |
 | 7   | **factual-review** | Sí (juez)     | Clasifica cada afirmación (confirmada/dudosa/descartada) + riesgo global.                 |
 | 8   | **quality-review** | Sí (juez)     | Puntúa estructura, soporte factual, SEO y el **aiScore** que gobierna la re-humanización. |
-| 9   | **fixer**          | Sí            | Corrige según los informes, marca negritas y genera la **meta SEO** final.                |
+| 9   | **fixer**          | Sí            | Corrige según los informes; al cierre genera la **meta SEO** sin reescribir el cuerpo.    |
 | 10  | **scrub**          | No (regex)    | Elimina meta-referencias de investigación del texto final.                                |
 | 11  | **enrich**         | Sí            | Titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt de imagen.           |
 
@@ -445,8 +445,10 @@ densidad, citas) y fusiona sus hallazgos en el informe de `validate`.
 
 Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
 pasadas: ejecuta los jueces y, en función de sus resultados, **re-humaniza** (si el `aiScore`
-supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) y/o corrige con **fixer**. El `fixer`
-produce el artículo final con su meta SEO, por lo que siempre se ejecuta al menos una vez.
+supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige con **fixer**. Cada
+transformación se vuelve a evaluar; si ocurre en la última pasada, se ejecuta una revisión
+final adicional. Los metadatos SEO se generan después con un contrato separado que conserva
+literalmente el cuerpo aprobado.
 
 La **revisión humana** se implementa como dos puntos de **pausa** del orquestador, que
 persiste el estado en `GenerationRun.contextJson`: tras `extract` (estado `awaiting_review`,

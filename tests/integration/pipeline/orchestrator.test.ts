@@ -5,6 +5,7 @@ import { DEFAULT_PIPELINE_PARAMS, DEFAULT_STEP_CONFIG } from "@/lib/pipeline/def
 import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
 import { resumeGeneration, reviseGeneration, startGeneration } from "@/lib/pipeline/orchestrator";
 import {
+  ArticleMetadataSchema,
   BlueprintSchema,
   EnrichStepOutputSchema,
   FactualReviewSchema,
@@ -87,6 +88,13 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
     } else if (s === FixerOutputSchema) {
       object = {
         contentMarkdown: "# Final\n**clave**",
+        title: "Final",
+        slug: "final",
+        metaDescription: "meta",
+        keywords: ["kw"],
+      };
+    } else if (s === ArticleMetadataSchema) {
+      object = {
         title: "Final",
         slug: "final",
         metaDescription: "meta",
@@ -181,6 +189,7 @@ describe("orquestador del pipeline", () => {
 
     const article = await prisma.article.findFirst({ where: { runId: result.runId } });
     expect(article?.title).toBe("Final");
+    expect(article?.contentMarkdown).toBe("# Borrador\nTexto del borrador");
     expect(JSON.parse(article?.keywords ?? "[]")).toEqual(["kw"]);
 
     // El coste estimado se persiste por etapa de IA (research no usa modelo → sin coste).
@@ -346,15 +355,15 @@ describe("orquestador del pipeline", () => {
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
-    // Con maxFixIterations=2 y validación que nunca pasa: 2 validaciones del bucle + la
-    // revalidación determinista final que comprueba la última corrección del fixer.
-    expect(validateSteps.length).toBe(3);
+    // Con maxFixIterations=2 y validación que nunca pasa: 2 validaciones del bucle, una
+    // revisión IA completa del último fixer y la comprobación determinista post-scrub.
+    expect(validateSteps.length).toBe(4);
     const attempts = validateSteps.map((s) => s.attempt).sort();
-    expect(attempts).toEqual([1, 2, 3]);
+    expect(attempts).toEqual([1, 2, 3, 4]);
 
-    // La revalidación final no encontró problemas bloqueantes en el texto entregado: la
-    // última pasada del fixer queda comprobada y la métrica lo refleja.
-    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+    // El juez IA sigue suspendiendo el texto tras agotar correcciones: la comprobación
+    // determinista no debe convertir ese suspenso en aprobado.
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
   });
 
   it("la revalidación final mantiene el suspenso si persisten problemas bloqueantes", async () => {
@@ -373,7 +382,7 @@ describe("orquestador del pipeline", () => {
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
-    expect(validateSteps.length).toBe(3); // 2 del bucle + revalidación final
+    expect(validateSteps.length).toBe(4);
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(false);
     // El informe final describe el texto entregado, con el problema bloqueante visible.
     expect(result.context.report?.passed).toBe(false);
@@ -435,11 +444,11 @@ describe("orquestador del pipeline", () => {
     const validateSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "validate" },
     });
-    expect(validateSteps.length).toBe(2);
+    expect(validateSteps.length).toBe(3);
   });
 
   it("dispara una re-humanización cuando aiScore supera el umbral", async () => {
-    // aiScore=85 > aiScoreThreshold=70 → debe humanizar 2 veces (1 inicial + 1 reintento).
+    // aiScore=85 supera el umbral → debe humanizar 2 veces (1 inicial + 1 reintento).
     const result = await startGeneration({
       userId,
       topic: "Robótica",
