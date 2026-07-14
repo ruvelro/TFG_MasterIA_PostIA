@@ -207,11 +207,22 @@ export function combinedReviewToText(
 
 /**
  * Computa `aiDetection` a partir del `aiScore` ya disponible en `qualityReport`.
- * Es determinista (sin IA): 0-40 = humano, 41-69 = mixto, ≥70 = ia.
+ * Es determinista (sin IA): 0-24 = humano, 25-59 = mixto, ≥60 = ia.
  */
 export function computeAiDetection(aiScore: number): ArticleEnrichment["aiDetection"] {
-  const label = aiScore <= 40 ? "humano" : aiScore <= 69 ? "mixto" : "ia";
+  const label = aiScore < 25 ? "humano" : aiScore < 60 ? "mixto" : "ia";
   return { score: aiScore, label };
+}
+
+export function computeQualityRisk(
+  qualityReport: QualityReview,
+): ArticleEnrichment["qualitySummary"]["qualityRisk"] {
+  const lowestScore = Math.min(
+    qualityReport.structureScore,
+    qualityReport.factualSupportScore,
+    qualityReport.seoScore,
+  );
+  return lowestScore >= 75 ? "low" : lowestScore >= 50 ? "medium" : "high";
 }
 
 /**
@@ -231,10 +242,7 @@ export function computeQualitySummary(
       : 1;
   const groundedness = Math.round(confirmedRatio * 100);
 
-  const avgQuality =
-    (qualityReport.structureScore + qualityReport.factualSupportScore + qualityReport.seoScore) / 3;
-  const qualityRisk: "low" | "medium" | "high" =
-    avgQuality >= 75 ? "low" : avgQuality >= 50 ? "medium" : "high";
+  const qualityRisk = computeQualityRisk(qualityReport);
 
   const warningsCount =
     report.issues.length +

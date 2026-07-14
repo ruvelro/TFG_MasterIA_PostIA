@@ -65,7 +65,10 @@ Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFix
 pasadas: ejecuta los jueces (`validate` + validador determinista, y según el tipo
 `factual-review` y `quality-review`) y, en función de sus resultados, aplica **una sola
 transformación** antes de volver a medir: re-humaniza si el `aiScore` supera
-`aiScoreThreshold` o corrige con **fixer**.
+`aiScoreThreshold` o corrige con **fixer**. El artículo solo se aprueba cuando la validación
+editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
+los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
+corrector mientras queden iteraciones.
 
 Si la última pasada transforma el texto, los jueces se ejecutan una vez más para que sus
 informes describan el contenido realmente entregado. Cerrado el bucle, una llamada separada

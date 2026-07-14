@@ -13,6 +13,7 @@ import {
   FixerOutputSchema,
   QualityReviewSchema,
   ValidationReportSchema,
+  type FactualReview,
 } from "@/lib/pipeline/schemas";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 import type { PipelineContext, PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
@@ -41,8 +42,22 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
 // Dependencias falsas y deterministas. `runObject` decide la respuesta por IDENTIDAD del
 // esquema (los steps pasan exactamente estos objetos de esquema), lo que evita acoplarse al
 // orden de las llamadas.
-function makeDeps(options: { validatePasses: boolean; aiScore?: number }): PipelineDeps {
-  const { validatePasses, aiScore = 30 } = options;
+function makeDeps(options: {
+  validatePasses: boolean;
+  aiScore?: number;
+  factualRisks?: FactualReview["riskLevel"][];
+  factualSufficiencies?: boolean[];
+  qualityAverages?: number[];
+}): PipelineDeps {
+  const {
+    validatePasses,
+    aiScore = 20,
+    factualRisks = ["low"],
+    factualSufficiencies = [true],
+    qualityAverages = [85],
+  } = options;
+  let factualReviewIndex = 0;
+  let qualityReviewIndex = 0;
 
   const runObject: PipelineDeps["runObject"] = async ({ schema }) => {
     const s = schema as unknown;
@@ -69,17 +84,31 @@ function makeDeps(options: { validatePasses: boolean; aiScore?: number }): Pipel
             issues: [{ category: "ai-tone", severity: "low", description: "d", suggestion: "s" }],
           };
     } else if (s === FactualReviewSchema) {
+      const riskLevel =
+        factualRisks[Math.min(factualReviewIndex, factualRisks.length - 1)] ?? "low";
+      const sufficient =
+        factualSufficiencies[Math.min(factualReviewIndex, factualSufficiencies.length - 1)] ?? true;
+      factualReviewIndex += 1;
       object = {
-        riskLevel: "low",
-        claims: [{ claim: "Un hecho", status: "confirmed", reason: "En las fuentes" }],
+        riskLevel,
+        claims: [
+          {
+            claim: "Un hecho",
+            status: riskLevel === "low" ? "confirmed" : "doubtful",
+            reason: "Resultado factual de prueba",
+          },
+        ],
         summary: "Sin riesgos.",
-        researchSufficiency: { sufficient: true, reason: "Las fuentes son adecuadas." },
+        researchSufficiency: { sufficient, reason: "Evaluación documental de prueba." },
       };
     } else if (s === QualityReviewSchema) {
+      const qualityAverage =
+        qualityAverages[Math.min(qualityReviewIndex, qualityAverages.length - 1)] ?? 85;
+      qualityReviewIndex += 1;
       object = {
-        structureScore: 85,
-        factualSupportScore: 90,
-        seoScore: 80,
+        structureScore: qualityAverage,
+        factualSupportScore: qualityAverage,
+        seoScore: qualityAverage,
         wordCount: 300,
         aiScore,
         issues: [],
@@ -182,7 +211,7 @@ describe("orquestador del pipeline", () => {
     // El enriquecimiento se computa (métricas derivadas) y se genera (campos creativos).
     expect(result.context.enrichment).toBeDefined();
     expect(result.context.enrichment?.headlineVariants.length).toBeGreaterThan(0);
-    expect(result.context.enrichment?.aiDetection.label).toBe("humano"); // aiScore=30 → humano
+    expect(result.context.enrichment?.aiDetection.label).toBe("humano");
     expect(result.context.enrichment?.qualitySummary.groundedness).toBe(100); // 1/1 confirmados
     // La validación pasó: el artículo se entrega como validado.
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
@@ -463,6 +492,60 @@ describe("orquestador del pipeline", () => {
     });
     // 1 humanize inicial + 1 re-humanización por aiScore alto.
     expect(humanizeSteps.length).toBe(2);
+  });
+
+  it("corrige un riesgo factual medio y solo aprueba después de volver a riesgo bajo", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Riesgo factual",
+      pauseForReview: false,
+      cfg: makeConfig(2),
+      deps: makeDeps({ validatePasses: true, factualRisks: ["medium", "low"] }),
+    });
+
+    const fixerSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "fixer" },
+    });
+    expect(fixerSteps).toHaveLength(2); // corrección factual + finalizador de metadatos
+    expect(result.context.factualReport?.riskLevel).toBe("low");
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+  });
+
+  it("corrige un riesgo de calidad medio antes de aprobar el artículo", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Calidad editorial",
+      pauseForReview: false,
+      cfg: makeConfig(2),
+      deps: makeDeps({ validatePasses: true, qualityAverages: [68, 85] }),
+    });
+
+    const fixerSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "fixer" },
+    });
+    expect(fixerSteps).toHaveLength(2);
+    expect(result.context.enrichment?.qualitySummary.qualityRisk).toBe("low");
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+  });
+
+  it("corrige cuando la revisión declara insuficientes las fuentes", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Suficiencia factual",
+      pauseForReview: false,
+      cfg: makeConfig(2),
+      deps: makeDeps({
+        validatePasses: true,
+        factualSufficiencies: [false, true],
+      }),
+    });
+
+    const fixerSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "fixer" },
+    });
+    expect(fixerSteps).toHaveLength(2);
+    expect(result.context.factualReport?.researchSufficiency.sufficient).toBe(true);
+    expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
   });
 
   it("genera y persiste la imagen destacada cuando el tipo la activa", async () => {
