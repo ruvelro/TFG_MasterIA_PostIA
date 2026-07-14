@@ -1,6 +1,6 @@
 import { combinedReviewToText, composeEditorialVoice } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
-import { FixerOutputSchema, type FixerOutput } from "@/lib/pipeline/schemas";
+import { ArticleMetadataSchema, FixerOutputSchema, type FixerOutput } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
   PipelineDeps,
@@ -38,4 +38,44 @@ export async function runFixer(
     schema: FixerOutputSchema,
   });
   return { article: object, model: step.model, usage };
+}
+
+/**
+ * Completa la metadata SEO sin volver a redactar el cuerpo. Antes se llamaba al fixer completo
+ * incluso cuando el artículo ya estaba aprobado, lo que podía reintroducir patrones de IA después
+ * de la última validación. El Markdown se conserva literalmente y solo se generan sus metadatos.
+ */
+export async function runArticleFinalizer(
+  ctx: PipelineContext,
+  cfg: ResolvedPipelineConfig,
+  deps: PipelineDeps,
+): Promise<{ article: FixerOutput; model: string; usage: TokenUsage }> {
+  if (!ctx.draft) throw new Error("finalizer requiere el artículo aprobado");
+
+  const step = cfg.steps.fixer;
+  const prompt = [
+    "Eres un editor SEO. Genera únicamente los metadatos del artículo, sin reescribir ni devolver",
+    "el cuerpo. El contenido ya ha sido corregido y aprobado editorialmente.",
+    "- title: máximo 60 caracteres, natural y fiel al contenido.",
+    "- slug: minúsculas, guiones y sin stopwords innecesarias.",
+    "- metaDescription: máximo 155 caracteres, informativa y sin fórmulas promocionales.",
+    "- keywords: lista breve de términos realmente presentes, sin repetición ni keyword stuffing.",
+    "",
+    `Tema: ${ctx.topic}`,
+    "",
+    "Artículo aprobado:",
+    ctx.draft,
+  ].join("\n");
+
+  const { object, usage } = await deps.runObject({
+    modelId: step.model,
+    prompt,
+    schema: ArticleMetadataSchema,
+  });
+
+  return {
+    article: { ...object, contentMarkdown: ctx.draft },
+    model: step.model,
+    usage,
+  };
 }

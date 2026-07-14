@@ -20,20 +20,20 @@ research → extract → [revisión humana opcional]
         → scrub → enrich → Article
 ```
 
-| #   | Etapa              | ¿IA?          | Entrada                                              | Salida                                                                      |
-| --- | ------------------ | ------------- | ---------------------------------------------------- | --------------------------------------------------------------------------- |
-| 1   | **research**       | No (búsqueda) | tema                                                 | N fuentes con su **contenido descargado** (fuente de verdad)                |
-| 2   | **extract**        | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**      |
-| 3   | **blueprint**      | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**       |
-| 4   | **draft**          | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                        |
-| 5   | **humanize**       | Sí            | borrador                                             | borrador reescrito sin muletillas ni estructura repetitiva de IA            |
-| 6   | **validate**       | Sí (juez)     | borrador + hechos + fuentes                          | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)     |
-| 7   | **factual-review** | Sí (juez)     | borrador + hechos                                    | clasificación por afirmación (confirmada/dudosa/descartada) + riesgo global |
-| 8   | **quality-review** | Sí (juez)     | borrador                                             | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA) |
-| 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido + **meta SEO** (title, slug, metaDescription, keywords)  |
-| 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                              |
-| 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen |
-| 12  | **feature-image**  | Sí (imagen)   | prompt de imagen de enrich                           | imagen destacada persistida (opcional; el artículo no depende de ella)      |
+| #   | Etapa              | ¿IA?          | Entrada                                              | Salida                                                                        |
+| --- | ------------------ | ------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| 1   | **research**       | No (búsqueda) | tema                                                 | N fuentes con su **contenido descargado** (fuente de verdad)                  |
+| 2   | **extract**        | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**        |
+| 3   | **blueprint**      | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**         |
+| 4   | **draft**          | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                          |
+| 5   | **humanize**       | Sí            | borrador                                             | borrador reescrito sin muletillas ni estructura repetitiva de IA              |
+| 6   | **validate**       | Sí (juez)     | borrador + hechos + fuentes                          | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)       |
+| 7   | **factual-review** | Sí (juez)     | borrador + hechos                                    | clasificación por afirmación (confirmada/dudosa/descartada) + riesgo global   |
+| 8   | **quality-review** | Sí (juez)     | borrador                                             | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA)   |
+| 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido; al cierre genera la **meta SEO** sin reescribir el cuerpo |
+| 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                                |
+| 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen   |
+| 12  | **feature-image**  | Sí (imagen)   | prompt de imagen de enrich                           | imagen destacada persistida (opcional; el artículo no depende de ella)        |
 
 Además, dentro del bucle corre un **validador editorial determinista** (sin IA,
 `steps/editorial-validator.ts`) que comprueba reglas mecánicas (palabras prohibidas,
@@ -63,13 +63,15 @@ revisiones están desactivadas, el pipeline corre de principio a fin.
 
 Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
 pasadas: ejecuta los jueces (`validate` + validador determinista, y según el tipo
-`factual-review` y `quality-review`) y, en función de sus resultados, **re-humaniza** (si el
-`aiScore` supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) y/o corrige con **fixer**.
+`factual-review` y `quality-review`) y, en función de sus resultados, aplica **una sola
+transformación** antes de volver a medir: re-humaniza si el `aiScore` supera
+`aiScoreThreshold` o corrige con **fixer**.
 
-El `fixer` produce el artículo final con su meta SEO, por lo que **siempre se ejecuta al menos
-una vez** (si la validación pasa a la primera, se ejecuta sin correcciones pendientes). Cerrado
-el bucle, `scrub` limpia el texto y `enrich` añade los campos creativos y las métricas
-derivadas antes de persistir el `Article`.
+Si la última pasada transforma el texto, los jueces se ejecutan una vez más para que sus
+informes describan el contenido realmente entregado. Cerrado el bucle, una llamada separada
+genera únicamente `title`, `slug`, `metaDescription` y `keywords`: el Markdown aprobado se
+conserva literalmente. `scrub` limpia el texto y un último validador determinista comprueba el
+contenido exacto que se persistirá antes de `enrich`.
 
 ## Revisión dirigida (Revision Mode)
 
@@ -87,6 +89,8 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
 ```
 
 - Defaults en `src/lib/pipeline/default-config.ts`; el admin los edita en `/admin`.
+- En el despliegue Docker, cada arranque vuelve a sincronizar los prompts de fábrica y el
+  umbral anti-IA con la base persistente. Conserva los modelos elegidos y el perfil editorial.
 - Prompts como **plantillas** (`src/lib/pipeline/render-template.ts`) con variables que el
   pipeline rellena: `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}}
 {{editorialVoice}} {{seoRules}}`.

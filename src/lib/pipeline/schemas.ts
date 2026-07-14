@@ -68,12 +68,16 @@ export const ValidationReportSchema = z.object({
 });
 export type ValidationReport = z.infer<typeof ValidationReportSchema>;
 
-export const FixerOutputSchema = z.object({
-  contentMarkdown: z.string().describe("Artículo final corregido en Markdown"),
+export const ArticleMetadataSchema = z.object({
   title: z.string(),
   slug: z.string(),
   metaDescription: z.string().describe("Meta description SEO (<=155 caracteres)"),
   keywords: z.array(z.string()),
+});
+export type ArticleMetadata = z.infer<typeof ArticleMetadataSchema>;
+
+export const FixerOutputSchema = ArticleMetadataSchema.extend({
+  contentMarkdown: z.string().describe("Artículo final corregido en Markdown"),
 });
 export type FixerOutput = z.infer<typeof FixerOutputSchema>;
 
@@ -357,6 +361,6 @@ export const ValidatorConfigSchema = z.object({
   /** Detecta exceso de atribuciones visibles que convierten el texto en un resumen de fuentes. */
   attributionOveruse: ValidatorRuleSchema.extend({
     maxPerThousandWords: z.number().int().min(1).max(50),
-  }).default({ enabled: true, severity: "warning", maxPerThousandWords: 6 }),
+  }).default({ enabled: true, severity: "error", maxPerThousandWords: 2 }),
 });
 export type ValidatorConfig = z.infer<typeof ValidatorConfigSchema>;

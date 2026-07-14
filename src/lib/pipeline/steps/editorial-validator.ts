@@ -20,7 +20,7 @@ export const DEFAULT_AI_PATTERNS: string[] = [
   "en los datos revisados",
   "fuentes revisadas",
   "fuentes consultadas",
-  "(^|\\n)##\\s*(resumen r[aá]pido|datos clave citables|faq)\\b",
+  "(^|\\n)##\\s*(resumen r[aá]pido|datos r[aá]pidos|datos clave citables|conclusi[oó]n|fuentes citadas|referencias|faq)\\b",
 ];
 
 /** Configuración por defecto del validador: no bloquea de inicio salvo palabras prohibidas. */
@@ -43,7 +43,18 @@ const ATTRIBUTION_PATTERNS: RegExp[] = [
   /\bfuentes? (citadas?|consultadas?|revisadas?)\b/gi,
 ];
 
-const FORBIDDEN_BODY_HEADINGS = ["resumen rápido", "resumen rapido", "datos clave citables", "faq"];
+const FORBIDDEN_BODY_HEADINGS = [
+  "resumen rápido",
+  "resumen rapido",
+  "datos rápidos",
+  "datos rapidos",
+  "datos clave citables",
+  "conclusión",
+  "conclusion",
+  "fuentes citadas",
+  "referencias",
+  "faq",
+];
 
 export interface EditorialValidatorInput {
   draft: string;
@@ -219,6 +230,17 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
       description: `Sección con formato de plantilla: «${heading}».`,
       suggestion:
         "Elimina esa sección del cuerpo del artículo o integra la información útil en párrafos periodísticos.",
+    });
+  }
+
+  const wordCount = countWords(draft);
+  if (wordCount < 1800 && headings.length > 8) {
+    issues.push({
+      category: "ai-tone",
+      severity: "high",
+      description: `Estructura fragmentada: ${headings.length} encabezados en ${wordCount} palabras.`,
+      suggestion:
+        "Fusiona apartados relacionados y conserva solo los encabezados que sostengan el ángulo principal.",
     });
   }
 
