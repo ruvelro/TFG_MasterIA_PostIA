@@ -6,6 +6,7 @@ import {
   parseStructuredObjectFromText,
   repairStructuredObjectText,
 } from "@/lib/ai/generate";
+import { buildStructuredRecoveryPrompt } from "@/lib/ai/structured-output";
 
 describe("buildAbortSignal", () => {
   it("sin señal de usuario devuelve una señal viva (solo timeout)", () => {
@@ -98,5 +99,27 @@ describe("parseStructuredObjectFromText", () => {
         schema,
       }),
     ).resolves.toBeNull();
+  });
+});
+
+describe("buildStructuredRecoveryPrompt", () => {
+  it("incluye el contrato JSON Schema completo en cada intento de recuperación", () => {
+    const schema = z.object({
+      riskLevel: z.enum(["low", "medium", "high"]),
+      claims: z.array(z.object({ claim: z.string(), confirmed: z.boolean() })),
+    });
+
+    const prompt = buildStructuredRecoveryPrompt({
+      prompt: "Revisa el artículo",
+      schema,
+      attempt: 2,
+    });
+
+    expect(prompt).toContain("Revisa el artículo");
+    expect(prompt).toContain("intento 2");
+    expect(prompt).toContain('"required": [');
+    expect(prompt).toContain('"riskLevel"');
+    expect(prompt).toContain('"enum": [');
+    expect(prompt).toContain('"confirmed"');
   });
 });
