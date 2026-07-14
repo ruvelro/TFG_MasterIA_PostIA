@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArticleEnrichmentView } from "@/components/article-enrichment";
 import { Markdown } from "@/components/markdown";
 import type { ArticleEnrichment, FixerOutput } from "@/lib/pipeline/schemas";
+import { composeMarkdownDocument } from "@/lib/publish/markdown-document";
 
 // Resultado final: artículo renderizado (Markdown saneado) y sus metadatos SEO, con
 // acciones para copiar o descargar el contenido. El artículo ya quedó guardado en la BD.
@@ -19,12 +20,14 @@ export function ArticleResult({
   articleId: string | null;
   onReset: () => void;
 }) {
+  const markdownDocument = composeMarkdownDocument(article.title, article.contentMarkdown);
+
   function copyMarkdown() {
-    void navigator.clipboard.writeText(article.contentMarkdown);
+    void navigator.clipboard.writeText(markdownDocument);
   }
 
   function downloadMarkdown() {
-    const blob = new Blob([article.contentMarkdown], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([markdownDocument], { type: "text/markdown;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
