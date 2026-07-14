@@ -16,25 +16,34 @@ export const DEFAULT_AI_PATTERNS: string[] = [
   "en el (mundo|panorama|contexto) actual",
   "sin lugar a dudas",
   "en la era (digital|actual)",
+  "en las fuentes revisadas",
+  "en los datos revisados",
+  "fuentes revisadas",
+  "fuentes consultadas",
+  "(^|\\n)##\\s*(resumen r[aá]pido|datos clave citables|faq)\\b",
 ];
 
 /** Configuración por defecto del validador: no bloquea de inicio salvo palabras prohibidas. */
 export const DEFAULT_VALIDATOR_CONFIG: ValidatorConfig = {
   forbiddenWords: { enabled: true, severity: "error" },
-  aiPatterns: { enabled: true, severity: "warning", patterns: DEFAULT_AI_PATTERNS },
+  aiPatterns: { enabled: true, severity: "error", patterns: DEFAULT_AI_PATTERNS },
   sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 8 },
-  attributionOveruse: { enabled: true, severity: "warning", maxPerThousandWords: 6 },
+  attributionOveruse: { enabled: true, severity: "error", maxPerThousandWords: 2 },
 };
 
 /** Fórmulas habituales de atribución que, en exceso, delatan un texto-agregador. */
 const ATTRIBUTION_PATTERNS: RegExp[] = [
   /\bseg[uú]n\b/gi,
-  /\binform[oó]\b/gi,
+  /\binform(?:a|[oó])\b/gi,
+  /\bpublic(?:a|[oó])\b/gi,
+  /\brecog(?:e|i[oó])\b/gi,
   /\bde acuerdo con\b/gi,
   /\brecogid[oa] por\b/gi,
   /\bcitad[oa] por\b/gi,
   /\bfuentes? (citadas?|consultadas?|revisadas?)\b/gi,
 ];
+
+const FORBIDDEN_BODY_HEADINGS = ["resumen rápido", "resumen rapido", "datos clave citables", "faq"];
 
 export interface EditorialValidatorInput {
   draft: string;
@@ -70,6 +79,39 @@ function countAttributions(text: string): number {
     pattern.lastIndex = 0;
     return total + (text.match(pattern)?.length ?? 0);
   }, 0);
+}
+
+function stripMarkdownOpening(markdown: string): string[] {
+  return markdown
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith("<!--"));
+}
+
+function firstContentLine(markdown: string): string | undefined {
+  const lines = stripMarkdownOpening(markdown);
+  let skippedTitle = false;
+  for (const line of lines) {
+    if (!skippedTitle && /^#\s+/.test(line)) {
+      skippedTitle = true;
+      continue;
+    }
+    if (/^\*?actualizado:/i.test(line.replace(/^\*|\*$/g, ""))) continue;
+    return line;
+  }
+  return undefined;
+}
+
+function isListLine(line: string): boolean {
+  return /^([-*+]|\d+[.)])\s+/.test(line);
+}
+
+function isForbiddenHeading(line: string): boolean {
+  const normalized = line
+    .replace(/^#{1,6}\s+/, "")
+    .toLowerCase()
+    .trim();
+  return FORBIDDEN_BODY_HEADINGS.some((heading) => normalized.startsWith(heading));
 }
 
 /**
@@ -154,6 +196,30 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
           "Integra los datos con voz editorial propia y deja atribución explícita solo para datos discutibles, citas, cuotas o predicciones.",
       });
     }
+  }
+
+  // 5. Forma periodística mínima: la pieza no debe abrir con lista ni bloques de plantilla.
+  const first = firstContentLine(draft);
+  if (first && (isListLine(first) || isForbiddenHeading(first))) {
+    issues.push({
+      category: "ai-tone",
+      severity: "high",
+      description: `Arranque no periodístico: «${first}».`,
+      suggestion:
+        "Sustituye el bloque inicial por una entradilla en prosa y elimina listas, tablas o resúmenes rápidos al comienzo.",
+    });
+  }
+
+  const headings = stripMarkdownOpening(draft).filter((line) => /^#{2,6}\s+/.test(line));
+  for (const heading of headings) {
+    if (!isForbiddenHeading(heading)) continue;
+    issues.push({
+      category: "ai-tone",
+      severity: "high",
+      description: `Sección con formato de plantilla: «${heading}».`,
+      suggestion:
+        "Elimina esa sección del cuerpo del artículo o integra la información útil en párrafos periodísticos.",
+    });
   }
 
   return issues;

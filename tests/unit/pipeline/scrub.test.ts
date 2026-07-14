@@ -4,10 +4,13 @@ import { DEFAULT_SCRUB_PATTERNS, runScrub } from "@/lib/pipeline/steps/scrub";
 
 describe("runScrub", () => {
   it("elimina las meta-referencias de investigación por defecto", () => {
-    const input = "El mercado creció. Según las fuentes consultadas, el alza fue del 5%.";
+    const input =
+      "El mercado creció. Según las fuentes consultadas, el alza fue del 5%. En las fuentes revisadas, el recinto aparece citado como Dallas Stadium.";
     const output = runScrub(input, DEFAULT_SCRUB_PATTERNS);
     expect(output).not.toMatch(/seg[uú]n las fuentes consultadas/i);
+    expect(output).not.toMatch(/fuentes revisadas/i);
     expect(output).toContain("el alza fue del 5%");
+    expect(output).toContain("el recinto aparece citado como Dallas Stadium");
   });
 
   it("conserva el texto que no coincide con ningún patrón", () => {
