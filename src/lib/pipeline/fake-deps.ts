@@ -33,6 +33,10 @@ export function createFakePipelineDeps(): PipelineDeps {
       object = {
         title: "Artículo de ejemplo",
         angle: "Informativo",
+        readerPromise: "Entender el dato principal del ejemplo.",
+        mainThesis: "El ejemplo resume el funcionamiento del flujo E2E.",
+        leadAngle: "El pipeline generó contenido simulado correctamente.",
+        excludeOrCompress: ["Detalles técnicos secundarios"],
         targetKeyword: "ejemplo",
         sections: [{ heading: "Introducción", summary: "Contexto del tema" }],
       };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildAbortSignal } from "@/lib/ai/generate";
+import { buildAbortSignal, repairStructuredObjectText } from "@/lib/ai/generate";
 
 describe("buildAbortSignal", () => {
   it("sin señal de usuario devuelve una señal viva (solo timeout)", () => {
@@ -31,5 +31,37 @@ describe("buildAbortSignal", () => {
     expect(signal.aborted).toBe(false);
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(signal.aborted).toBe(true);
+  });
+});
+
+describe("repairStructuredObjectText", () => {
+  it("extrae JSON válido envuelto en una cerca Markdown", async () => {
+    await expect(
+      repairStructuredObjectText({
+        text: ["Aquí tienes:", "```json", '{"capital":"París"}', "```"].join("\n"),
+      }),
+    ).resolves.toBe('{"capital":"París"}');
+  });
+
+  it("extrae el primer objeto JSON aunque haya texto antes y después", async () => {
+    await expect(
+      repairStructuredObjectText({
+        text: 'Respuesta: {"title":"Uno","sections":[{"heading":"A","summary":"B"}]} Gracias.',
+      }),
+    ).resolves.toBe('{"title":"Uno","sections":[{"heading":"A","summary":"B"}]}');
+  });
+
+  it("respeta llaves dentro de strings JSON", async () => {
+    await expect(
+      repairStructuredObjectText({
+        text: '```json\n{"summary":"Dato con } dentro del texto","items":["{literal}"]}\n```',
+      }),
+    ).resolves.toBe('{"summary":"Dato con } dentro del texto","items":["{literal}"]}');
+  });
+
+  it("devuelve null si no hay JSON reparable", async () => {
+    await expect(
+      repairStructuredObjectText({ text: "No puedo generar esa estructura." }),
+    ).resolves.toBe(null);
   });
 });

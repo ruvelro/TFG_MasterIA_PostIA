@@ -19,6 +19,12 @@ export function BlueprintReview({
 }) {
   const [title, setTitle] = useState(initialBlueprint.title);
   const [angle, setAngle] = useState(initialBlueprint.angle);
+  const [readerPromise, setReaderPromise] = useState(initialBlueprint.readerPromise);
+  const [mainThesis, setMainThesis] = useState(initialBlueprint.mainThesis);
+  const [leadAngle, setLeadAngle] = useState(initialBlueprint.leadAngle);
+  const [excludeOrCompress, setExcludeOrCompress] = useState(
+    initialBlueprint.excludeOrCompress.join("\n"),
+  );
   const [targetKeyword, setTargetKeyword] = useState(initialBlueprint.targetKeyword);
   const [sections, setSections] = useState<Section[]>(initialBlueprint.sections);
 
@@ -39,7 +45,19 @@ export function BlueprintReview({
 
   function handleContinue() {
     const cleanSections = sections.filter((s) => s.heading.trim().length > 0);
-    onContinue({ title, angle, targetKeyword, sections: cleanSections });
+    onContinue({
+      title,
+      angle,
+      readerPromise,
+      mainThesis,
+      leadAngle,
+      excludeOrCompress: excludeOrCompress
+        .split("\n")
+        .map((item) => item.trim())
+        .filter(Boolean),
+      targetKeyword,
+      sections: cleanSections,
+    });
   }
 
   return (
@@ -59,6 +77,43 @@ export function BlueprintReview({
       <label className="flex flex-col gap-1 text-sm">
         <span className="font-medium">Ángulo / enfoque principal</span>
         <input value={angle} onChange={(e) => setAngle(e.target.value)} className={inputClass} />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Promesa al lector</span>
+        <input
+          value={readerPromise}
+          onChange={(e) => setReaderPromise(e.target.value)}
+          className={inputClass}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Tesis principal</span>
+        <input
+          value={mainThesis}
+          onChange={(e) => setMainThesis(e.target.value)}
+          className={inputClass}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Entradilla debe abrir con</span>
+        <input
+          value={leadAngle}
+          onChange={(e) => setLeadAngle(e.target.value)}
+          className={inputClass}
+        />
+      </label>
+
+      <label className="flex flex-col gap-1 text-sm">
+        <span className="font-medium">Omitir o comprimir</span>
+        <textarea
+          value={excludeOrCompress}
+          onChange={(e) => setExcludeOrCompress(e.target.value)}
+          rows={3}
+          className={inputClass}
+        />
       </label>
 
       <label className="flex flex-col gap-1 text-sm">

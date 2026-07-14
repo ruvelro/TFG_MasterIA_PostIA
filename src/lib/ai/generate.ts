@@ -73,6 +73,66 @@ export interface ObjectGenerationResult<T> {
   usage: { inputTokens?: number; outputTokens?: number };
 }
 
+function extractJsonCandidate(text: string): string | null {
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+  const source = fenceMatch?.[1] ?? text;
+  const start = source.search(/[\[{]/);
+  if (start === -1) return null;
+
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (char === "{" || char === "[") {
+      stack.push(char);
+      continue;
+    }
+
+    if (char !== "}" && char !== "]") continue;
+
+    const opening = stack.pop();
+    const expected = opening === "{" ? "}" : "]";
+    if (char !== expected) return null;
+    if (stack.length === 0) return source.slice(start, index + 1);
+  }
+
+  return null;
+}
+
+export async function repairStructuredObjectText(options: {
+  text: string;
+}): Promise<string | null> {
+  const candidate = extractJsonCandidate(options.text);
+  if (!candidate) return null;
+
+  try {
+    JSON.parse(candidate);
+    return candidate;
+  } catch {
+    // Si el fragmento no es JSON válido, dejamos que el SDK conserve el error original.
+    return null;
+  }
+}
+
 /**
  * Genera un objeto estructurado validado contra un esquema Zod (p. ej. el esquema del
  * outline o del informe de validación). El AI SDK fuerza al modelo a producir esa forma.
@@ -87,6 +147,7 @@ export async function runObjectGeneration<T>(
     prompt: params.prompt,
     maxRetries: params.maxRetries ?? MAX_RETRIES,
     abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
+    experimental_repairText: repairStructuredObjectText,
   });
 
   return {

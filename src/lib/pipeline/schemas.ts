@@ -38,6 +38,14 @@ export const BlueprintSectionSchema = z.object({
 export const BlueprintSchema = z.object({
   title: z.string().describe("Titular de trabajo del artículo"),
   angle: z.string().describe("Enfoque o ángulo principal"),
+  readerPromise: z
+    .string()
+    .describe("Promesa concreta para el lector: qué entenderá o podrá decidir tras leer"),
+  mainThesis: z.string().describe("Tesis editorial que organiza la pieza y evita el resumen plano"),
+  leadAngle: z.string().describe("Dato, tensión o idea que debe abrir la entradilla"),
+  excludeOrCompress: z
+    .array(z.string())
+    .describe("Datos o enfoques secundarios que deben omitirse o comprimirse"),
   targetKeyword: z.string(),
   sections: z.array(BlueprintSectionSchema),
 });
@@ -346,5 +354,9 @@ export const ValidatorConfigSchema = z.object({
   aiPatterns: ValidatorRuleSchema.extend({ patterns: z.array(z.string()) }),
   /** Detecta copia literal extensa desde las fuentes (mínimo de palabras del fragmento). */
   sourceOverlap: ValidatorRuleSchema.extend({ minPhraseWords: z.number().int().min(3).max(30) }),
+  /** Detecta exceso de atribuciones visibles que convierten el texto en un resumen de fuentes. */
+  attributionOveruse: ValidatorRuleSchema.extend({
+    maxPerThousandWords: z.number().int().min(1).max(50),
+  }).default({ enabled: true, severity: "warning", maxPerThousandWords: 6 }),
 });
 export type ValidatorConfig = z.infer<typeof ValidatorConfigSchema>;

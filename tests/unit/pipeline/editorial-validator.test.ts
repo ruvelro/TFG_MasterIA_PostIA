@@ -10,6 +10,7 @@ const BASE: ValidatorConfig = {
   forbiddenWords: { enabled: false, severity: "error" },
   aiPatterns: { enabled: false, severity: "warning", patterns: [] },
   sourceOverlap: { enabled: false, severity: "warning", minPhraseWords: 8 },
+  attributionOveruse: { enabled: false, severity: "warning", maxPerThousandWords: 6 },
 };
 
 describe("runEditorialValidator", () => {
@@ -87,9 +88,30 @@ describe("runEditorialValidator", () => {
     expect(issues).toHaveLength(0);
   });
 
+  it("detecta exceso de atribuciones visibles", () => {
+    const draft = [
+      "Según ESPN, el dato abre la pieza.",
+      "De acuerdo con Opta, el mercado acompaña.",
+      "Ámbito informó de otra cifra relevante.",
+      "El resto del texto mantiene una explicación breve.",
+    ].join(" ");
+    const issues = runEditorialValidator({
+      draft,
+      sources: [],
+      forbiddenWords: [],
+      config: {
+        ...BASE,
+        attributionOveruse: { enabled: true, severity: "warning", maxPerThousandWords: 6 },
+      },
+    });
+    expect(issues.some((i) => i.category === "ai-tone")).toBe(true);
+    expect(issues[0].description).toContain("Exceso de atribuciones");
+  });
+
   it("la configuración por defecto trae las tres reglas activas", () => {
     expect(DEFAULT_VALIDATOR_CONFIG.forbiddenWords.enabled).toBe(true);
     expect(DEFAULT_VALIDATOR_CONFIG.aiPatterns.enabled).toBe(true);
     expect(DEFAULT_VALIDATOR_CONFIG.sourceOverlap.enabled).toBe(true);
+    expect(DEFAULT_VALIDATOR_CONFIG.attributionOveruse.enabled).toBe(true);
   });
 });
