@@ -445,10 +445,12 @@ densidad, citas) y fusiona sus hallazgos en el informe de `validate`.
 
 Tras la primera humanización, el orquestador entra en un bucle de hasta `maxFixIterations`
 pasadas: ejecuta los jueces y, en función de sus resultados, **re-humaniza** (si el `aiScore`
-supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige con **fixer**. Cada
-transformación se vuelve a evaluar; si ocurre en la última pasada, se ejecuta una revisión
-final adicional. Los metadatos SEO se generan después con un contrato separado que conserva
-literalmente el cuerpo aprobado.
+supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige con **fixer**. La aprobación
+final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
+un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se
+vuelve a evaluar; si ocurre en la última pasada, se ejecuta una revisión final adicional. Los
+metadatos SEO se generan después con un contrato separado que conserva literalmente el cuerpo
+aprobado.
 
 La **revisión humana** se implementa como dos puntos de **pausa** del orquestador, que
 persiste el estado en `GenerationRun.contextJson`: tras `extract` (estado `awaiting_review`,

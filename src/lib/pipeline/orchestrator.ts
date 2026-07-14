@@ -2,11 +2,18 @@ import { prisma } from "@/lib/db/client";
 import { logError } from "@/lib/observability/error-log";
 import { parsePipelineContext } from "@/lib/pipeline/context-schema";
 import { getSourcesByRun, saveSources } from "@/lib/pipeline/sources-repository";
-import type { Blueprint, Facts, LengthPreset, NewsType } from "@/lib/pipeline/schemas";
+import type {
+  Blueprint,
+  Facts,
+  LengthPreset,
+  NewsType,
+  ValidationIssue,
+} from "@/lib/pipeline/schemas";
 import type { StageId } from "@/lib/pipeline/stages";
 import {
   computeAiDetection,
   computeNewsArticleJsonLd,
+  computeQualityRisk,
   computeQualitySummary,
 } from "@/lib/pipeline/format";
 import { runBlueprint } from "@/lib/pipeline/steps/blueprint";
@@ -31,6 +38,25 @@ import type {
 } from "@/lib/pipeline/types";
 
 const noop: StageEventHandler = () => {};
+
+function mergeValidationIssues(...groups: ValidationIssue[][]): ValidationIssue[] {
+  const severityRank = { low: 0, medium: 1, high: 2 } as const;
+  const unique = new Map<string, ValidationIssue>();
+
+  for (const issue of groups.flat()) {
+    const key = `${issue.category}:${issue.description}`;
+    const current = unique.get(key);
+    if (!current || severityRank[issue.severity] > severityRank[current.severity]) {
+      unique.set(key, issue);
+    }
+  }
+
+  return [...unique.values()];
+}
+
+function isFactualReviewAccepted(ctx: PipelineContext): boolean {
+  return ctx.factualReport?.riskLevel === "low" && ctx.factualReport.researchSufficiency.sufficient;
+}
 
 /**
  * True si el error procede de una CANCELACIÓN (el usuario abortó el stream y la señal se
@@ -472,7 +498,7 @@ async function runQualityAndFinalize(
         const hasBlocking = editorialIssues.some((issue) => issue.severity === "high");
         ctx.report = {
           passed: ctx.report.passed && !hasBlocking,
-          issues: [...ctx.report.issues, ...editorialIssues],
+          issues: mergeValidationIssues(ctx.report.issues, editorialIssues),
         };
       }
     }
@@ -509,9 +535,14 @@ async function runQualityAndFinalize(
       runQualityReviewStage &&
       aiScore >= cfg.aiScoreThreshold &&
       (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
+    const factualRiskAccepted = !runFactualReviewStage || isFactualReviewAccepted(ctx);
+    const qualityRiskAccepted =
+      !runQualityReviewStage ||
+      (ctx.qualityReport !== undefined && computeQualityRisk(ctx.qualityReport) === "low");
 
-    // Si la validación pasa y el texto ya no suena a IA, el bucle puede terminar.
-    if (ctx.report?.passed && !needsHumanize) break;
+    // Solo termina cuando pasan todos los jueces. Un riesgo factual o de calidad medio también
+    // requiere corrección: no basta con quedar justo por debajo del umbral anti-IA.
+    if (ctx.report?.passed && !needsHumanize && factualRiskAccepted && qualityRiskAccepted) break;
 
     if (needsHumanize) {
       ctx.humanizeAttempts = (ctx.humanizeAttempts ?? 0) + 1;
@@ -528,7 +559,7 @@ async function runQualityAndFinalize(
       continue;
     }
 
-    if (!ctx.report?.passed) {
+    if (!ctx.report?.passed || !factualRiskAccepted || !qualityRiskAccepted) {
       await executeStage({ runId, stageId: "fixer", attempt, onEvent }, async () => {
         const result = await runFixer(ctx, cfg, deps);
         ctx.draft = result.article.contentMarkdown;
@@ -580,7 +611,7 @@ async function runQualityAndFinalize(
       const hasBlocking = finalIssues.some((issue) => issue.severity === "high");
       ctx.report = {
         passed: (ctx.report?.passed ?? false) && !hasBlocking,
-        issues: [...(ctx.report?.issues ?? []), ...finalIssues],
+        issues: mergeValidationIssues(ctx.report?.issues ?? [], finalIssues),
       };
       return { data: ctx.report };
     },
@@ -588,7 +619,12 @@ async function runQualityAndFinalize(
 
   const aiScoreAccepted =
     !runQualityReviewStage || (ctx.qualityReport?.aiScore ?? 0) < cfg.aiScoreThreshold;
-  const validationPassed = (ctx.report?.passed ?? false) && aiScoreAccepted;
+  const factualRiskAccepted = !runFactualReviewStage || isFactualReviewAccepted(ctx);
+  const qualityRiskAccepted =
+    !runQualityReviewStage ||
+    (ctx.qualityReport !== undefined && computeQualityRisk(ctx.qualityReport) === "low");
+  const validationPassed =
+    (ctx.report?.passed ?? false) && aiScoreAccepted && factualRiskAccepted && qualityRiskAccepted;
   if (!validationPassed) {
     await logError({
       category: "pipeline",

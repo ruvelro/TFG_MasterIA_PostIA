@@ -20,14 +20,19 @@ export const DEFAULT_AI_PATTERNS: string[] = [
   "en los datos revisados",
   "fuentes revisadas",
   "fuentes consultadas",
+  "(?:herida|golpe|aviso).{0,40}simb[oó]lic[oa]",
+  "\\bsin adornos\\b",
+  "\\bno se explica por casualidad\\b",
+  "\\ben escenarios? grandes?\\b",
+  "\\bno es [^.]{3,60}\\.\\s*es [a-záéíóúüñ]+[.!]",
   "(^|\\n)##\\s*(resumen r[aá]pido|datos r[aá]pidos|datos clave citables|conclusi[oó]n|fuentes citadas|referencias|faq)\\b",
 ];
 
-/** Configuración por defecto del validador: no bloquea de inicio salvo palabras prohibidas. */
+/** Configuración por defecto del validador editorial determinista. */
 export const DEFAULT_VALIDATOR_CONFIG: ValidatorConfig = {
   forbiddenWords: { enabled: true, severity: "error" },
   aiPatterns: { enabled: true, severity: "error", patterns: DEFAULT_AI_PATTERNS },
-  sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 8 },
+  sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 14 },
   attributionOveruse: { enabled: true, severity: "error", maxPerThousandWords: 2 },
 };
 
@@ -178,10 +183,22 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
     const n = config.sourceOverlap.minPhraseWords;
     const seen = new Set<string>();
     const MAX_REPORTED = 5; // no inundar el informe: basta con señalar la incidencia
-    for (let i = 0; i + n <= words.length && seen.size < MAX_REPORTED; i++) {
-      const phrase = words.slice(i, i + n).join(" ");
-      if (seen.has(phrase)) continue;
-      if (sourceText.includes(phrase)) {
+    for (let start = 0; start + n <= words.length && seen.size < MAX_REPORTED; start++) {
+      const minimumPhrase = words.slice(start, start + n).join(" ");
+      if (!sourceText.includes(minimumPhrase)) continue;
+
+      let end = start + n;
+      const MAX_PHRASE_WORDS = 30;
+      while (
+        end < words.length &&
+        end - start < MAX_PHRASE_WORDS &&
+        sourceText.includes(words.slice(start, end + 1).join(" "))
+      ) {
+        end += 1;
+      }
+
+      const phrase = words.slice(start, end).join(" ");
+      if (!seen.has(phrase)) {
         seen.add(phrase);
         issues.push({
           category: "faithfulness",
@@ -190,6 +207,7 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
           suggestion: "Reformula con tus palabras para evitar la copia literal.",
         });
       }
+      start = end - 1;
     }
   }
 
@@ -234,7 +252,8 @@ export function runEditorialValidator(input: EditorialValidatorInput): Validatio
   }
 
   const wordCount = countWords(draft);
-  if (wordCount < 1800 && headings.length > 8) {
+  const maximumHeadings = wordCount < 1000 ? 5 : 8;
+  if (wordCount < 1800 && headings.length > maximumHeadings) {
     issues.push({
       category: "ai-tone",
       severity: "high",
