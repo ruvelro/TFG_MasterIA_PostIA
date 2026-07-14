@@ -111,6 +111,7 @@ export function useGenerationStream() {
         setBlueprint(event.blueprint);
         setPhase("blueprint-review");
         break;
+      case "needs_review":
       case "completed":
         setArticle(event.article);
         setEnrichment(event.enrichment ?? null);

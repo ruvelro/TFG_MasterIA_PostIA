@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getArticleForUser } from "@/lib/articles/repository";
 import { requireSession } from "@/lib/auth/authorize";
+import { stripLeadingMarkdownTitle } from "@/lib/publish/markdown-document";
 import { markdownToHtml } from "@/lib/publish/markdown-html";
 import { publishToWordPress } from "@/lib/publish/wordpress";
 import { ArticleEnrichmentSchema } from "@/lib/pipeline/schemas";
@@ -61,7 +62,7 @@ export async function POST(
     const result = await publishToWordPress(config, {
       title: article.title,
       slug: article.slug,
-      contentHtml: await markdownToHtml(article.contentMarkdown),
+      contentHtml: await markdownToHtml(stripLeadingMarkdownTitle(article.contentMarkdown)),
       excerpt: article.metaDescription,
       tags: enrichment?.success ? enrichment.data.tags : [],
       jsonLd: enrichment?.success

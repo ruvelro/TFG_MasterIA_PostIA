@@ -60,13 +60,15 @@ export async function POST(request: NextRequest): Promise<Response> {
 
     if (result.context.article) {
       emit({
-        type: "completed",
+        type: result.status === "needs_review" ? "needs_review" : "completed",
         runId: result.runId,
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
-      if (result.articleId) void indexArticleAndSuggestLinks(result.articleId);
+      if (result.status === "completed" && result.articleId) {
+        void indexArticleAndSuggestLinks(result.articleId);
+      }
     }
   });
 }
