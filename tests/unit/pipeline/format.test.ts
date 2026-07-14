@@ -3,14 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   blueprintToText,
   composeEditorialVoice,
+  computeAiDetection,
   computeNewsArticleJsonLd,
+  computeQualityRisk,
   factsToText,
   newsTypeDirectivesToText,
   reportToText,
   sourcesToText,
   styleProfileToText,
 } from "@/lib/pipeline/format";
-import type { FixerOutput, NewsType, StyleProfile } from "@/lib/pipeline/schemas";
+import type { FixerOutput, NewsType, QualityReview, StyleProfile } from "@/lib/pipeline/schemas";
 
 const BASE_TYPE: NewsType = {
   id: "t",
@@ -213,6 +215,41 @@ describe("formateadores de contexto", () => {
       expect(result).toContain(BASE_TYPE.label);
       // La voz global va primero (el complemento se añade después).
       expect(result.indexOf("VOZ GLOBAL")).toBeLessThan(result.indexOf("Ágil y directo"));
+    });
+  });
+
+  describe("métricas editoriales deterministas", () => {
+    const qualityReport = (score: number): QualityReview => ({
+      structureScore: score,
+      factualSupportScore: score,
+      seoScore: score,
+      wordCount: 800,
+      aiScore: 0,
+      issues: [],
+      suggestions: [],
+    });
+
+    it("solo etiqueta como humano un aiScore inferior al umbral de reescritura", () => {
+      expect(computeAiDetection(24).label).toBe("humano");
+      expect(computeAiDetection(25).label).toBe("mixto");
+      expect(computeAiDetection(59).label).toBe("mixto");
+      expect(computeAiDetection(60).label).toBe("ia");
+    });
+
+    it("clasifica el riesgo de calidad en las fronteras configuradas", () => {
+      expect(computeQualityRisk(qualityReport(75))).toBe("low");
+      expect(computeQualityRisk(qualityReport(74))).toBe("medium");
+      expect(computeQualityRisk(qualityReport(50))).toBe("medium");
+      expect(computeQualityRisk(qualityReport(49))).toBe("high");
+    });
+
+    it("no oculta una dimensión deficiente detrás de una media alta", () => {
+      expect(
+        computeQualityRisk({
+          ...qualityReport(100),
+          factualSupportScore: 74,
+        }),
+      ).toBe("medium");
     });
   });
 

@@ -61,7 +61,7 @@ export function createFakePipelineDeps(): PipelineDeps {
         factualSupportScore: 90,
         seoScore: 80,
         wordCount: 350,
-        aiScore: 30,
+        aiScore: 20,
         issues: [],
         suggestions: [],
       };

@@ -65,6 +65,22 @@ describe("runEditorialValidator", () => {
     expect(issues.some((i) => i.category === "faithfulness")).toBe(true);
   });
 
+  it("consolida ventanas solapadas del mismo fragmento copiado", () => {
+    const phrase =
+      "la decisión cambia por completo el equilibrio del mercado y obliga a revisar las previsiones publicadas esta semana";
+    const issues = runEditorialValidator({
+      draft: `El análisis concluye que ${phrase} para todos los operadores.`,
+      sources: [{ content: `El informe confirma que ${phrase} para todos los operadores.` }],
+      forbiddenWords: [],
+      config: {
+        ...BASE,
+        sourceOverlap: { enabled: true, severity: "warning", minPhraseWords: 8 },
+      },
+    });
+
+    expect(issues.filter((issue) => issue.category === "faithfulness")).toHaveLength(1);
+  });
+
   it("no detecta solapamiento cuando el texto es original", () => {
     const issues = runEditorialValidator({
       draft: "Una redacción completamente distinta y original sobre el asunto.",
@@ -159,6 +175,32 @@ describe("runEditorialValidator", () => {
     expect(issues.some((issue) => issue.description.includes("Conclusión"))).toBe(true);
     expect(issues.some((issue) => issue.description.includes("Fuentes citadas"))).toBe(true);
     expect(issues.some((issue) => issue.description.includes("Estructura fragmentada"))).toBe(true);
+  });
+
+  it("bloquea seis encabezados en una pieza de menos de mil palabras", () => {
+    const issues = runEditorialValidator({
+      draft: [
+        "# Titular",
+        "Entradilla directa.",
+        ...Array.from({ length: 6 }, (_unused, index) => `## Sección ${index}\nDato.`),
+      ].join("\n\n"),
+      sources: [],
+      forbiddenWords: [],
+      config: BASE,
+    });
+    expect(issues.some((issue) => issue.description.includes("Estructura fragmentada"))).toBe(true);
+  });
+
+  it("bloquea clichés acumulados y antítesis sentenciosas", () => {
+    const issues = runEditorialValidator({
+      draft:
+        "El golpe fue pequeño, pero simbólico. El duelo queda sin adornos. No es una ventaja enorme. Es margen.",
+      sources: [],
+      forbiddenWords: [],
+      config: DEFAULT_VALIDATOR_CONFIG,
+    });
+    expect(issues.filter((issue) => issue.category === "ai-tone").length).toBeGreaterThanOrEqual(3);
+    expect(issues.every((issue) => issue.severity === "high")).toBe(true);
   });
 
   it("la configuración por defecto trae las tres reglas activas", () => {
