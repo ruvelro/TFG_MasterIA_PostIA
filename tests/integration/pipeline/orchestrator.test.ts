@@ -53,6 +53,7 @@ function makeDeps(options: {
   factualSufficiencies?: boolean[];
   qualityAverages?: number[];
   qualityIssues?: QualityReview["issues"];
+  textOutputs?: string[];
   onTextPrompt?: (prompt: string) => void;
 }): PipelineDeps {
   const {
@@ -65,11 +66,13 @@ function makeDeps(options: {
     factualSufficiencies = [true],
     qualityAverages = [85],
     qualityIssues = [],
+    textOutputs = ["# Borrador\nTexto del borrador"],
     onTextPrompt,
   } = options;
   let factualReviewIndex = 0;
   let qualityReviewIndex = 0;
   let validationIndex = 0;
+  let textIndex = 0;
 
   const runObject: PipelineDeps["runObject"] = async ({ schema }) => {
     const s = schema as unknown;
@@ -117,6 +120,8 @@ function makeDeps(options: {
           {
             claim: "Un hecho",
             status: riskLevel === "low" ? "confirmed" : "doubtful",
+            evidenceType: riskLevel === "low" ? "direct" : "unsupported",
+            sourceAuthority: "primary",
             reason: "Resultado factual de prueba",
           },
         ],
@@ -176,8 +181,10 @@ function makeDeps(options: {
     fetchContent: async (url) => `contenido descargado de ${url}`,
     runText: async ({ prompt }) => {
       onTextPrompt?.(prompt);
+      const text = textOutputs[Math.min(textIndex, textOutputs.length - 1)];
+      textIndex += 1;
       return {
-        text: "# Borrador\nTexto del borrador",
+        text,
         usage: { inputTokens: 1, outputTokens: 1 },
       };
     },
@@ -599,6 +606,37 @@ describe("orquestador del pipeline", () => {
     expect(humanizePrompts).toHaveLength(2);
     expect(humanizePrompts[1]).toContain("Transiciones demasiado uniformes");
     expect(humanizePrompts[1]).toContain("Elimina conectores de orden");
+  });
+
+  it("rehumaniza cuando la métrica de ritmo detecta uniformidad aunque el juez no lo haga", async () => {
+    const uniform = Array.from({ length: 9 }, (_unused, paragraph) =>
+      Array.from({ length: 48 + (paragraph % 2) }, (_word, word) => `u${paragraph}-${word}`).join(
+        " ",
+      ),
+    ).join("\n\n");
+    const varied = [18, 25, 34, 48, 63, 82, 104, 128]
+      .map((words, paragraph) =>
+        Array.from({ length: words }, (_unused, word) => `v${paragraph}-${word}`).join(" "),
+      )
+      .join("\n\n");
+    const result = await startGeneration({
+      userId,
+      topic: "Cadencia editorial",
+      pauseForReview: false,
+      cfg: makeConfig(0),
+      deps: makeDeps({
+        validatePasses: true,
+        aiScores: [5, 5],
+        textOutputs: [uniform, uniform, varied],
+      }),
+    });
+
+    expect(result.status).toBe("completed");
+    const humanizeSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "humanize" },
+    });
+    expect(humanizeSteps).toHaveLength(2);
+    expect(result.context.qualityReport?.aiScore).toBe(5);
   });
 
   it("corrige un riesgo factual medio y solo aprueba después de volver a riesgo bajo", async () => {

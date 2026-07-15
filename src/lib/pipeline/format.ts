@@ -48,6 +48,17 @@ export function factsToText(facts: Facts): string {
   return facts.facts.map((fact) => `- ${fact.claim} (fuente: ${fact.source})`).join("\n");
 }
 
+/** Catálogo compacto para que factual-review distinga documentación primaria y cobertura. */
+export function sourceCatalogToText(sources: PipelineSource[]): string {
+  if (sources.length === 0) return "(sin fuentes)";
+  return sources
+    .map(
+      (source, index) =>
+        `<procedencia n="${index + 1}" titulo="${escapeAttribute(source.title.replace(/\s+/g, " ").trim())}" url="${escapeAttribute(source.url)}"${source.suspicious ? ' sospechosa="true"' : ""} />`,
+    )
+    .join("\n");
+}
+
 /**
  * Renderiza las directrices de formato (estructura, longitud y modo de fuentes) para inyectarlas
  * en los prompts de blueprint y draft vía `{{formatDirectives}}`. Combina el tipo de noticia y el
@@ -198,7 +209,9 @@ export function aiToneReviewToText(validation?: ValidationReport, quality?: Qual
 }
 
 export function factualReviewToText(report: FactualReview): string {
-  const claims = report.claims.map((c) => `- [${c.status}] ${c.claim} — ${c.reason}`).join("\n");
+  const claims = report.claims
+    .map((c) => `- [${c.status}; ${c.evidenceType}; ${c.sourceAuthority}] ${c.claim} — ${c.reason}`)
+    .join("\n");
   return [`Nivel de riesgo: ${report.riskLevel}`, report.summary, claims]
     .filter(Boolean)
     .join("\n");
@@ -215,7 +228,7 @@ export function actionableFactualReviewToText(report: FactualReview): string {
   const claims = actionableClaims
     .map(
       (claim, index) =>
-        `${index + 1}. [${claim.status}] \"${claim.claim}\"\n   Motivo: ${claim.reason}`,
+        `${index + 1}. [${claim.status}; evidencia ${claim.evidenceType}; fuente ${claim.sourceAuthority}] \"${claim.claim}\"\n   Motivo: ${claim.reason}`,
     )
     .join("\n");
   return [

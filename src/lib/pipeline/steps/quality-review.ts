@@ -1,4 +1,5 @@
 import { renderTemplate } from "@/lib/pipeline/render-template";
+import { analyzeProseRhythm, proseRhythmToText } from "@/lib/pipeline/prose-rhythm";
 import { sanitizeQualityReview } from "@/lib/pipeline/review-sanitizer";
 import { QualityReviewSchema, type QualityReview } from "@/lib/pipeline/schemas";
 import type {
@@ -27,6 +28,7 @@ export async function runQualityReview(
     aiScoreThreshold: String(cfg.aiScoreThreshold),
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
+    proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
     draft: ctx.draft,
   });
 
@@ -35,5 +37,12 @@ export async function runQualityReview(
     prompt,
     schema: QualityReviewSchema,
   });
-  return { qualityReport: sanitizeQualityReview(object), model: step.model, usage };
+  return {
+    qualityReport: sanitizeQualityReview(object, {
+      draft: ctx.draft,
+      aiScoreThreshold: cfg.aiScoreThreshold,
+    }),
+    model: step.model,
+    usage,
+  };
 }
