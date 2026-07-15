@@ -23,7 +23,7 @@ export async function runHumanize(
   const prompt = renderTemplate(step.prompt, {
     draft: ctx.draft,
     editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
-    styleIssues: aiToneReviewToText(ctx.report),
+    styleIssues: aiToneReviewToText(ctx.report, ctx.qualityReport),
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

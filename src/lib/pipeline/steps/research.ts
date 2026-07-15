@@ -1,6 +1,7 @@
 import { detectPromptInjection } from "@/lib/pipeline/injection-heuristics";
 import { QueryExpansionSchema } from "@/lib/pipeline/schemas";
 import {
+  extractDistinctiveIdentifiers,
   resolveResearchFreshnessDays,
   selectHighQualitySources,
 } from "@/lib/pipeline/source-quality";
@@ -38,6 +39,10 @@ const QUERY_EXPANSION_PROMPT = [
   "debe buscar cobertura periodística actual e independiente que contraste esos hechos. Usa la",
   "tercera, si hace falta, para el contexto técnico preciso. Si el tema trata un suceso ya ocurrido,",
   "busca resultados o crónicas posteriores: evita previas, predicciones y planes publicados antes.",
+  "Conserva literalmente en TODAS las consultas los identificadores de producto, modelo o versión",
+  "que mezclen letras y cifras (por ejemplo, `26H2`, `USB4` o `GPT-5.5`). No los sustituyas por una",
+  "versión próxima. Para la consulta primaria, combina el identificador exacto con el fabricante,",
+  "organismo o documentación oficial responsable del dato.",
   "No repitas el tema literal ni propongas búsquedas en redes sociales.",
   "Fecha actual: {{currentDate}}.",
   "",
@@ -98,6 +103,18 @@ export interface ResearchResult {
   usage?: TokenUsage;
 }
 
+function preserveTopicIdentifiers(query: string, topic: string): string {
+  const compactQuery = query
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+  const missing = [...extractDistinctiveIdentifiers(topic)].filter(
+    (identifier) => !compactQuery.includes(identifier),
+  );
+  return missing.length > 0 ? `${query} ${missing.join(" ")}` : query;
+}
+
 export async function runResearch(
   ctx: PipelineContext,
   cfg: ResolvedPipelineConfig,
@@ -118,7 +135,9 @@ export async function runResearch(
         ),
         schema: QueryExpansionSchema,
       });
-      expandedQueries = result.object.queries;
+      expandedQueries = result.object.queries.map((query) =>
+        preserveTopicIdentifiers(query, ctx.topic),
+      );
       model = cfg.queryExpansionModel;
       usage = result.usage;
     } catch {

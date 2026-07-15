@@ -24,6 +24,7 @@ export async function runQualityReview(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     currentDate: new Date().toISOString().slice(0, 10),
+    aiScoreThreshold: String(cfg.aiScoreThreshold),
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
     draft: ctx.draft,

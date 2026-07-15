@@ -163,27 +163,52 @@ describe("formateadores de contexto", () => {
   });
 
   it("prepara para humanize solo las incidencias ai-tone concretas", () => {
-    const text = aiToneReviewToText({
-      passed: false,
-      issues: [
-        {
-          category: "ai-tone",
-          severity: "medium",
-          description: "La frase suena artificial",
-          suggestion: "Usa un verbo concreto",
-        },
-        {
-          category: "faithfulness",
-          severity: "high",
-          description: "Dato incorrecto",
-          suggestion: "Elimínalo",
-        },
-      ],
-    });
+    const text = aiToneReviewToText(
+      {
+        passed: false,
+        issues: [
+          {
+            category: "ai-tone",
+            severity: "medium",
+            description: "La frase suena artificial",
+            suggestion: "Usa un verbo concreto",
+          },
+          {
+            category: "faithfulness",
+            severity: "high",
+            description: "Dato incorrecto",
+            suggestion: "Elimínalo",
+          },
+        ],
+      },
+      {
+        structureScore: 80,
+        factualSupportScore: 80,
+        seoScore: 80,
+        wordCount: 700,
+        aiScore: 38,
+        issues: [
+          {
+            category: "ai-tone",
+            description: "Ritmo demasiado uniforme",
+            suggestion: "Varía la construcción de los párrafos",
+          },
+          {
+            category: "seo",
+            description: "Keyword ausente",
+            suggestion: "Inclúyela",
+          },
+        ],
+        suggestions: [],
+      },
+    );
 
     expect(text).toContain("La frase suena artificial");
     expect(text).toContain("Usa un verbo concreto");
+    expect(text).toContain("Ritmo demasiado uniforme");
+    expect(text).toContain("aiScore 38/100");
     expect(text).not.toContain("Dato incorrecto");
+    expect(text).not.toContain("Keyword ausente");
   });
 
   it("styleProfileToText avisa cuando el perfil está vacío", () => {

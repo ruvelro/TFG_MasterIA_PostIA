@@ -99,12 +99,16 @@ export function createFakePipelineDeps(): PipelineDeps {
   };
 
   return {
-    search: async (query, limit) =>
-      Array.from({ length: limit }, (_unused, index) => ({
+    search: async (query, limit) => {
+      // Cada consulta simula un proveedor distinto para que el límite por dominio no haga
+      // desaparecer el fallback literal antes de evaluar su relevancia.
+      const queryKey = Buffer.from(query).toString("hex").slice(0, 24) || "empty";
+      return Array.from({ length: limit }, (_unused, index) => ({
         title: `${query}: fuente de ejemplo ${index}`,
-        url: `https://example.com/${index}`,
+        url: `https://query-${queryKey}.example/${index}`,
         snippet: `Información sobre ${query}, extracto de ejemplo ${index}`,
-      })),
+      }));
+    },
     fetchContent: async (url) => `Contenido simulado descargado de ${url}.`,
     runText: async () => ({
       text: "# Borrador de ejemplo\n\nTexto del borrador (E2E).",

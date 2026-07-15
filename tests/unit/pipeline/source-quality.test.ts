@@ -68,10 +68,37 @@ describe("calidad de fuentes de research", () => {
     expect(selected.map((item) => item.url)).toEqual(["https://agency.gov/press"]);
   });
 
+  it("exige el identificador exacto de versión en metadatos y cuerpo", () => {
+    const selected = selectHighQualitySources(
+      [
+        source(
+          "https://learn.example/windows-25h2",
+          "Windows 11 25H2: estado y soporte",
+          "Documentación extensa sobre Windows 11 25H2. ".repeat(12),
+        ),
+        source(
+          "https://learn.example/windows-26h2",
+          "Windows 11 26H2: canal experimental",
+          "Documentación oficial sobre Windows 11 26H2 y su paquete de habilitación. ".repeat(10),
+        ),
+        source(
+          "https://copy.example/windows-26h2",
+          "Windows 11 26H2: novedades",
+          "Página genérica sobre Windows sin mencionar la versión dentro del artículo. ".repeat(10),
+        ),
+      ],
+      5,
+      "Todas las novedades de Windows 11 26H2",
+    );
+
+    expect(selected.map((item) => item.url)).toEqual(["https://learn.example/windows-26h2"]);
+  });
+
   it("respeta la frescura configurada y la infiere solo con señales actuales", () => {
     const now = new Date("2026-07-15T00:00:00Z");
     expect(resolveResearchFreshnessDays("Tema histórico", 7, now)).toBe(7);
     expect(resolveResearchFreshnessDays("Balance anual 2026", 0, now)).toBe(45);
+    expect(resolveResearchFreshnessDays("Novedades de Windows 11 26H2", 0, now)).toBe(45);
     expect(resolveResearchFreshnessDays("Historia medieval", 0, now)).toBe(0);
   });
 });

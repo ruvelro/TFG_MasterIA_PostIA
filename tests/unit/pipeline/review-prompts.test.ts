@@ -10,6 +10,7 @@ const cfg = {
   editorialVoice: "Directa",
   seoRules: "SEO",
   geoRules: "GEO",
+  aiScoreThreshold: 25,
 } as ResolvedPipelineConfig;
 
 describe("prompts de revisión editorial", () => {
@@ -47,6 +48,51 @@ describe("prompts de revisión editorial", () => {
     expect(capturedPrompt).toContain("Explica la consecuencia concreta");
   });
 
+  it("inyecta en humanize el diagnóstico ai-tone de quality-review y excluye otras categorías", async () => {
+    let capturedPrompt = "";
+    const deps = {
+      runText: async ({ prompt }: { prompt: string }) => {
+        capturedPrompt = prompt;
+        return { text: "Texto corregido", usage: {} };
+      },
+    } as unknown as PipelineDeps;
+
+    await runHumanize(
+      {
+        topic: "Tema",
+        sources: [],
+        draft: "Texto original",
+        report: { passed: true, issues: [] },
+        qualityReport: {
+          structureScore: 86,
+          factualSupportScore: 90,
+          seoScore: 84,
+          wordCount: 900,
+          aiScore: 38,
+          issues: [
+            {
+              category: "ai-tone",
+              description: "Encadena transiciones de manual",
+              suggestion: "Elimina los conectores que solo ordenan el discurso",
+            },
+            {
+              category: "structure",
+              description: "Sobran dos secciones",
+              suggestion: "Fusiona los bloques",
+            },
+          ],
+          suggestions: [],
+        },
+      },
+      cfg,
+      deps,
+    );
+
+    expect(capturedPrompt).toContain("aiScore 38/100");
+    expect(capturedPrompt).toContain("Encadena transiciones de manual");
+    expect(capturedPrompt).not.toContain("Sobran dos secciones");
+  });
+
   it("ancla quality-review a la fecha actual", async () => {
     let capturedPrompt = "";
     const deps = {
@@ -70,6 +116,8 @@ describe("prompts de revisión editorial", () => {
     await runQualityReview({ topic: "Tema", sources: [], draft: "Artículo" }, cfg, deps);
 
     expect(capturedPrompt).toContain(new Date().toISOString().slice(0, 10));
+    expect(capturedPrompt).toContain("umbral editorial de sabor IA es 25");
     expect(capturedPrompt).not.toContain("{{currentDate}}");
+    expect(capturedPrompt).not.toContain("{{aiScoreThreshold}}");
   });
 });

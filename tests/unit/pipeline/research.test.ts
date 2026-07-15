@@ -153,6 +153,33 @@ describe("runResearch", () => {
     expect(usage).toEqual({ inputTokens: 5, outputTokens: 5 });
   });
 
+  it("conserva identificadores de versión aunque la expansión del modelo los omita", async () => {
+    const versionCtx: PipelineContext = { topic: "Novedades de Windows 11 26H2", sources: [] };
+    const search = vi.fn().mockImplementation(async (query: string) => [
+      {
+        title: query,
+        url: `https://learn.example/${encodeURIComponent(query)}`,
+        snippet: query,
+      },
+    ]);
+    const deps = makeDeps({
+      search,
+      fetchContent: async (url) => `Documentación de Windows 11 26H2 para ${url}. `.repeat(8),
+      runObject: async () =>
+        ({
+          object: { queries: ["documentación oficial de Microsoft"] },
+          usage: {},
+        }) as never,
+    });
+
+    await runResearch(versionCtx, makeCfg({ queryExpansionModel: "modelo/barato" }), deps);
+
+    expect(search).toHaveBeenNthCalledWith(1, "documentación oficial de Microsoft 26h2", 3, {
+      freshnessDays: 45,
+    });
+    expect(search).toHaveBeenNthCalledWith(2, versionCtx.topic, 3, { freshnessDays: 45 });
+  });
+
   it("si la expansión falla, sigue con el tema literal (degradación)", async () => {
     const deps = makeDeps({
       search: async () => [result("https://a.example/1")],

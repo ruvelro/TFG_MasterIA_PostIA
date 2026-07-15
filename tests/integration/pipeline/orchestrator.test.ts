@@ -14,6 +14,7 @@ import {
   QualityReviewSchema,
   ValidationReportSchema,
   type FactualReview,
+  type QualityReview,
 } from "@/lib/pipeline/schemas";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 import type { PipelineContext, PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
@@ -51,6 +52,8 @@ function makeDeps(options: {
   factualRisks?: FactualReview["riskLevel"][];
   factualSufficiencies?: boolean[];
   qualityAverages?: number[];
+  qualityIssues?: QualityReview["issues"];
+  onTextPrompt?: (prompt: string) => void;
 }): PipelineDeps {
   const {
     validatePasses,
@@ -61,6 +64,8 @@ function makeDeps(options: {
     factualRisks = ["low"],
     factualSufficiencies = [true],
     qualityAverages = [85],
+    qualityIssues = [],
+    onTextPrompt,
   } = options;
   let factualReviewIndex = 0;
   let qualityReviewIndex = 0;
@@ -129,7 +134,7 @@ function makeDeps(options: {
         seoScore: qualityAverage,
         wordCount: 300,
         aiScore: currentAiScore,
-        issues: [],
+        issues: qualityIssues,
         suggestions: [],
       };
     } else if (s === FixerOutputSchema) {
@@ -169,10 +174,13 @@ function makeDeps(options: {
         snippet: `${query} extracto ${index}`,
       })),
     fetchContent: async (url) => `contenido descargado de ${url}`,
-    runText: async () => ({
-      text: "# Borrador\nTexto del borrador",
-      usage: { inputTokens: 1, outputTokens: 1 },
-    }),
+    runText: async ({ prompt }) => {
+      onTextPrompt?.(prompt);
+      return {
+        text: "# Borrador\nTexto del borrador",
+        usage: { inputTokens: 1, outputTokens: 1 },
+      };
+    },
     runObject,
     runImage: async () => ({
       imageBase64: Buffer.from("png-falso").toString("base64"),
@@ -561,6 +569,36 @@ describe("orquestador del pipeline", () => {
       where: { runId: result.runId, stageId: "humanize" },
     });
     expect(humanizeSteps).toHaveLength(2);
+  });
+
+  it("rehumaniza con la incidencia ai-tone emitida solo por quality-review", async () => {
+    const textPrompts: string[] = [];
+    const result = await startGeneration({
+      userId,
+      topic: "Guía tecnológica",
+      pauseForReview: false,
+      cfg: makeConfig(0),
+      deps: makeDeps({
+        validatePasses: true,
+        aiScores: [40, 20],
+        qualityIssues: [
+          {
+            category: "ai-tone",
+            description: "Transiciones demasiado uniformes",
+            suggestion: "Elimina conectores de orden que no aporten información",
+          },
+        ],
+        onTextPrompt: (prompt) => textPrompts.push(prompt),
+      }),
+    });
+
+    expect(result.status).toBe("completed");
+    const humanizePrompts = textPrompts.filter((prompt) =>
+      prompt.includes("Borrador a humanizar:"),
+    );
+    expect(humanizePrompts).toHaveLength(2);
+    expect(humanizePrompts[1]).toContain("Transiciones demasiado uniformes");
+    expect(humanizePrompts[1]).toContain("Elimina conectores de orden");
   });
 
   it("corrige un riesgo factual medio y solo aprueba después de volver a riesgo bajo", async () => {

@@ -67,6 +67,9 @@ transformación** antes de volver a medir. La rehumanización y el **fixer** tie
 independientes (`maxHumanizeRetries` y `maxFixIterations`), por lo que rehumanizar no consume una
 corrección. Cada rehumanización recibe las incidencias `ai-tone` concretas del último informe; si
 la nueva medición empeora el `aiScore`, el orquestador restaura el borrador y los informes previos.
+Los issues de `quality-review` se clasifican como `structure`, `factual-support`, `seo` o
+`ai-tone`: solo estos últimos llegan a `humanize`, mientras el informe completo alimenta al fixer.
+Si la puntuación alcanza el umbral, el juez debe emitir al menos un diagnóstico de tono accionable.
 El artículo solo se aprueba cuando la validación
 editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
 los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
@@ -135,7 +138,9 @@ refuerza en cuatro frentes:
 - **Relevancia y deduplicación**: descarta resultados cuyo título, ruta y extracto no guardan
   relación verificable con el tema, bloquea páginas de apuestas ajenas al encargo y elimina
   cuerpos idénticos después de ordenar por autoridad. Además deduplica por URL normalizada y
-  limita a 2 fuentes por dominio.
+  limita a 2 fuentes por dominio. Los identificadores alfanuméricos distintivos (`26H2`, `USB4`,
+  `GPT-5.5`) deben aparecer en los metadatos y en el cuerpo; también se preservan de forma
+  determinista en cada consulta expandida.
 - **Frescura**: si el tipo de noticia define `freshnessDays > 0`, el proveedor limita los
   resultados a los últimos N días (Tavily: `topic=news&days=N`; Google: `dateRestrict=dN`).
 - **Extracción del cuerpo**: el HTML descargado pasa por `@mozilla/readability` sobre
