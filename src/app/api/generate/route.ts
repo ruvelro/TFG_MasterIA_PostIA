@@ -89,6 +89,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
+        hasFeaturedImage: Boolean(result.context.featuredImagePath),
       });
       // El artículo ya está persistido también en needs_review. Esperamos el indexado para que
       // el stream no cierre dejando el trabajo best-effort abandonado en segundo plano.

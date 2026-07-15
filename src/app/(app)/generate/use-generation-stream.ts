@@ -93,6 +93,7 @@ export function useGenerationStream() {
   const [article, setArticle] = useState<FixerOutput | null>(null);
   const [enrichment, setEnrichment] = useState<ArticleEnrichment | null>(null);
   const [articleId, setArticleId] = useState<string | null>(null);
+  const [hasFeaturedImage, setHasFeaturedImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const runIdRef = useRef<string | null>(null);
   // Controlador de aborto de la petición en curso, para poder cancelar la generación.
@@ -125,6 +126,7 @@ export function useGenerationStream() {
         setArticle(event.article);
         setEnrichment(event.enrichment ?? null);
         setArticleId(event.articleId ?? null);
+        setHasFeaturedImage(event.hasFeaturedImage ?? false);
         setStages(markPendingStagesAsSkipped);
         setPhase("done");
         break;
@@ -168,7 +170,9 @@ export function useGenerationStream() {
     async (topic: string, options: StartOptions) => {
       setError(null);
       setArticle(null);
+      setEnrichment(null);
       setArticleId(null);
+      setHasFeaturedImage(false);
       setFacts(null);
       setBlueprint(null);
       setStages(initStages());
@@ -256,6 +260,7 @@ export function useGenerationStream() {
     setArticle(null);
     setEnrichment(null);
     setArticleId(null);
+    setHasFeaturedImage(false);
     setError(null);
     runIdRef.current = null;
   }, []);
@@ -279,6 +284,7 @@ export function useGenerationStream() {
     article,
     enrichment,
     articleId,
+    hasFeaturedImage,
     error,
     start,
     resume,

@@ -30,6 +30,7 @@ export function GeneratorClient({
     article,
     enrichment,
     articleId,
+    hasFeaturedImage,
     error,
     start,
     resume,
@@ -136,6 +137,7 @@ export function GeneratorClient({
           article={article}
           enrichment={enrichment}
           articleId={articleId}
+          hasFeaturedImage={hasFeaturedImage}
           onReset={reset}
         />
       ) : null}

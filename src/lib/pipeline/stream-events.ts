@@ -27,6 +27,8 @@ export type GenerationStreamEvent =
       articleId?: string;
       article: FixerOutput;
       enrichment?: ArticleEnrichment;
+      /** La imagen se sirve por una ruta privada; el stream solo comunica si existe. */
+      hasFeaturedImage?: boolean;
     }
   | { type: "error"; message: string };
 

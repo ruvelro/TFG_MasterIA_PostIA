@@ -3,6 +3,7 @@
 import Link from "next/link";
 
 import { ArticleEnrichmentView } from "@/components/article-enrichment";
+import { ArticlePreviewButton } from "@/components/article-preview";
 import { Markdown } from "@/components/markdown";
 import type { ArticleEnrichment, FixerOutput } from "@/lib/pipeline/schemas";
 import { composeMarkdownDocument } from "@/lib/publish/markdown-document";
@@ -13,11 +14,13 @@ export function ArticleResult({
   article,
   enrichment,
   articleId,
+  hasFeaturedImage,
   onReset,
 }: {
   article: FixerOutput;
   enrichment: ArticleEnrichment | null;
   articleId: string | null;
+  hasFeaturedImage: boolean;
   onReset: () => void;
 }) {
   const markdownDocument = composeMarkdownDocument(article.title, article.contentMarkdown);
@@ -63,13 +66,14 @@ export function ArticleResult({
         </div>
       </header>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <button type="button" onClick={copyMarkdown} className={buttonClass}>
           Copiar Markdown
         </button>
         <button type="button" onClick={downloadMarkdown} className={buttonClass}>
           Descargar .md
         </button>
+        {articleId ? <ArticlePreviewButton articleId={articleId} className={buttonClass} /> : null}
         <button type="button" onClick={onReset} className={buttonClass}>
           Nueva generación
         </button>
@@ -79,6 +83,18 @@ export function ArticleResult({
           </Link>
         ) : null}
       </div>
+
+      {hasFeaturedImage && articleId ? (
+        // eslint-disable-next-line @next/next/no-img-element -- imagen privada servida con autorización
+        <img
+          src={`/api/articles/${articleId}/image`}
+          alt={enrichment?.imageAlt[0] ?? article.title}
+          className="border-muted/15 aspect-video w-full rounded-lg border object-cover"
+          onError={(event) => {
+            event.currentTarget.hidden = true;
+          }}
+        />
+      ) : null}
 
       {enrichment ? <ArticleEnrichmentView enrichment={enrichment} /> : null}
 

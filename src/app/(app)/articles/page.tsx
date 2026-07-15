@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { ArticlePreviewButton } from "@/components/article-preview";
 import { listArticlesByUser } from "@/lib/articles/repository";
 import { getCurrentSession } from "@/lib/auth/session";
 
@@ -33,7 +34,7 @@ export default async function ArticlesPage() {
           {articles.map((article) => (
             <li
               key={article.id}
-              className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] flex items-start justify-between gap-4 rounded-lg border p-4 transition-colors"
+              className="border-muted/15 hover:border-primary/40 bg-foreground/[0.02] flex flex-col items-stretch gap-4 rounded-lg border p-4 transition-colors sm:flex-row sm:items-start sm:justify-between"
             >
               <div className="min-w-0">
                 <Link href={`/articles/${article.id}`} className="font-medium hover:underline">
@@ -42,7 +43,10 @@ export default async function ArticlesPage() {
                 <p className="text-muted mt-1 text-xs">{dateFormatter.format(article.createdAt)}</p>
                 <p className="text-muted mt-1 line-clamp-2 text-sm">{article.metaDescription}</p>
               </div>
-              <DeleteArticleButton articleId={article.id} />
+              <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+                <ArticlePreviewButton articleId={article.id} />
+                <DeleteArticleButton articleId={article.id} />
+              </div>
             </li>
           ))}
         </ul>

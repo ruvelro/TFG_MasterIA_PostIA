@@ -3,9 +3,9 @@ import { notFound, redirect } from "next/navigation";
 
 import { ArticleEnrichmentView } from "@/components/article-enrichment";
 import { Markdown } from "@/components/markdown";
+import { parseArticleEnrichment, parseArticleKeywords } from "@/lib/articles/preview";
 import { getArticleForUser } from "@/lib/articles/repository";
 import { getCurrentSession } from "@/lib/auth/session";
-import { ArticleEnrichmentSchema, type ArticleEnrichment } from "@/lib/pipeline/schemas";
 import { getWordPressConfig } from "@/lib/settings/integrations";
 
 import { DeleteArticleButton } from "../delete-article-button";
@@ -13,29 +13,6 @@ import { GenerationTrace } from "../generation-trace";
 import { PublishPanel } from "../publish-panel";
 import { ReviseArticle } from "../revise-article";
 import { VersionDiff } from "../version-diff";
-
-// Las keywords se guardan como JSON; parseamos de forma defensiva (nunca debe romper la vista).
-function parseKeywords(raw: string): string[] {
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
-}
-
-// El enriquecimiento se guarda serializado en `metadataJson`. Se valida con Zod para tolerar
-// artículos antiguos (sin metadatos) o esquemas que pudieran haber cambiado: si no encaja,
-// simplemente no se muestra el panel en lugar de romper la vista.
-function parseEnrichment(raw: string | null): ArticleEnrichment | null {
-  if (!raw) return null;
-  try {
-    const result = ArticleEnrichmentSchema.safeParse(JSON.parse(raw));
-    return result.success ? result.data : null;
-  } catch {
-    return null;
-  }
-}
 
 export default async function ArticleDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -47,8 +24,8 @@ export default async function ArticleDetailPage({ params }: { params: Promise<{ 
   const article = await getArticleForUser(id, session.user.id);
   if (!article) notFound();
 
-  const keywords = parseKeywords(article.keywords);
-  const enrichment = parseEnrichment(article.metadataJson);
+  const keywords = parseArticleKeywords(article.keywords);
+  const enrichment = parseArticleEnrichment(article.metadataJson);
   // Solo se ofrece publicar si la integración con WordPress está completa (config del admin).
   const wordpressConfigured = (await getWordPressConfig()) !== null;
 
