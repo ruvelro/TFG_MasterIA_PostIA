@@ -63,8 +63,8 @@ export async function POST(
         enrichment: result.context.enrichment,
       });
       // Reindexa el artículo revisado: su embedding y sus enlaces pueden cambiar.
-      if (result.status === "completed" && result.articleId) {
-        void indexArticleAndSuggestLinks(result.articleId);
+      if (result.articleId) {
+        await indexArticleAndSuggestLinks(result.articleId);
       }
     }
   });
