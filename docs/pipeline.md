@@ -92,6 +92,14 @@ obligan a registrar una incidencia `ai-tone` y a alcanzar el umbral, aunque el j
 `factual-review` separa respaldo directo, inferencia, ausencia de evidencia y contradicción, junto
 con la autoridad primaria o secundaria de la procedencia; el postprocesado no permite confirmar
 una inferencia ni mantener una contradicción como dudosa.
+El juez recibe también la fecha de ejecución para reconciliar fuentes que describen fases
+sucesivas: el estado más reciente gobierna las afirmaciones sobre el presente y los estados
+anteriores solo pueden aparecer como antecedentes fechados. Los porcentajes sin base comparativa
+y las conclusiones generales obtenidas de una prueba de alcance limitado se consideran inferencias
+sin confirmar.
+Además del ritmo de los párrafos, `quality-review` examina la arquitectura global. Una serie de
+apartados que repite el mismo molde para cada alternativa se trata como tono de catálogo y genera
+feedback accionable para que `humanize` reorganice la pieza por decisiones o consecuencias.
 El artículo solo se aprueba cuando la validación
 editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
 los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
