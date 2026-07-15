@@ -32,8 +32,8 @@
 - "Hola, soy [tu nombre]. Os presento **PostIA**, mi Trabajo de Fin de Máster."
 - "Es una aplicación web que convierte **un tema** en un **artículo de blog publicable**."
 - "La diferencia con un generador normal es que **no hace una sola llamada a un modelo**:
-  usa un **pipeline de 11 etapas**, parte de **fuentes reales** descargadas de la web, y cuida
-  que el texto suene humano y esté optimizado para SEO."
+  usa un **pipeline de 12 etapas**, parte de **fuentes reales** descargadas de la web, y cuida
+  que el texto suene humano, esté optimizado para SEO/GEO y pueda incluir una imagen destacada."
 - "Pero, sobre todo, está construido cuidando las **buenas prácticas de ingeniería**, que es
   el criterio de evaluación: arquitectura, seguridad, tests y documentación."
 
@@ -41,16 +41,16 @@
 
 ## Parte 2 — El problema y la idea (0:45 – 1:30)
 
-**En pantalla:** slide "La IA de un solo paso no basta" + slide del pipeline de 11 etapas.
+**En pantalla:** slide "La IA de un solo paso no basta" + slide del pipeline de 12 etapas.
 
 **Qué decir:**
 
 - "El contenido generado de un solo paso tiene tres problemas: **alucina datos**, tiene
   **‘sabor a IA’** y **no está optimizado**."
 - "La idea de PostIA es **descomponer** la generación en etapas especializadas." (Señala el
-  diagrama de 11 etapas.)
+  diagrama de 12 etapas.)
 - "Se agrupan en cuatro fases: **investigar** con fuentes reales, **redactar**, **validar**
-  en un bucle con jueces especializados, y **pulir y enriquecer**."
+  en un bucle con jueces especializados, y **pulir, enriquecer e ilustrar**."
 - "Y cada etapa de IA puede usar **un modelo distinto**, según lo que cueste y exija."
 
 ---
@@ -61,7 +61,10 @@
 
 1. **Formulario de generación** (`/generate`).
    - "Escribo un **tema**. Puedo añadir contexto, elegir el **tipo de noticia** y la
-     **longitud**, y dejar activada la **revisión de los hechos**."
+     **longitud**, indicar el **idioma**, y dejar activada la **revisión de los hechos** o de la
+     estructura."
+   - "Si el tema se parece a artículos previos, PostIA me avisa con embeddings para evitar
+     duplicados."
    - (Opcional) Abre "Avanzado": "Aquí podría sobrescribir el **modelo o el prompt** de una
      etapa concreta solo para esta generación."
    - Pulsa **Generar**.
@@ -81,7 +84,9 @@
    - "Y estas **métricas de calidad** las calcula el propio sistema: **anclaje factual**,
      nivel de **riesgo**, el porcentaje de **‘sabor a IA’**… y el **coste** de la generación."
    - "Más abajo trae el **enriquecimiento**: titulares alternativos, **etiquetas**, una **FAQ**,
-     el texto **alt** de la imagen y el **Schema.org**."
+     el texto **alt** de la imagen, el **Schema.org** y el prompt para la imagen destacada."
+   - "Desde aquí puedo **exportar Markdown/HTML**, publicar en **WordPress** si está configurado,
+     o lanzar una **revisión dirigida** sin repetir la investigación."
 
 **Consejo:** si la generación en vivo tarda, di "mientras termina, os enseño uno ya hecho" y
 abre el del **Historial**. Queda natural y evita silencios largos.
@@ -97,9 +102,9 @@ abre el del **Historial**. Queda natural y evita silencios largos.
 - **Pipeline:** "Lo más interesante: puedo configurar el **modelo y el prompt de cada etapa**
   sin tocar código."
 - **Tipos de noticia / Longitudes / Estilo:** "Defino qué etapas se activan por tipo, los
-  presets de longitud y la **voz editorial**."
-- **Coste / Errores:** "Y tengo **observabilidad**: el coste por ejecución y un registro de
-  errores."
+  presets de longitud, la frescura de las fuentes, estilos de imagen y la **voz editorial**."
+- **Coste / Errores:** "Y tengo **observabilidad**: el coste por ejecución, presupuesto diario por
+  usuario y un registro de errores."
 
 ---
 
@@ -109,6 +114,8 @@ abre el del **Historial**. Queda natural y evita silencios largos.
 
 - "El registro es abierto y exige **contraseñas fuertes**. Además puedo registrar una
   **passkey** (WebAuthn) para entrar **sin contraseña**, resistente a phishing."
+- "También puedo crear **claves de API personales**, revocables, para usar PostIA desde otros
+  sistemas."
 
 ---
 

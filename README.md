@@ -270,7 +270,7 @@ Toda la documentación detallada vive en [`docs/`](docs/):
 | Documento                                                 | Contenido                                           |
 | --------------------------------------------------------- | --------------------------------------------------- |
 | [arquitectura.md](docs/arquitectura.md)                   | Visión general, capas y flujo de datos.             |
-| [pipeline.md](docs/pipeline.md)                           | Las 11 etapas, contratos y modelo por etapa.        |
+| [pipeline.md](docs/pipeline.md)                           | Las 12 etapas, contratos y modelo por etapa.        |
 | [stack.md](docs/stack.md)                                 | Stack tecnológico y justificación de cada elección. |
 | [seguridad.md](docs/seguridad.md)                         | Modelo de amenazas y controles de seguridad.        |
 | [modelo-datos.md](docs/modelo-datos.md)                   | Entidades de la base de datos y relaciones.         |

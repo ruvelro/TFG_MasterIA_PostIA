@@ -16,7 +16,7 @@ export type GeneratorPhase =
   | "error";
 
 export interface StageView {
-  status: "pending" | "running" | "done" | "error";
+  status: "pending" | "running" | "done" | "error" | "skipped";
   attempt: number;
   model?: string;
 }
@@ -26,6 +26,15 @@ export type StageMap = Record<StageId, StageView>;
 function initStages(): StageMap {
   return Object.fromEntries(
     STAGE_IDS.map((id) => [id, { status: "pending", attempt: 0 }]),
+  ) as StageMap;
+}
+
+export function markPendingStagesAsSkipped(stages: StageMap): StageMap {
+  return Object.fromEntries(
+    STAGE_IDS.map((id) => {
+      const stage = stages[id];
+      return [id, stage.status === "pending" ? { ...stage, status: "skipped" } : stage];
+    }),
   ) as StageMap;
 }
 
@@ -116,6 +125,7 @@ export function useGenerationStream() {
         setArticle(event.article);
         setEnrichment(event.enrichment ?? null);
         setArticleId(event.articleId ?? null);
+        setStages(markPendingStagesAsSkipped);
         setPhase("done");
         break;
       case "error":
