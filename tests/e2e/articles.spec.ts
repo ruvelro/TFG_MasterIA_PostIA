@@ -34,6 +34,8 @@ test.describe("historial de artículos", () => {
 
     // La traza de generación está disponible.
     await expect(page.getByText("Detalles de generación")).toBeVisible();
+    await expect(page.getByRole("link", { name: "Descargar Markdown" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Vista publicada" })).toBeVisible();
 
     // Borrado con confirmación.
     page.on("dialog", (dialog) => void dialog.accept());
@@ -48,5 +50,11 @@ test.describe("historial de artículos", () => {
 
     await page.goto("/articles");
     await expect(page.getByRole("link", { name: "Artículo de ejemplo" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Vista publicada" }).click();
+    const preview = page.getByRole("dialog", { name: "Vista previa del artículo" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Artículo de ejemplo" })).toBeVisible();
+    await expect(preview.getByText("Meta description de ejemplo para el modo E2E.")).toBeVisible();
   });
 });

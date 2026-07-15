@@ -3,6 +3,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import {
   deleteArticleForUser,
   getArticleForUser,
+  getArticlePreviewForUser,
   listArticlesByUser,
 } from "@/lib/articles/repository";
 import { prisma } from "@/lib/db/client";
@@ -48,6 +49,16 @@ describe("repositorio de artículos (aislamiento por usuario)", () => {
 
     expect(await getArticleForUser(article.id, ownerId)).not.toBeNull();
     expect(await getArticleForUser(article.id, strangerId)).toBeNull();
+  });
+
+  it("getArticlePreviewForUser no expone la vista publicada a otro usuario", async () => {
+    const article = await createArticle(ownerId, "Vista privada");
+
+    expect(await getArticlePreviewForUser(article.id, ownerId)).toMatchObject({
+      id: article.id,
+      title: "Vista privada",
+    });
+    expect(await getArticlePreviewForUser(article.id, strangerId)).toBeNull();
   });
 
   it("deleteArticleForUser no borra artículos ajenos", async () => {

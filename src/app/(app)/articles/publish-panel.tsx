@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 
+import { ArticlePreviewButton } from "@/components/article-preview";
+
 /**
  * Acciones de salida de un artículo: exportarlo (Markdown/HTML) y publicarlo en WordPress.
  * La publicación llama al endpoint del servidor; el resultado (enlace al post) o el error
@@ -58,6 +60,7 @@ export function PublishPanel({
         >
           Descargar HTML
         </a>
+        <ArticlePreviewButton articleId={articleId} />
 
         {wordpressConfigured ? (
           <>

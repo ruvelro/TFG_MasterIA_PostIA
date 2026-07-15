@@ -61,6 +61,7 @@ export async function POST(
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
+        hasFeaturedImage: Boolean(result.context.featuredImagePath),
       });
       // Reindexa el artículo revisado: su embedding y sus enlaces pueden cambiar.
       if (result.articleId) {

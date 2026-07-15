@@ -146,6 +146,8 @@ directo. Si activas la revisión humana, la app **se pausará** para que puedas:
 Cuando termine, el artículo se guarda en tu **historial** (`/articles`). Allí puedes:
 
 - 📖 Releerlo con todo su contenido y metadatos SEO.
+- 👁️ Abrir una **vista publicada** flotante con titular, imagen, entradilla, etiquetas, texto y FAQ.
+- 🖼️ Ver la imagen destacada también en el resultado inmediato del generador.
 - 🔁 **Revisarlo con instrucciones** ("hazlo más técnico", "acorta la introducción"…): se
   regenera reutilizando las fuentes, sin volver a investigar.
 - 🗑️ Eliminarlo.

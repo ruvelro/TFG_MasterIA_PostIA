@@ -88,6 +88,7 @@ export async function POST(
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
+        hasFeaturedImage: Boolean(result.context.featuredImagePath),
       });
       // needs_review también contiene un artículo persistido que debe participar en el dedupe.
       if (result.articleId) {
