@@ -170,6 +170,27 @@ export function factualReviewToText(report: FactualReview): string {
     .join("\n");
 }
 
+/**
+ * Reduce la revisión factual a las afirmaciones que el fixer debe modificar. Incluir también
+ * las confirmadas enterraba dos correcciones importantes entre decenas de líneas informativas.
+ */
+export function actionableFactualReviewToText(report: FactualReview): string {
+  const actionableClaims = report.claims.filter((claim) => claim.status !== "confirmed");
+  if (actionableClaims.length === 0) return "(sin afirmaciones factuales pendientes)";
+
+  const claims = actionableClaims
+    .map(
+      (claim, index) =>
+        `${index + 1}. [${claim.status}] \"${claim.claim}\"\n   Motivo: ${claim.reason}`,
+    )
+    .join("\n");
+  return [
+    "CRITERIO DE ACEPTACIÓN: cada afirmación siguiente debe desaparecer o quedar reformulada",
+    "sin afirmar más de lo que permiten los hechos. Compruébalas una por una antes de responder.",
+    claims,
+  ].join("\n");
+}
+
 export function qualityReviewToText(report: QualityReview): string {
   const scores = [
     `Estructura: ${report.structureScore}/100`,
@@ -195,10 +216,14 @@ export function combinedReviewToText(
   factual?: FactualReview,
   quality?: QualityReview,
 ): string {
-  const parts: string[] = ["=== Validación editorial ===", reportToText(validation)];
+  const parts: string[] = [];
   if (factual) {
-    parts.push("=== Revisión factual ===", factualReviewToText(factual));
+    parts.push(
+      "=== CORRECCIONES FACTUALES OBLIGATORIAS ===",
+      actionableFactualReviewToText(factual),
+    );
   }
+  parts.push("=== Validación editorial ===", reportToText(validation));
   if (quality) {
     parts.push("=== Control de calidad ===", qualityReviewToText(quality));
   }

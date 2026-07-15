@@ -44,6 +44,8 @@ function makeConfig(maxFixIterations = 2): ResolvedPipelineConfig {
 // orden de las llamadas.
 function makeDeps(options: {
   validatePasses: boolean;
+  validationPasses?: boolean[];
+  validationAiToneSeverity?: "low" | "medium" | "high";
   aiScore?: number;
   aiScores?: number[];
   factualRisks?: FactualReview["riskLevel"][];
@@ -52,6 +54,8 @@ function makeDeps(options: {
 }): PipelineDeps {
   const {
     validatePasses,
+    validationPasses = [validatePasses],
+    validationAiToneSeverity = "low",
     aiScore = 20,
     aiScores = [aiScore],
     factualRisks = ["low"],
@@ -60,6 +64,7 @@ function makeDeps(options: {
   } = options;
   let factualReviewIndex = 0;
   let qualityReviewIndex = 0;
+  let validationIndex = 0;
 
   const runObject: PipelineDeps["runObject"] = async ({ schema }) => {
     const s = schema as unknown;
@@ -79,11 +84,21 @@ function makeDeps(options: {
         sections: [{ heading: "H", summary: "S" }],
       };
     } else if (s === ValidationReportSchema) {
-      object = validatePasses
+      const currentValidationPassed =
+        validationPasses[Math.min(validationIndex, validationPasses.length - 1)] ?? validatePasses;
+      validationIndex += 1;
+      object = currentValidationPassed
         ? { passed: true, issues: [] }
         : {
             passed: false,
-            issues: [{ category: "ai-tone", severity: "low", description: "d", suggestion: "s" }],
+            issues: [
+              {
+                category: "ai-tone",
+                severity: validationAiToneSeverity,
+                description: "d",
+                suggestion: "s",
+              },
+            ],
           };
     } else if (s === FactualReviewSchema) {
       const riskLevel =
@@ -489,8 +504,10 @@ describe("orquestador del pipeline", () => {
       pauseForReview: false,
       cfg: makeConfig(2),
       deps: makeDeps({
-        validatePasses: true,
-        aiScores: [85, 85, 85, 20],
+        validatePasses: false,
+        validationPasses: [false, false, false, true],
+        validationAiToneSeverity: "medium",
+        aiScores: [24, 24, 24, 24],
         qualityAverages: [68, 68, 85, 85],
       }),
       onEvent(event) {
@@ -507,7 +524,7 @@ describe("orquestador del pipeline", () => {
     const humanizeSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "humanize" },
     });
-    // 1 humanize inicial + 1 re-humanización por aiScore alto.
+    // 1 humanize inicial + 1 pulido por el aviso ai-tone medio, aunque aiScore ya sea 24.
     expect(humanizeSteps.length).toBe(2);
     const fixerSteps = await prisma.generationStep.findMany({
       where: { runId: result.runId, stageId: "fixer" },
