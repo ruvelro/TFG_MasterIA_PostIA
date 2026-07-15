@@ -529,7 +529,12 @@ consecuencias:
 - **ADR 0004** — Pipeline de 6 etapas con revisión humana y bucle de calidad (histórico).
 - **ADR 0005** — Progreso por streaming NDJSON sobre POST (frente a SSE/polling).
 - **ADR 0006** — Evolución del pipeline a 12 etapas (humanización, jueces, scrub, enrich e imagen).
+- **ADR 0007** — Versionado del cifrado y rotación de la clave maestra.
 - **ADR 0008** — Feedback editorial tipado y relevancia documental exacta.
+- **ADR 0009** — Evidencia factual y diagnóstico determinista del ritmo.
+- **ADR 0010** — Contratos de contexto adicional y voz editorial en todo el pipeline.
+- **ADR 0011** — Ventana temporal configurable para las llamadas de IA.
+- **ADR 0012** — Reconciliación temporal, alcance de comparaciones y simetría editorial.
 
 ---
 
@@ -752,8 +757,8 @@ La trazabilidad de coste por etapa hace ese gasto visible en el panel de adminis
 | O5       | ✅     | _humanize_ gobernada por `aiScore`; jueces especializados.                 |
 | O6       | ✅     | _enrich_ + _feature-image_: meta, keywords, FAQ, Schema.org, alt e imagen. |
 | O7       | ✅     | Better Auth, roles, AES-256-GCM, Zod, cabeceras, rate limit.               |
-| O8       | ✅     | 158 tests (unit/integración) + e2e Playwright + CI.                        |
-| O9       | ✅     | Documentación (`docs/`), 6 ADRs, Conventional Commits, PRs.                |
+| O8       | ✅     | 372 tests definidos (368 en verde, 4 omitidos) + e2e Playwright + CI.      |
+| O9       | ✅     | Documentación (`docs/`), 12 ADRs, Conventional Commits, PRs.               |
 | O10      | ✅     | Docker multi-stage con migraciones automáticas.                            |
 
 ---
