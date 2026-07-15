@@ -1,4 +1,5 @@
 import { DEFAULT_PIPELINE_PARAMS } from "@/lib/pipeline/default-config";
+import { AI_TIMEOUT_MAX_MS, AI_TIMEOUT_MIN_MS } from "@/lib/config/ai-timeout";
 import {
   StyleProfileSchema,
   ValidatorConfigSchema,
@@ -219,9 +220,14 @@ export async function getGenerationConfig(): Promise<GenerationConfig> {
     ),
     scrubPatterns: parseScrubPatterns(scrubPatterns),
     // Resiliencia de IA: pocos reintentos (más solo multiplican coste y latencia) y un timeout
-    // acotado entre 10 s y 5 min (por debajo no da margen ni a modelos rápidos; por encima
-    // mantendría una conexión colgada demasiado tiempo).
+    // acotado entre 10 s y 10 min. El valor de fábrica es 5 min para admitir salidas extensas;
+    // el techo mantiene una defensa frente a proveedores que dejan conexiones colgadas.
     aiMaxRetries: parseBoundedInt(aiMaxRetries, DEFAULT_PIPELINE_PARAMS.aiMaxRetries, 0, 5),
-    aiTimeoutMs: parseBoundedInt(aiTimeoutMs, DEFAULT_PIPELINE_PARAMS.aiTimeoutMs, 10_000, 300_000),
+    aiTimeoutMs: parseBoundedInt(
+      aiTimeoutMs,
+      DEFAULT_PIPELINE_PARAMS.aiTimeoutMs,
+      AI_TIMEOUT_MIN_MS,
+      AI_TIMEOUT_MAX_MS,
+    ),
   };
 }
