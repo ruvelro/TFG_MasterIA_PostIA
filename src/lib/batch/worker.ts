@@ -131,9 +131,9 @@ export async function processBatch(
           costUsd: cost._sum.costUsd ?? 0,
         },
       });
-      // Indexado para dedupe/enlazado interno (best-effort; no espera al resultado).
-      if (result.status === "completed" && result.articleId) {
-        void indexArticleAndSuggestLinks(result.articleId);
+      // needs_review también produce un borrador persistido y debe entrar en el dedupe.
+      if (result.articleId) {
+        await indexArticleAndSuggestLinks(result.articleId);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

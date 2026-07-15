@@ -89,11 +89,45 @@ export async function findSimilarArticlesForTopic(
   userId: string,
   topic: string,
 ): Promise<SimilarArticle[]> {
-  const context = await resolveEmbeddingContext();
-  if (!context) return [];
-
   try {
-    const [vector] = await embedTexts({ ...context, texts: [topic] });
+    const context = await resolveEmbeddingContext();
+    if (!context) return [];
+
+    const articles = await prisma.article.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        title: true,
+        metaDescription: true,
+        embedding: { select: { model: true } },
+      },
+    });
+    const missingEmbeddings = articles.filter(
+      (article) => article.embedding?.model !== context.model,
+    );
+
+    // El primer aviso tras activar o cambiar el modelo repara también el histórico. Se envían
+    // tema y artículos en una sola petición para no multiplicar coste ni latencia.
+    const [vector, ...articleVectors] = await embedTexts({
+      ...context,
+      texts: [topic, ...missingEmbeddings.map(articleText)],
+    });
+    if (missingEmbeddings.length > 0) {
+      await prisma.$transaction(
+        missingEmbeddings.map((article, index) =>
+          prisma.articleEmbedding.upsert({
+            where: { articleId: article.id },
+            update: { model: context.model, vectorJson: JSON.stringify(articleVectors[index]) },
+            create: {
+              articleId: article.id,
+              model: context.model,
+              vectorJson: JSON.stringify(articleVectors[index]),
+            },
+          }),
+        ),
+      );
+    }
+
     return await findSimilarByVector({
       userId,
       vector,
@@ -117,10 +151,10 @@ export async function findSimilarArticlesForTopic(
  * enriquecimiento persistido. Best-effort y fuera del camino crítico de la generación.
  */
 export async function indexArticleAndSuggestLinks(articleId: string): Promise<void> {
-  const context = await resolveEmbeddingContext();
-  if (!context) return;
-
   try {
+    const context = await resolveEmbeddingContext();
+    if (!context) return;
+
     const article = await prisma.article.findUnique({
       where: { id: articleId },
       select: { id: true, userId: true, title: true, metaDescription: true, metadataJson: true },

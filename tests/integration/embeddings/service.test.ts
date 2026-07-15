@@ -81,6 +81,20 @@ describe("servicio de embeddings", () => {
     expect(unrelated).toEqual([]);
   });
 
+  it("indexa el histórico pendiente al comprobar un tema", async () => {
+    stubEmbeddingsFetch();
+    const articleId = await createArticle("Autoconsumo de energía solar");
+
+    expect(await prisma.articleEmbedding.findUnique({ where: { articleId } })).toBeNull();
+
+    const similar = await findSimilarArticlesForTopic(userId, "Nueva instalación fotovoltaica");
+
+    expect(similar.map((candidate) => candidate.articleId)).toContain(articleId);
+    expect(await prisma.articleEmbedding.findUnique({ where: { articleId } })).toMatchObject({
+      model: "openai/text-embedding-3-small",
+    });
+  });
+
   it("añade sugerencias de enlaces internos al enriquecimiento del artículo nuevo", async () => {
     stubEmbeddingsFetch();
     // Artículo previo ya indexado sobre el mismo tema.
