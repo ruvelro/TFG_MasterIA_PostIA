@@ -90,9 +90,10 @@ export async function POST(request: NextRequest): Promise<Response> {
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
-      // Indexado para dedupe/enlazado interno: best-effort, fuera del camino crítico.
-      if (result.status === "completed" && result.articleId) {
-        void indexArticleAndSuggestLinks(result.articleId);
+      // El artículo ya está persistido también en needs_review. Esperamos el indexado para que
+      // el stream no cierre dejando el trabajo best-effort abandonado en segundo plano.
+      if (result.articleId) {
+        await indexArticleAndSuggestLinks(result.articleId);
       }
     }
   });

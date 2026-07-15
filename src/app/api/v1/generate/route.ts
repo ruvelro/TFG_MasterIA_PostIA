@@ -66,8 +66,8 @@ export async function POST(request: NextRequest): Promise<Response> {
         article: result.context.article,
         enrichment: result.context.enrichment,
       });
-      if (result.status === "completed" && result.articleId) {
-        void indexArticleAndSuggestLinks(result.articleId);
+      if (result.articleId) {
+        await indexArticleAndSuggestLinks(result.articleId);
       }
     }
   });

@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 
 /**
  * Preparación global de los e2e: usa una base de datos SQLite DEDICADA y LIMPIA
@@ -16,6 +16,7 @@ export default function globalSetup() {
   for (const file of ["e2e.db", "e2e.db-journal"]) {
     rmSync(file, { force: true });
   }
+  writeFileSync("e2e.db", "");
 
   execSync("npx prisma migrate deploy", { env, stdio: "inherit" });
 }

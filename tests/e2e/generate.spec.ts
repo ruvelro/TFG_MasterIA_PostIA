@@ -18,6 +18,32 @@ async function register(page: Page) {
 }
 
 test.describe("generador de artículos", () => {
+  test("avisa cuando el tema se parece a un artículo anterior", async ({ page }) => {
+    await register(page);
+    await page.route("**/api/topics/similar", async (route) => {
+      expect(route.request().postDataJSON()).toEqual({ topic: "Final del Mundial 2026" });
+      await route.fulfill({
+        json: {
+          similar: [
+            {
+              articleId: "article-previous",
+              title: "España en la final del Mundial 2026",
+              similarity: 0.94,
+            },
+          ],
+        },
+      });
+    });
+
+    await page.getByLabel("Tema del artículo").fill("Final del Mundial 2026");
+    await page.getByLabel("Contexto adicional (opcional)").click();
+
+    await expect(page.getByText("Este tema se parece a artículos que ya generaste:")).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "España en la final del Mundial 2026" }),
+    ).toHaveAttribute("href", "/articles/article-previous");
+  });
+
   test("genera con revisión de hechos y muestra el artículo", async ({ page }) => {
     await register(page);
 
