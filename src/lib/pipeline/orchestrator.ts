@@ -534,9 +534,31 @@ async function runQualityAndFinalize(
   // texto ya corregido. Cada transformación se vuelve a medir antes de decidir la siguiente.
   let reviewAttempt = 0;
   let fixerAttempts = 0;
+  let humanizeCheckpoint:
+    | Pick<PipelineContext, "draft" | "report" | "factualReport" | "qualityReport" | "article">
+    | undefined;
   for (;;) {
     reviewAttempt += 1;
     await reviewCurrentDraft(reviewAttempt);
+
+    // Humanize propone una variante. Si el juez detecta más sabor a IA que en el texto de partida,
+    // restauramos el cuerpo anterior y sus informes en lugar de publicar una regresión estilística.
+    if (humanizeCheckpoint) {
+      const previousAiScore = humanizeCheckpoint.qualityReport?.aiScore;
+      const candidateAiScore = ctx.qualityReport?.aiScore;
+      if (
+        previousAiScore !== undefined &&
+        candidateAiScore !== undefined &&
+        candidateAiScore > previousAiScore
+      ) {
+        ctx.draft = humanizeCheckpoint.draft;
+        ctx.report = humanizeCheckpoint.report;
+        ctx.factualReport = humanizeCheckpoint.factualReport;
+        ctx.qualityReport = humanizeCheckpoint.qualityReport;
+        ctx.article = humanizeCheckpoint.article;
+      }
+      humanizeCheckpoint = undefined;
+    }
 
     const validationPassed = ctx.report?.passed ?? false;
     const validationIssues = ctx.report?.issues ?? [];
@@ -571,6 +593,13 @@ async function runQualityAndFinalize(
     }
 
     if (needsHumanize) {
+      humanizeCheckpoint = {
+        draft: ctx.draft,
+        report: ctx.report,
+        factualReport: ctx.factualReport,
+        qualityReport: ctx.qualityReport,
+        article: ctx.article,
+      };
       ctx.humanizeAttempts = (ctx.humanizeAttempts ?? 0) + 1;
       await executeStage(
         { runId, stageId: "humanize", attempt: ctx.humanizeAttempts, onEvent },

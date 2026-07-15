@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   actionableFactualReviewToText,
+  aiToneReviewToText,
   blueprintToText,
   combinedReviewToText,
   composeEditorialVoice,
@@ -159,6 +160,30 @@ describe("formateadores de contexto", () => {
     expect(combined.indexOf("CORRECCIONES FACTUALES")).toBeLessThan(
       combined.indexOf("Validación editorial"),
     );
+  });
+
+  it("prepara para humanize solo las incidencias ai-tone concretas", () => {
+    const text = aiToneReviewToText({
+      passed: false,
+      issues: [
+        {
+          category: "ai-tone",
+          severity: "medium",
+          description: "La frase suena artificial",
+          suggestion: "Usa un verbo concreto",
+        },
+        {
+          category: "faithfulness",
+          severity: "high",
+          description: "Dato incorrecto",
+          suggestion: "Elimínalo",
+        },
+      ],
+    });
+
+    expect(text).toContain("La frase suena artificial");
+    expect(text).toContain("Usa un verbo concreto");
+    expect(text).not.toContain("Dato incorrecto");
   });
 
   it("styleProfileToText avisa cuando el perfil está vacío", () => {

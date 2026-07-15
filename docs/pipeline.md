@@ -65,7 +65,9 @@ Tras la primera humanización, el orquestador ejecuta los jueces (`validate` + v
 determinista, y según el tipo `factual-review` y `quality-review`) y aplica **una sola
 transformación** antes de volver a medir. La rehumanización y el **fixer** tienen presupuestos
 independientes (`maxHumanizeRetries` y `maxFixIterations`), por lo que rehumanizar no consume una
-corrección. El artículo solo se aprueba cuando la validación
+corrección. Cada rehumanización recibe las incidencias `ai-tone` concretas del último informe; si
+la nueva medición empeora el `aiScore`, el orquestador restaura el borrador y los informes previos.
+El artículo solo se aprueba cuando la validación
 editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
 los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
 corrector mientras queden iteraciones.
@@ -130,8 +132,10 @@ refuerza en cuatro frentes:
   `/admin`, desactivable) genera 2-3 consultas complementarias al tema literal; los
   resultados se fusionan. Si el modelo falla, se degrada al tema tal cual. No es una etapa
   del catálogo: su coste y tokens se registran en la fila `GenerationStep` de research.
-- **Deduplicación**: por URL normalizada y con un máximo de 2 fuentes por dominio, para no
-  construir el artículo sobre una sola web repetida.
+- **Relevancia y deduplicación**: descarta resultados cuyo título, ruta y extracto no guardan
+  relación verificable con el tema, bloquea páginas de apuestas ajenas al encargo y elimina
+  cuerpos idénticos después de ordenar por autoridad. Además deduplica por URL normalizada y
+  limita a 2 fuentes por dominio.
 - **Frescura**: si el tipo de noticia define `freshnessDays > 0`, el proveedor limita los
   resultados a los últimos N días (Tavily: `topic=news&days=N`; Google: `dateRestrict=dN`).
 - **Extracción del cuerpo**: el HTML descargado pasa por `@mozilla/readability` sobre

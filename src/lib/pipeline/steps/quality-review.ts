@@ -23,6 +23,7 @@ export async function runQualityReview(
   const step = cfg.steps["quality-review"];
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
+    currentDate: new Date().toISOString().slice(0, 10),
     seoRules: cfg.seoRules,
     geoRules: cfg.geoRules,
     draft: ctx.draft,
