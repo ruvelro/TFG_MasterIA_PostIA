@@ -95,6 +95,23 @@ describe("servicio de embeddings", () => {
     });
   });
 
+  it("avisa con una similitud semántica clara aunque el tema no repita el título", async () => {
+    stubEmbeddingsFetch();
+    const articleId = await createArticle("Transición energética en hogares");
+    const similarity = 0.75;
+    await prisma.articleEmbedding.create({
+      data: {
+        articleId,
+        model: "openai/text-embedding-3-small",
+        vectorJson: JSON.stringify([similarity, Math.sqrt(1 - similarity ** 2), 0]),
+      },
+    });
+
+    const similar = await findSimilarArticlesForTopic(userId, "Nuevas ayudas para energía solar");
+
+    expect(similar.map((candidate) => candidate.articleId)).toContain(articleId);
+  });
+
   it("añade sugerencias de enlaces internos al enriquecimiento del artículo nuevo", async () => {
     stubEmbeddingsFetch();
     // Artículo previo ya indexado sobre el mismo tema.
