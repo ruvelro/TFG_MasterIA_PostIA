@@ -1,4 +1,5 @@
 import type { StageId } from "@/lib/pipeline/stages";
+import { AI_TIMEOUT_DEFAULT_MS } from "@/lib/config/ai-timeout";
 
 /**
  * Configuración por defecto de las etapas que usan IA.
@@ -542,5 +543,5 @@ export const DEFAULT_PIPELINE_PARAMS = {
   // Resiliencia de las llamadas de IA. Reintentos ante errores transitorios de OpenRouter
   // (429/5xx) y timeout por llamada (ms) para que una etapa colgada no bloquee la generación.
   aiMaxRetries: 2,
-  aiTimeoutMs: 120_000,
+  aiTimeoutMs: AI_TIMEOUT_DEFAULT_MS,
 } as const;
