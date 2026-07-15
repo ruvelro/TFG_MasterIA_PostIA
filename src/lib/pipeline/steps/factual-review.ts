@@ -26,6 +26,7 @@ export async function runFactualReview(
   const prompt = appendUserContext(
     renderTemplate(step.prompt, {
       topic: ctx.topic,
+      currentDate: new Date().toISOString().slice(0, 10),
       facts: factsToText(ctx.facts),
       sourceCatalog: sourceCatalogToText(ctx.sources),
       draft: ctx.draft,

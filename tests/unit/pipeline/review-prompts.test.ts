@@ -48,6 +48,8 @@ describe("prompts de revisión editorial", () => {
     expect(capturedPrompt).toContain("Ese detalle puede pesar mucho");
     expect(capturedPrompt).toContain("Explica la consecuencia concreta");
     expect(capturedPrompt).toContain("Diagnóstico determinista del ritmo del borrador");
+    expect(capturedPrompt).toContain("Rompe estructuras demasiado simétricas");
+    expect(capturedPrompt).toContain("ningún benchmark aislado");
     expect(capturedPrompt).not.toContain("{{proseRhythm}}");
   });
 
@@ -120,6 +122,8 @@ describe("prompts de revisión editorial", () => {
 
     expect(capturedPrompt).toContain(new Date().toISOString().slice(0, 10));
     expect(capturedPrompt).toContain("umbral editorial de sabor IA es 25");
+    expect(capturedPrompt).toContain("tres o más secciones consecutivas");
+    expect(capturedPrompt).toContain("porcentaje de mejora que omita su referencia");
     expect(capturedPrompt).toContain("sin suficientes párrafos de prosa para medir");
     expect(capturedPrompt).not.toContain("{{currentDate}}");
     expect(capturedPrompt).not.toContain("{{aiScoreThreshold}}");
@@ -200,9 +204,23 @@ describe("prompts de revisión editorial", () => {
 
     expect(capturedPrompt).toContain('titulo="Cobertura sobre el paquete"');
     expect(capturedPrompt).toContain('url="https://medio.example/26h2"');
+    expect(capturedPrompt).toContain(new Date().toISOString().slice(0, 10));
+    expect(capturedPrompt).toContain("reciente prevalece para el estado vigente");
+    expect(capturedPrompt).toContain("Un porcentaje de mejora sin base comparativa");
+    expect(capturedPrompt).toContain("No generalices el alcance de una prueba");
     expect(capturedPrompt).toContain("Solo una evidencia `direct` puede quedar `confirmed`");
+    expect(capturedPrompt).not.toContain("{{currentDate}}");
     expect(capturedPrompt).not.toContain("{{sourceCatalog}}");
     expect(result.factualReport.claims[0].status).toBe("doubtful");
     expect(result.factualReport.riskLevel).toBe("medium");
+  });
+
+  it("el fixer conserva las correcciones temporales, comparativas y de estructura", () => {
+    const prompt = DEFAULT_STEP_CONFIG.fixer.prompt;
+
+    expect(prompt).toContain("conserva el estado más reciente respaldado");
+    expect(prompt).toContain("porcentajes comparativos sin referente explícito");
+    expect(prompt).toContain("un benchmark aislado no permite");
+    expect(prompt).toContain("reorganiza el artículo por");
   });
 });
