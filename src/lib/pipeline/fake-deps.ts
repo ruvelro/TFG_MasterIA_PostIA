@@ -47,7 +47,13 @@ export function createFakePipelineDeps(): PipelineDeps {
       object = {
         riskLevel: "low",
         claims: [
-          { claim: "Dato de ejemplo", status: "confirmed", reason: "Presente en las fuentes" },
+          {
+            claim: "Dato de ejemplo",
+            status: "confirmed",
+            evidenceType: "direct",
+            sourceAuthority: "primary",
+            reason: "Presente en las fuentes",
+          },
         ],
         summary: "Revisión factual sin riesgos (E2E).",
         researchSufficiency: {

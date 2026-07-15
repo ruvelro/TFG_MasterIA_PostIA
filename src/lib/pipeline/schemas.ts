@@ -90,6 +90,12 @@ export const FactualClaimSchema = z.object({
     .describe(
       "Solo para hechos: confirmed si está respaldado; doubtful si es cuestionable; discarded si contradice las fuentes. No clasifica opiniones ni hipótesis editoriales marcadas como tales",
     ),
+  evidenceType: z
+    .enum(["direct", "inferred", "unsupported", "contradicted"])
+    .describe("Relación entre la afirmación y la evidencia disponible"),
+  sourceAuthority: z
+    .enum(["primary", "secondary", "mixed", "unknown"])
+    .describe("Autoridad de las fuentes que sostienen la afirmación"),
   reason: z.string().describe("Breve explicación del estado asignado"),
 });
 

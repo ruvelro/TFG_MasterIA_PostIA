@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_STEP_CONFIG } from "@/lib/pipeline/default-config";
+import { runFactualReview } from "@/lib/pipeline/steps/factual-review";
 import { runHumanize } from "@/lib/pipeline/steps/humanize";
 import { runQualityReview } from "@/lib/pipeline/steps/quality-review";
 import type { PipelineDeps, ResolvedPipelineConfig } from "@/lib/pipeline/types";
@@ -46,6 +47,8 @@ describe("prompts de revisión editorial", () => {
 
     expect(capturedPrompt).toContain("Ese detalle puede pesar mucho");
     expect(capturedPrompt).toContain("Explica la consecuencia concreta");
+    expect(capturedPrompt).toContain("Diagnóstico determinista del ritmo del borrador");
+    expect(capturedPrompt).not.toContain("{{proseRhythm}}");
   });
 
   it("inyecta en humanize el diagnóstico ai-tone de quality-review y excluye otras categorías", async () => {
@@ -117,7 +120,89 @@ describe("prompts de revisión editorial", () => {
 
     expect(capturedPrompt).toContain(new Date().toISOString().slice(0, 10));
     expect(capturedPrompt).toContain("umbral editorial de sabor IA es 25");
+    expect(capturedPrompt).toContain("sin suficientes párrafos de prosa para medir");
     expect(capturedPrompt).not.toContain("{{currentDate}}");
     expect(capturedPrompt).not.toContain("{{aiScoreThreshold}}");
+    expect(capturedPrompt).not.toContain("{{proseRhythm}}");
+  });
+
+  it("quality-review no puede ignorar una cadencia determinísticamente uniforme", async () => {
+    const draft = Array.from({ length: 9 }, (_unused, paragraph) =>
+      Array.from({ length: 48 + (paragraph % 2) }, (_word, word) => `t${paragraph}-${word}`).join(
+        " ",
+      ),
+    ).join("\n\n");
+    const deps = {
+      runObject: async () => ({
+        object: {
+          structureScore: 90,
+          factualSupportScore: 90,
+          seoScore: 90,
+          wordCount: 436,
+          aiScore: 8,
+          issues: [],
+          suggestions: [],
+        },
+        usage: {},
+      }),
+    } as unknown as PipelineDeps;
+
+    const result = await runQualityReview({ topic: "Tema", sources: [], draft }, cfg, deps);
+
+    expect(result.qualityReport.aiScore).toBe(25);
+    expect(result.qualityReport.issues[0]).toMatchObject({ category: "ai-tone" });
+  });
+
+  it("factual-review recibe la procedencia y rebaja una extrapolación secundaria", async () => {
+    let capturedPrompt = "";
+    const deps = {
+      runObject: async ({ prompt }: { prompt: string }) => {
+        capturedPrompt = prompt;
+        return {
+          object: {
+            riskLevel: "low",
+            claims: [
+              {
+                claim: "Microsoft confirmó un paquete de 174 KB.",
+                status: "confirmed",
+                evidenceType: "inferred",
+                sourceAuthority: "secondary",
+                reason: "La cifra procede de una extrapolación periodística.",
+              },
+            ],
+            summary: "La atribución excede la evidencia primaria.",
+            researchSufficiency: { sufficient: true, reason: "Hay fuentes suficientes." },
+          },
+          usage: {},
+        };
+      },
+    } as unknown as PipelineDeps;
+
+    const result = await runFactualReview(
+      {
+        topic: "Windows 11 26H2",
+        sources: [
+          {
+            title: "Cobertura sobre el paquete",
+            url: "https://medio.example/26h2",
+            snippet: "Extracto",
+            content: "Contenido",
+          },
+        ],
+        facts: {
+          facts: [{ claim: "El medio estima 174 KB", source: "https://medio.example/26h2" }],
+        },
+        draft: "Microsoft confirmó un paquete de 174 KB.",
+      },
+      cfg,
+      deps,
+    );
+
+    expect(capturedPrompt).toContain('titulo="Cobertura sobre el paquete"');
+    expect(capturedPrompt).toContain('url="https://medio.example/26h2"');
+    expect(capturedPrompt).toContain("Solo una evidencia `direct` puede quedar `confirmed`");
+    expect(capturedPrompt).not.toContain("{{sourceCatalog}}");
+    expect(result.factualReport.claims[0].status).toBe("doubtful");
+    expect(result.factualReport.riskLevel).toBe("medium");
   });
 });

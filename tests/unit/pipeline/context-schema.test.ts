@@ -59,6 +59,24 @@ describe("parsePipelineContext", () => {
     expect(parsed.qualityReport?.issues[0].category).toBe("structure");
   });
 
+  it("rehidrata revisiones factuales anteriores al grado de evidencia", () => {
+    const ctx = {
+      topic: "t",
+      sources: [],
+      factualReport: {
+        riskLevel: "medium",
+        claims: [{ claim: "Dato antiguo", status: "doubtful", reason: "No consta" }],
+        summary: "Revisión heredada",
+        researchSufficiency: { sufficient: true, reason: "Suficiente" },
+      },
+    };
+    const parsed = parsePipelineContext(JSON.stringify(ctx));
+    expect(parsed.factualReport?.claims[0]).toMatchObject({
+      evidenceType: "unsupported",
+      sourceAuthority: "unknown",
+    });
+  });
+
   it("lanza un error claro si el JSON está corrupto", () => {
     expect(() => parsePipelineContext("{no es json")).toThrow(/corrupto/i);
   });
