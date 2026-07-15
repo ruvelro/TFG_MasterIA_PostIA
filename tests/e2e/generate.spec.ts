@@ -63,6 +63,14 @@ test.describe("generador de artículos", () => {
     });
     // El cuerpo del artículo (Markdown) se ha renderizado.
     await expect(page.getByRole("heading", { name: "Borrador de ejemplo" })).toBeVisible();
+
+    await page.getByRole("button", { name: "Vista publicada" }).click();
+    const preview = page.getByRole("dialog", { name: "Vista previa del artículo" });
+    await expect(preview).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Artículo de ejemplo" })).toBeVisible();
+    await expect(preview.getByText("Meta description de ejemplo para el modo E2E.")).toBeVisible();
+    await expect(preview.getByRole("heading", { name: "Preguntas frecuentes" })).toBeVisible();
+    await expect(preview.getByText("Un artículo de ejemplo generado en modo E2E.")).toBeVisible();
   });
 
   test("genera sin revisión y va directo al artículo", async ({ page }) => {
@@ -75,5 +83,46 @@ test.describe("generador de artículos", () => {
     await expect(page.getByRole("heading", { name: "Artículo de ejemplo" })).toBeVisible({
       timeout: 20_000,
     });
+  });
+
+  test("muestra en el resumen la imagen destacada comunicada por el stream", async ({ page }) => {
+    await register(page);
+
+    await page.route("**/api/generate", async (route) => {
+      const event = {
+        type: "completed",
+        runId: "run-with-image",
+        articleId: "article-with-image",
+        hasFeaturedImage: true,
+        article: {
+          title: "Artículo con imagen",
+          slug: "articulo-con-imagen",
+          metaDescription: "Una prueba de la imagen destacada.",
+          keywords: ["imagen"],
+          contentMarkdown: "## Texto\n\nContenido del artículo.",
+        },
+      };
+      await route.fulfill({
+        status: 200,
+        contentType: "application/x-ndjson",
+        body: `${JSON.stringify(event)}\n`,
+      });
+    });
+    await page.route("**/api/articles/article-with-image/image", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "image/png",
+        body: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl2nWQAAAAASUVORK5CYII=",
+          "base64",
+        ),
+      });
+    });
+
+    await page.getByLabel("Tema del artículo").fill("Prueba con imagen");
+    await page.getByLabel("Revisar los datos extraídos antes de redactar").uncheck();
+    await page.getByRole("button", { name: "Generar artículo" }).click();
+
+    await expect(page.getByRole("img", { name: "Artículo con imagen" })).toBeVisible();
   });
 });

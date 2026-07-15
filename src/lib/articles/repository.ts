@@ -34,6 +34,22 @@ export function getArticleForUser(articleId: string, userId: string) {
   });
 }
 
+/** Campos mínimos de la vista publicada, cargados solo cuando el usuario abre el visor. */
+export function getArticlePreviewForUser(articleId: string, userId: string) {
+  return prisma.article.findFirst({
+    where: { id: articleId, userId },
+    select: {
+      id: true,
+      title: true,
+      metaDescription: true,
+      keywords: true,
+      contentMarkdown: true,
+      metadataJson: true,
+      featuredImagePath: true,
+    },
+  });
+}
+
 /** Borra el artículo del usuario. Devuelve true si se borró algo (false si no era suyo). */
 export async function deleteArticleForUser(articleId: string, userId: string): Promise<boolean> {
   const result = await prisma.article.deleteMany({ where: { id: articleId, userId } });

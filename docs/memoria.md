@@ -663,9 +663,10 @@ La interfaz (React, App Router) presenta una **landing** que explica el pipeline
 **formulario de generación** (tema, contexto, tipo de noticia, longitud, opciones de revisión
 y overrides avanzados por etapa), la **vista de progreso en vivo** con el estado y el modelo de
 cada etapa, las **pantallas de revisión** de hechos y estructura, el **resultado** (artículo
-renderizado con sus metadatos, métricas de calidad y enriquecimiento), el **historial**, la
-**cuenta** (passkeys y contraseña) y el **panel de administración** por pestañas. Las capturas
-del anexo y del README ilustran cada pantalla.
+renderizado con su imagen destacada, metadatos, métricas de calidad y enriquecimiento), el
+**historial** y un visor flotante que reproduce la composición publicada (titular, imagen, meta,
+etiquetas, cuerpo y FAQ), la **cuenta** (passkeys y contraseña) y el **panel de administración**
+por pestañas. Las capturas del anexo y del README ilustran cada pantalla.
 
 ---
 
@@ -757,7 +758,7 @@ La trazabilidad de coste por etapa hace ese gasto visible en el panel de adminis
 | O5       | ✅     | _humanize_ gobernada por `aiScore`; jueces especializados.                 |
 | O6       | ✅     | _enrich_ + _feature-image_: meta, keywords, FAQ, Schema.org, alt e imagen. |
 | O7       | ✅     | Better Auth, roles, AES-256-GCM, Zod, cabeceras, rate limit.               |
-| O8       | ✅     | 372 tests definidos (368 en verde, 4 omitidos) + e2e Playwright + CI.      |
+| O8       | ✅     | 376 tests definidos (372 en verde, 4 omitidos) + e2e Playwright + CI.      |
 | O9       | ✅     | Documentación (`docs/`), 12 ADRs, Conventional Commits, PRs.               |
 | O10      | ✅     | Docker multi-stage con migraciones automáticas.                            |
 

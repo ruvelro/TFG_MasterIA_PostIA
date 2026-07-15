@@ -65,6 +65,7 @@ export async function POST(request: NextRequest): Promise<Response> {
         articleId: result.articleId,
         article: result.context.article,
         enrichment: result.context.enrichment,
+        hasFeaturedImage: Boolean(result.context.featuredImagePath),
       });
       if (result.articleId) {
         await indexArticleAndSuggestLinks(result.articleId);
