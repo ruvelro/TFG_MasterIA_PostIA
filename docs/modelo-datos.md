@@ -49,7 +49,9 @@
 
 - **GenerationSource** — fuente de investigación de un run (la "fuente de verdad" del
   artículo) con su **contenido ya descargado**. Tabla propia en lugar de serializarse en el
-  contexto, porque el cuerpo de varias webs puede pesar cientos de KB.
+  contexto, porque el cuerpo de varias webs puede pesar cientos de KB. `userProvided` distingue
+  las URLs escritas en el contexto, que tienen prioridad y no consumen el cupo de búsqueda;
+  `suspicious` conserva la clasificación anti-inyección después de pausar y reanudar.
 
 - **GenerationStep** — traza de cada etapa dentro de una ejecución: qué modelo se usó
   (`null` en `research`/`scrub`, que no usan IA), `status`, `attempt` (el bucle de calidad

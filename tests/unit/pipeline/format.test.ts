@@ -86,6 +86,21 @@ describe("formateadores de contexto", () => {
     expect(text).toContain('sospechosa="true"');
   });
 
+  it("sourcesToText y el catálogo señalan las fuentes prioritarias del usuario", () => {
+    const sources = [
+      {
+        title: "Documento aportado",
+        url: "https://usuario.example/doc",
+        snippet: "s",
+        content: "cuerpo",
+        userProvided: true,
+      },
+    ];
+
+    expect(sourcesToText(sources)).toContain('prioridad="usuario"');
+    expect(sourceCatalogToText(sources)).toContain('prioridad="usuario"');
+  });
+
   it("sourcesToText escapa comillas en título y url", () => {
     const text = sourcesToText([
       { title: 'Con "comillas"', url: 'https://e/?q="x"', snippet: "s", content: "c" },

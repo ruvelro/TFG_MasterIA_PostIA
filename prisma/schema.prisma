@@ -199,8 +199,12 @@ model GenerationSource {
   title     String
   snippet   String
   // Cuerpo descargado de la web; cae al snippet de la búsqueda si la descarga falló (research).
-  content   String
-  createdAt DateTime @default(now())
+  content      String
+  // Las URLs del contexto del usuario tienen prioridad y no consumen el cupo de research.
+  userProvided Boolean @default(false)
+  // Conserva la marca anti-inyección también después de una pausa/reanudación.
+  suspicious   Boolean @default(false)
+  createdAt    DateTime @default(now())
 
   run GenerationRun @relation(fields: [runId], references: [id], onDelete: Cascade)
 

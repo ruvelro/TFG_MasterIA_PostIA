@@ -22,7 +22,9 @@ export type QueryExpansion = z.infer<typeof QueryExpansionSchema>;
 
 export const FactSchema = z.object({
   claim: z.string().describe("Hecho concreto y verificable"),
-  source: z.string().describe("URL de la fuente de la que proviene el hecho"),
+  source: z
+    .string()
+    .describe("URL de procedencia o 'contexto adicional del usuario' cuando el dato vino sin URL"),
 });
 
 export const FactsSchema = z.object({

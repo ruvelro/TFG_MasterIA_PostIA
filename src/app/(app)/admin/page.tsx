@@ -18,6 +18,7 @@ import { getNewsTypes } from "@/lib/settings/news-types";
 import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 import { ModelCombobox } from "@/components/model-combobox";
+import { CollapsibleEditor } from "@/components/collapsible-editor";
 
 import {
   saveGenerationConfig,
@@ -473,30 +474,34 @@ export default async function AdminPage() {
           {AI_STAGE_IDS.map((stageId) => {
             const config = stepConfigs[stageId];
             return (
-              <AdminForm
+              <CollapsibleEditor
                 key={stageId}
-                action={saveStepConfig}
-                label="Guardar etapa"
-                className="border-muted/20 flex flex-col gap-3 rounded-lg border p-4"
+                title={STAGE_LABEL.get(stageId) ?? stageId}
+                description={config.model}
               >
-                <input type="hidden" name="stageId" value={stageId} />
-                <h3 className="font-medium">{STAGE_LABEL.get(stageId) ?? stageId}</h3>
+                <AdminForm action={saveStepConfig} label="Guardar etapa">
+                  <input type="hidden" name="stageId" value={stageId} />
 
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">Modelo (OpenRouter)</span>
-                  <ModelCombobox name="model" defaultValue={config.model} className={inputClass} />
-                </label>
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span className="font-medium">Modelo (OpenRouter)</span>
+                    <ModelCombobox
+                      name="model"
+                      defaultValue={config.model}
+                      className={inputClass}
+                    />
+                  </label>
 
-                <label className="flex flex-col gap-1 text-sm">
-                  <span className="font-medium">Prompt (plantilla)</span>
-                  <textarea
-                    name="prompt"
-                    rows={8}
-                    defaultValue={config.prompt}
-                    className={`${inputClass} font-mono`}
-                  />
-                </label>
-              </AdminForm>
+                  <label className="flex flex-col gap-1 text-sm">
+                    <span className="font-medium">Prompt (plantilla)</span>
+                    <textarea
+                      name="prompt"
+                      rows={8}
+                      defaultValue={config.prompt}
+                      className={`${inputClass} font-mono`}
+                    />
+                  </label>
+                </AdminForm>
+              </CollapsibleEditor>
             );
           })}
           <p className="text-muted text-xs">

@@ -1,5 +1,9 @@
 import { combinedReviewToText, composeEditorialVoice } from "@/lib/pipeline/format";
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import { ArticleMetadataSchema, FixerOutputSchema, type FixerOutput } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -22,15 +26,25 @@ export async function runFixer(
   if (!ctx.report) throw new Error("fixer requiere el informe de validación");
 
   const step = cfg.steps.fixer;
-  const prompt = renderTemplate(step.prompt, {
-    topic: ctx.topic,
-    draft: ctx.draft,
-    report: combinedReviewToText(ctx.report, ctx.factualReport, ctx.qualityReport),
-    editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
-    seoRules: cfg.seoRules,
-    geoRules: cfg.geoRules,
-    revisionInstructions: ctx.revisionInstructions ?? "",
-  });
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        topic: ctx.topic,
+        draft: ctx.draft,
+        report: combinedReviewToText(ctx.report, ctx.factualReport, ctx.qualityReport),
+        editorialVoice,
+        seoRules: cfg.seoRules,
+        geoRules: cfg.geoRules,
+        revisionInstructions: ctx.revisionInstructions ?? "",
+        context: ctx.context ?? "",
+      }),
+      step.prompt,
+      ctx.context,
+    ),
+    step.prompt,
+    editorialVoice,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,
@@ -53,7 +67,7 @@ export async function runArticleFinalizer(
   if (!ctx.draft) throw new Error("finalizer requiere el artículo aprobado");
 
   const step = cfg.steps.fixer;
-  const prompt = [
+  const basePrompt = [
     "Eres un editor SEO. Genera únicamente los metadatos del artículo, sin reescribir ni devolver",
     "el cuerpo. El contenido ya ha sido corregido y aprobado editorialmente.",
     "- title: máximo 60 caracteres, natural y fiel al contenido.",
@@ -66,6 +80,12 @@ export async function runArticleFinalizer(
     "Artículo aprobado:",
     ctx.draft,
   ].join("\n");
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(basePrompt, "", ctx.context),
+    "",
+    editorialVoice,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,

@@ -20,6 +20,8 @@ import type { SearchOptions, SearchResult } from "@/lib/search";
 /** Una fuente con su contenido ya descargado (la "fuente de verdad" del artículo). */
 export interface PipelineSource extends SearchResult {
   content: string;
+  /** URL aportada directamente en el contexto: no compite con el cupo ni el ranking de research. */
+  userProvided?: boolean;
   /**
    * Marcada por la heurística anti-inyección de `research`: el cuerpo descargado contenía
    * órdenes dirigidas al modelo, así que se degradó al extracto de búsqueda. Viaja en el

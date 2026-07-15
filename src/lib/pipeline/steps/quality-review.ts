@@ -1,4 +1,9 @@
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import { composeEditorialVoice } from "@/lib/pipeline/format";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import { analyzeProseRhythm, proseRhythmToText } from "@/lib/pipeline/prose-rhythm";
 import { sanitizeQualityReview } from "@/lib/pipeline/review-sanitizer";
 import { QualityReviewSchema, type QualityReview } from "@/lib/pipeline/schemas";
@@ -22,15 +27,26 @@ export async function runQualityReview(
   if (!ctx.draft) throw new Error("quality-review requiere el borrador de la etapa draft");
 
   const step = cfg.steps["quality-review"];
-  const prompt = renderTemplate(step.prompt, {
-    topic: ctx.topic,
-    currentDate: new Date().toISOString().slice(0, 10),
-    aiScoreThreshold: String(cfg.aiScoreThreshold),
-    seoRules: cfg.seoRules,
-    geoRules: cfg.geoRules,
-    proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
-    draft: ctx.draft,
-  });
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        topic: ctx.topic,
+        currentDate: new Date().toISOString().slice(0, 10),
+        aiScoreThreshold: String(cfg.aiScoreThreshold),
+        seoRules: cfg.seoRules,
+        geoRules: cfg.geoRules,
+        proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
+        draft: ctx.draft,
+        context: ctx.context ?? "",
+        editorialVoice,
+      }),
+      step.prompt,
+      ctx.context,
+    ),
+    step.prompt,
+    editorialVoice,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,

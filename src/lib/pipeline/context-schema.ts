@@ -32,6 +32,8 @@ const SourceSchema = z.object({
   snippet: z.string(),
   // Contenido descargado (la "fuente de verdad"). Opcional para tolerar fuentes sin cuerpo.
   content: z.string().default(""),
+  // Distingue las URLs aportadas por el usuario para conservar su prioridad al reanudar.
+  userProvided: z.boolean().optional(),
   // Marcada por la heurística anti-inyección de research (contenido degradado al extracto).
   suspicious: z.boolean().optional(),
 });

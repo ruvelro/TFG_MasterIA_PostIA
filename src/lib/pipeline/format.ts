@@ -37,7 +37,8 @@ export function sourcesToText(sources: PipelineSource[]): string {
     .map((source, index) => {
       const content = source.content.replace(/<(\/?)fuente\b/gi, "&lt;$1fuente");
       const suspiciousAttr = source.suspicious ? ' sospechosa="true"' : "";
-      const openTag = `<fuente n="${index + 1}" titulo="${escapeAttribute(source.title)}" url="${escapeAttribute(source.url)}"${suspiciousAttr}>`;
+      const userProvidedAttr = source.userProvided ? ' prioridad="usuario"' : "";
+      const openTag = `<fuente n="${index + 1}" titulo="${escapeAttribute(source.title)}" url="${escapeAttribute(source.url)}"${userProvidedAttr}${suspiciousAttr}>`;
       return `${openTag}\n${content}\n</fuente>`;
     })
     .join("\n\n");
@@ -54,7 +55,7 @@ export function sourceCatalogToText(sources: PipelineSource[]): string {
   return sources
     .map(
       (source, index) =>
-        `<procedencia n="${index + 1}" titulo="${escapeAttribute(source.title.replace(/\s+/g, " ").trim())}" url="${escapeAttribute(source.url)}"${source.suspicious ? ' sospechosa="true"' : ""} />`,
+        `<procedencia n="${index + 1}" titulo="${escapeAttribute(source.title.replace(/\s+/g, " ").trim())}" url="${escapeAttribute(source.url)}"${source.userProvided ? ' prioridad="usuario"' : ""}${source.suspicious ? ' sospechosa="true"' : ""} />`,
     )
     .join("\n");
 }
