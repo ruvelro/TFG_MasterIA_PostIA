@@ -25,10 +25,12 @@ describe("sanitización de informes editoriales", () => {
       aiScore: 20,
       issues: [
         {
+          category: "factual-support",
           description: "Falta contexto en un porcentaje.",
           suggestion: "Incluye enlaces a las fuentes originales.",
         },
         {
+          category: "structure",
           description: "La sede aparece dos veces.",
           suggestion: "Elimina la repetición.",
         },
@@ -38,6 +40,7 @@ describe("sanitización de informes editoriales", () => {
 
     expect(sanitized.issues).toEqual([
       {
+        category: "structure",
         description: "La sede aparece dos veces.",
         suggestion: "Elimina la repetición.",
       },

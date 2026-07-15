@@ -41,6 +41,24 @@ describe("parsePipelineContext", () => {
     expect(parsed.blueprint?.excludeOrCompress).toEqual([]);
   });
 
+  it("rehidrata quality reviews anteriores a las categorías de incidencias", () => {
+    const ctx = {
+      topic: "t",
+      sources: [],
+      qualityReport: {
+        structureScore: 80,
+        factualSupportScore: 80,
+        seoScore: 80,
+        wordCount: 700,
+        aiScore: 30,
+        issues: [{ description: "Incidencia heredada", suggestion: "Corregir" }],
+        suggestions: [],
+      },
+    };
+    const parsed = parsePipelineContext(JSON.stringify(ctx));
+    expect(parsed.qualityReport?.issues[0].category).toBe("structure");
+  });
+
   it("lanza un error claro si el JSON está corrupto", () => {
     expect(() => parsePipelineContext("{no es json")).toThrow(/corrupto/i);
   });

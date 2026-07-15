@@ -69,11 +69,29 @@ function normalizedLength(text: string): number {
   return text.replace(/\s+/g, " ").trim().length;
 }
 
-function tokensOf(text: string, ignoredTokens: Set<string> = new Set()): Set<string> {
-  const normalized = text
+function normalizedSearchText(text: string): string {
+  return text
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+}
+
+/** Identificadores cuya mezcla de letras y cifras no admite sustituir una versión vecina. */
+export function extractDistinctiveIdentifiers(text: string): Set<string> {
+  const chunks = normalizedSearchText(text).match(/[a-z0-9]+(?:[._-][a-z0-9]+)*/g) ?? [];
+  return new Set(
+    chunks
+      .map((chunk) => chunk.replace(/[._-]/g, ""))
+      .filter((chunk) => chunk.length >= 3 && /[a-z]/.test(chunk) && /\d/.test(chunk)),
+  );
+}
+
+function compactSearchText(text: string): string {
+  return normalizedSearchText(text).replace(/[^a-z0-9]/g, "");
+}
+
+function tokensOf(text: string, ignoredTokens: Set<string> = new Set()): Set<string> {
+  const normalized = normalizedSearchText(text);
   const tokens = normalized.match(/[a-z0-9]+/g) ?? [];
   return new Set(
     tokens
@@ -120,6 +138,15 @@ function sourceIsRelevant(source: PipelineSource, topic: string): boolean {
     `${source.title} ${source.url} ${source.snippet}`.match(/\b20\d{2}\b/g) ?? [],
   );
   const sharesTopicYear = [...topicYears].some((year) => metadataYears.has(year));
+  const topicIdentifiers = extractDistinctiveIdentifiers(topic);
+  if (topicIdentifiers.size > 0) {
+    const metadata = compactSearchText(`${source.title} ${source.url} ${source.snippet}`);
+    const content = compactSearchText(source.content);
+    const preservesIdentifier = [...topicIdentifiers].some(
+      (identifier) => metadata.includes(identifier) && content.includes(identifier),
+    );
+    if (!preservesIdentifier) return false;
+  }
 
   if (titleTopicOverlap > 0) return true;
   if (titleSnippetOverlap > 0 && snippetTopicOverlap > 0) return true;
@@ -160,6 +187,7 @@ function sourceScore(source: PipelineSource, topic: string, currentYear: number)
   const contentLength = normalizedLength(source.content);
   const visibleMetadata = `${source.title} ${source.url} ${source.snippet}`;
   const topicYears = topic.match(/\b20\d{2}\b/g) ?? [];
+  const topicalCoverage = overlapSize(tokensOf(source.content), tokensOf(topic));
   let score = 0;
 
   if (isOfficialSource(source)) score += 8;
@@ -172,6 +200,7 @@ function sourceScore(source: PipelineSource, topic: string, currentYear: number)
   }
   if (visibleMetadata.includes(String(currentYear))) score += 2;
   if (topicYears.some((year) => visibleMetadata.includes(year))) score += 2;
+  score += Math.min(topicalCoverage, 4);
   if (contentLength >= 3_000) score += 3;
   else if (contentLength >= 1_000) score += 2;
   else if (contentLength >= MIN_USEFUL_CONTENT_CHARS) score += 1;
@@ -192,8 +221,10 @@ export function resolveResearchFreshnessDays(
 ): number {
   if (configuredDays > 0) return configuredDays;
   const currentYear = String(now.getUTCFullYear());
+  const currentHalfYearVersion = new RegExp(`\\b${currentYear.slice(-2)}h[12]\\b`, "i");
   const signalsCurrentEvent =
     topic.includes(currentYear) ||
+    currentHalfYearVersion.test(topic) ||
     /\b(hoy|today|actualidad|última hora|breaking|resultado reciente)\b/i.test(topic);
   return signalsCurrentEvent ? AUTO_FRESHNESS_DAYS : 0;
 }

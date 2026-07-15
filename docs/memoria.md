@@ -455,7 +455,9 @@ lugar únicamente las afirmaciones factuales dudosas o descartadas como criterio
 sin enterrarlas entre las ya confirmadas. Ambas transformaciones tienen presupuestos
 independientes, de modo que una rehumanización no reduce las `maxFixIterations` disponibles.
 Cada rehumanización recibe las incidencias de tono concretas y se descarta si la nueva medición
-empeora el `aiScore`. La aprobación
+empeora el `aiScore`. Las incidencias de `quality-review` están categorizadas mediante Zod y el
+juez debe emitir al menos una corrección `ai-tone` cuando la puntuación alcanza el umbral; de ese
+modo, una rehumanización nunca se ejecuta solo con una cifra sin diagnóstico. La aprobación
 final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
 un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se vuelve
 a evaluar antes de decidir la siguiente. Los metadatos SEO se generan después con un contrato
@@ -522,6 +524,7 @@ consecuencias:
 - **ADR 0004** — Pipeline de 6 etapas con revisión humana y bucle de calidad (histórico).
 - **ADR 0005** — Progreso por streaming NDJSON sobre POST (frente a SSE/polling).
 - **ADR 0006** — Evolución del pipeline a 12 etapas (humanización, jueces, scrub, enrich e imagen).
+- **ADR 0008** — Feedback editorial tipado y relevancia documental exacta.
 
 ---
 
@@ -604,7 +607,9 @@ frescura. Los resultados se deduplican en un pool mayor que el número final sol
 **descargan antes de seleccionar**: así pueden descartarse redes sociales y snippets mínimos,
 rechazar resultados sin relación verificable con el tema, eliminar cuerpos duplicados conservando
 la fuente más autorizada, priorizar documentos oficiales, actuales y completos, y relegar
-referencias comunitarias si hay alternativas. Como descargar URLs arbitrarias amplía la superficie de ataque, la descarga incluye
+referencias comunitarias si hay alternativas. Los identificadores de versión que mezclan letras y
+cifras se conservan en las consultas y deben aparecer en metadatos y cuerpo, lo que evita sustituir
+por error `26H2` por `25H2`. Como descargar URLs arbitrarias amplía la superficie de ataque, la descarga incluye
 un **guard anti-SSRF**, _timeout_ y límite de tamaño, y cae al _snippet_ si la descarga falla.
 
 ### 7.6. Autenticación, contraseñas fuertes y passkeys

@@ -110,6 +110,17 @@ export type FactualReview = z.infer<typeof FactualReviewSchema>;
 
 // ── Control de calidad ────────────────────────────────────────────────────────
 
+export const QUALITY_ISSUE_CATEGORIES = ["structure", "factual-support", "seo", "ai-tone"] as const;
+
+export const QualityIssueSchema = z.object({
+  category: z
+    .enum(QUALITY_ISSUE_CATEGORIES)
+    .describe("Dimensión responsable de la incidencia y etapa que debe corregirla"),
+  description: z.string(),
+  suggestion: z.string(),
+});
+export type QualityIssue = z.infer<typeof QualityIssueSchema>;
+
 export const QualityReviewSchema = z.object({
   structureScore: z.number().min(0).max(100).describe("Claridad y coherencia de la estructura"),
   factualSupportScore: z
@@ -124,12 +135,7 @@ export const QualityReviewSchema = z.object({
     .min(0)
     .max(100)
     .describe("Sabor a IA: 0 = totalmente humano, 100 = totalmente IA"),
-  issues: z.array(
-    z.object({
-      description: z.string(),
-      suggestion: z.string(),
-    }),
-  ),
+  issues: z.array(QualityIssueSchema),
   suggestions: z.array(z.string()),
 });
 export type QualityReview = z.infer<typeof QualityReviewSchema>;

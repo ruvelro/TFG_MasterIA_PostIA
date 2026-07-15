@@ -163,14 +163,36 @@ export function reportToText(report: ValidationReport): string {
     .join("\n");
 }
 
-/** Incidencias concretas que humanize debe corregir, sin mezclar SEO o fidelidad factual. */
-export function aiToneReviewToText(report?: ValidationReport): string {
-  const issues = report?.issues.filter((issue) => issue.category === "ai-tone") ?? [];
-  if (issues.length === 0) return "(primera pasada: no existe todavía un informe de estilo)";
+/** Incidencias de tono concretas para humanize, sin mezclar SEO ni fidelidad factual. */
+export function aiToneReviewToText(validation?: ValidationReport, quality?: QualityReview): string {
+  const validationIssues =
+    validation?.issues
+      .filter((issue) => issue.category === "ai-tone")
+      .map((issue) => ({
+        source: `validate/${issue.severity}`,
+        description: issue.description,
+        suggestion: issue.suggestion,
+      })) ?? [];
+  const qualityIssues =
+    quality?.issues
+      .filter((issue) => issue.category === "ai-tone")
+      .map((issue) => ({
+        source: `quality-review; aiScore ${quality.aiScore}/100`,
+        description: issue.description,
+        suggestion: issue.suggestion,
+      })) ?? [];
+  const issues = [...validationIssues, ...qualityIssues].filter(
+    (issue, index, all) =>
+      all.findIndex(
+        (candidate) =>
+          candidate.description === issue.description && candidate.suggestion === issue.suggestion,
+      ) === index,
+  );
+  if (issues.length === 0) return "(primera pasada: no existe todavía un diagnóstico de estilo)";
   return issues
     .map(
       (issue, index) =>
-        `${index + 1}. [${issue.severity}] ${issue.description}\n   Corrección: ${issue.suggestion}`,
+        `${index + 1}. [${issue.source}] ${issue.description}\n   Corrección obligatoria: ${issue.suggestion}`,
     )
     .join("\n");
 }
@@ -211,7 +233,9 @@ export function qualityReviewToText(report: QualityReview): string {
     `Sabor IA: ${report.aiScore}/100`,
     `Palabras: ${report.wordCount}`,
   ].join(" | ");
-  const issues = report.issues.map((i) => `- ${i.description} → ${i.suggestion}`).join("\n");
+  const issues = report.issues
+    .map((i) => `- [${i.category}] ${i.description} → ${i.suggestion}`)
+    .join("\n");
   const suggestions = report.suggestions.map((s) => `• ${s}`).join("\n");
   return [scores, issues && `Issues:\n${issues}`, suggestions && `Sugerencias:\n${suggestions}`]
     .filter(Boolean)
