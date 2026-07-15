@@ -39,7 +39,8 @@ Etapas añadidas respecto al ADR 0004:
 
 - **humanize**: reescribe el borrador para eliminar patrones de IA. Se ejecuta una vez tras el
   `draft` y puede **repetirse** dentro del bucle si el `aiScore` supera un umbral
-  (`aiScoreThreshold`), hasta `maxHumanizeRetries`.
+  (`aiScoreThreshold`) o `validate` mantiene una incidencia `ai-tone` media/alta, hasta
+  `maxHumanizeRetries`.
 - **factual-review**: juez especializado que clasifica cada afirmación del artículo
   (confirmada / dudosa / descartada) frente a los hechos y emite un riesgo global.
 - **quality-review**: juez que puntúa estructura, soporte factual, SEO y, sobre todo, el
@@ -61,6 +62,11 @@ Decisiones de diseño que acompañan a la ampliación:
   (`status = awaiting_blueprint_review`), análoga a la de `extract`.
 - **Validador editorial determinista** (sin IA) cuyos hallazgos se fusionan en el informe de
   `validate`: las reglas mecánicas no deben gastar tokens ni depender del juicio del modelo.
+- **Corrección factual accionable.** `fixer` recibe primero y de forma obligatoria solo las
+  afirmaciones `doubtful` o `discarded`; las confirmadas no ocultan los cambios pendientes.
+- **Selección documental posterior a la descarga.** `research` reúne un pool mayor que el número
+  final de fuentes, descarga los candidatos y después descarta redes sociales y snippets mínimos,
+  prioriza autoridad y actualidad y limita referencias comunitarias cuando hay alternativas.
 
 ## Alternativas descartadas
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  actionableFactualReviewToText,
   blueprintToText,
+  combinedReviewToText,
   composeEditorialVoice,
   computeAiDetection,
   computeNewsArticleJsonLd,
@@ -134,6 +136,29 @@ describe("formateadores de contexto", () => {
     });
     expect(text).toContain("ai-tone");
     expect(text).toContain("reescribe");
+  });
+
+  it("prepara para el fixer solo las afirmaciones factuales accionables y las prioriza", () => {
+    const factual = {
+      riskLevel: "medium" as const,
+      claims: [
+        { claim: "Hecho confirmado", status: "confirmed" as const, reason: "Consta" },
+        { claim: "Comparación absoluta", status: "doubtful" as const, reason: "No se compara" },
+        { claim: "Dato incorrecto", status: "discarded" as const, reason: "Contradice la fuente" },
+      ],
+      summary: "Hay dos correcciones.",
+      researchSufficiency: { sufficient: true, reason: "Fuentes suficientes" },
+    };
+
+    const actionable = actionableFactualReviewToText(factual);
+    expect(actionable).not.toContain("Hecho confirmado");
+    expect(actionable).toContain("Comparación absoluta");
+    expect(actionable).toContain("Dato incorrecto");
+
+    const combined = combinedReviewToText({ passed: true, issues: [] }, factual);
+    expect(combined.indexOf("CORRECCIONES FACTUALES")).toBeLessThan(
+      combined.indexOf("Validación editorial"),
+    );
   });
 
   it("styleProfileToText avisa cuando el perfil está vacío", () => {
