@@ -1,5 +1,13 @@
-import { factsToText, newsTypeDirectivesToText } from "@/lib/pipeline/format";
-import { appendUserContext, renderTemplate } from "@/lib/pipeline/render-template";
+import {
+  composeEditorialVoice,
+  factsToText,
+  newsTypeDirectivesToText,
+} from "@/lib/pipeline/format";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import { BlueprintSchema, type Blueprint } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -17,15 +25,21 @@ export async function runBlueprint(
   if (!ctx.facts) throw new Error("blueprint requiere los hechos de la etapa extract");
 
   const step = cfg.steps.blueprint;
-  const prompt = appendUserContext(
-    renderTemplate(step.prompt, {
-      topic: ctx.topic,
-      facts: factsToText(ctx.facts),
-      formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
-      context: ctx.context ?? "",
-    }),
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        topic: ctx.topic,
+        facts: factsToText(ctx.facts),
+        formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
+        context: ctx.context ?? "",
+        editorialVoice,
+      }),
+      step.prompt,
+      ctx.context,
+    ),
     step.prompt,
-    ctx.context,
+    editorialVoice,
   );
 
   const { object, usage } = await deps.runObject({
