@@ -114,8 +114,7 @@ const FEATURES = [
   {
     Icon: IconLayers,
     title: "Pipeline multi-etapa",
-    description:
-      "Once etapas encadenadas —de la investigación a la meta SEO— y un modelo distinto por paso vía OpenRouter, para usar el mejor LLM en cada tarea.",
+    description: `${PIPELINE_STAGES.length} etapas encadenadas —de la investigación a la imagen destacada— y un modelo distinto por paso vía OpenRouter, para usar el mejor LLM en cada tarea.`,
   },
   {
     Icon: IconPen,
@@ -149,9 +148,21 @@ const FEATURES = [
   },
   {
     Icon: IconImage,
-    title: "Generador de imágenes",
+    title: "Imagen integrada o independiente",
     description:
-      "Crea imágenes sueltas —destacadas, de relleno o genéricas— eligiendo modelo, prompt y estilo. Los estilos se configuran una vez y se reutilizan en cada generación.",
+      "Genera la imagen destacada desde el prompt del artículo cuando el tipo lo activa, o crea imágenes sueltas con modelo, prompt y estilo reutilizable.",
+  },
+  {
+    Icon: IconGlobe,
+    title: "Publicación multicanal",
+    description:
+      "Exporta Markdown o HTML, publica en WordPress como borrador o entrada y consume el generador desde una API propia con claves revocables por usuario.",
+  },
+  {
+    Icon: IconGauge,
+    title: "Producción controlada",
+    description:
+      "Genera por lotes con presupuesto, limita el coste diario por usuario, avisa de temas repetidos con embeddings y ajusta frescura de fuentes por tipo de noticia.",
   },
 ];
 
@@ -241,8 +252,8 @@ export default function HomePage() {
             </h1>
             <p className="text-muted max-w-2xl text-lg">
               PostIA convierte una idea en un artículo de blog con respaldo en fuentes, voz de marca
-              propia y SEO listo para publicar — mediante un pipeline de IA multi-etapa, con un
-              modelo distinto por paso.
+              propia, imagen destacada opcional y salida lista para web — mediante un pipeline de IA
+              multi-etapa, con un modelo distinto por paso.
             </p>
             <div className="mt-2 flex flex-col gap-3 sm:flex-row">
               <Link
@@ -270,7 +281,8 @@ export default function HomePage() {
             <h2 className="text-3xl font-bold tracking-tight">Calidad editorial, por diseño</h2>
             <p className="text-muted mt-3 text-lg">
               No es un «escribe un artículo» a ciegas. Cada pieza pasa por investigación,
-              verificación, control de calidad y limpieza antes de llegar a ti.
+              verificación, control de calidad, limpieza, enriquecimiento e imagen opcional antes de
+              llegar a ti.
             </p>
           </div>
 
@@ -304,8 +316,8 @@ export default function HomePage() {
                 {PIPELINE_STAGES.length} etapas, cada una a lo suyo
               </h2>
               <p className="text-muted mt-3 text-lg">
-                Una cadena transparente: ves en qué paso está cada generación y puedes pausar para
-                revisar los hechos o la estructura.
+                Una cadena transparente: ves en qué paso está cada generación, puedes pausar para
+                revisar hechos o estructura, y activar etapas opcionales por tipo de noticia.
               </p>
             </div>
 
@@ -358,8 +370,8 @@ export default function HomePage() {
               Genera tu primer artículo hoy
             </h2>
             <p className="relative mx-auto mt-3 max-w-xl text-white/80">
-              Crea tu cuenta, conecta tus claves y deja que el pipeline investigue, redacte y
-              optimice por ti.
+              Crea tu cuenta, conecta tus claves y deja que el pipeline investigue, redacte,
+              optimice, genere imagen y prepare la salida para publicar.
             </p>
             <div className="relative mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Link

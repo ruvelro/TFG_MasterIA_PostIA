@@ -33,6 +33,12 @@ const REQUEST_TIMEOUT_MS = 120_000;
  */
 const STRUCTURED_OUTPUT_MAX_TOKENS = 16_384;
 
+/**
+ * Sin límite explícito, algunos modelos de OpenRouter anuncian ventanas de salida enormes
+ * (65K tokens) y OpenRouter bloquea la llamada por créditos antes de generar nada.
+ */
+const TEXT_OUTPUT_MAX_TOKENS = 16_384;
+
 /** Los reintentos del SDK no se aplican a JSON inválido, así que se recupera fuera del SDK. */
 const STRUCTURED_RECOVERY_ATTEMPTS = 2;
 
@@ -47,6 +53,8 @@ export interface GenerateParams {
   maxRetries?: number;
   /** Timeout por llamada en ms; cae a `REQUEST_TIMEOUT_MS` si no se indica. */
   timeoutMs?: number;
+  /** Límite máximo de tokens de salida; evita que el proveedor reserve ventanas enormes. */
+  maxOutputTokens?: number;
 }
 
 /**
@@ -77,6 +85,7 @@ export async function runTextGeneration(params: GenerateParams): Promise<TextGen
     model: createOpenRouterModel(params.apiKey, params.modelId),
     system: params.system,
     prompt: params.prompt,
+    maxOutputTokens: params.maxOutputTokens ?? TEXT_OUTPUT_MAX_TOKENS,
     maxRetries: params.maxRetries ?? MAX_RETRIES,
     abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
   });
@@ -185,6 +194,7 @@ export async function runImageGeneration(params: GenerateParams): Promise<ImageG
   const result = await generateText({
     model: createOpenRouterModel(params.apiKey, params.modelId),
     prompt: params.prompt,
+    maxOutputTokens: params.maxOutputTokens ?? TEXT_OUTPUT_MAX_TOKENS,
     maxRetries: params.maxRetries ?? MAX_RETRIES,
     abortSignal: buildAbortSignal(params.abortSignal, params.timeoutMs),
   });

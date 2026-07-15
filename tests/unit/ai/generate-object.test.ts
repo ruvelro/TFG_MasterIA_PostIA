@@ -20,7 +20,7 @@ vi.mock("@/lib/ai/openrouter", () => ({
   createOpenRouterModel: mocks.createOpenRouterModel,
 }));
 
-import { runObjectGeneration } from "@/lib/ai/generate";
+import { runObjectGeneration, runTextGeneration } from "@/lib/ai/generate";
 
 const schema = z.object({ score: z.number(), issues: z.array(z.string()) });
 
@@ -87,5 +87,48 @@ describe("runObjectGeneration", () => {
     ).resolves.toMatchObject({ object: { score: 91, issues: [] } });
 
     expect(mocks.generateText).not.toHaveBeenCalled();
+  });
+});
+
+describe("runTextGeneration", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("limita los tokens de salida para evitar reservas enormes del proveedor", async () => {
+    mocks.generateText.mockResolvedValue({
+      text: "texto humanizado",
+      usage: { inputTokens: 12, outputTokens: 4 },
+    });
+
+    await expect(
+      runTextGeneration({
+        apiKey: "test-key",
+        modelId: "openai/test",
+        prompt: "Humaniza este borrador",
+      }),
+    ).resolves.toEqual({
+      text: "texto humanizado",
+      usage: { inputTokens: 12, outputTokens: 4 },
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 16_384 }),
+    );
+  });
+
+  it("permite sobreescribir el límite de salida cuando una llamada lo necesita", async () => {
+    mocks.generateText.mockResolvedValue({ text: "ok", usage: {} });
+
+    await runTextGeneration({
+      apiKey: "test-key",
+      modelId: "openai/test",
+      prompt: "Resumen corto",
+      maxOutputTokens: 512,
+    });
+
+    expect(mocks.generateText).toHaveBeenCalledWith(
+      expect.objectContaining({ maxOutputTokens: 512 }),
+    );
   });
 });

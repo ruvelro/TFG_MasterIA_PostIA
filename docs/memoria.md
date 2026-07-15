@@ -177,13 +177,12 @@ demostrando **buenas prácticas de ingeniería del software**.
 
 ### 2.3. Alcance y limitaciones
 
-El proyecto se centra en el flujo completo «tema → artículo publicable» para un único idioma
-(español) y un entorno de ejecución local o en un VPS modesto. Quedan **fuera del alcance**:
-la publicación automática en gestores de contenido externos (WordPress, etc.), la generación
-real de imágenes (se genera el _prompt_ de imagen, no la imagen), el escalado horizontal en
-arquitecturas _serverless_ con timeouts cortos (se documenta como línea futura) y la gestión
-multi-idioma. La persistencia emplea SQLite, suficiente para el alcance académico y migrable
-a PostgreSQL sin cambios de esquema.
+El proyecto se centra en el flujo completo «tema → artículo publicable», con generación
+multi-idioma, exportación Markdown/HTML, publicación opcional en WordPress e imagen destacada
+cuando el tipo de noticia lo activa. Quedan **fuera del alcance** el escalado horizontal en
+arquitecturas _serverless_ con timeouts cortos, una cola durable para lotes largos y la gestión
+multi-tenant de marcas o portales. La persistencia emplea SQLite, suficiente para el alcance
+académico y migrable a PostgreSQL sin cambios de esquema.
 
 ---
 
@@ -262,10 +261,10 @@ correspondiente, de modo que la calidad no se pospone a una fase final.
 | 2    | Autenticación y seguridad: registro, contraseñas fuertes, passkeys, roles.                 |
 | 3    | Configuración: claves de API cifradas, ajustes y configuración por etapa (panel de admin). |
 | 4    | Pipeline de generación: orquestador, etapas, streaming de progreso y revisión humana.      |
-| 5    | Evolución del pipeline a 11 etapas (humanización, jueces especializados, scrub, enrich).   |
+| 5    | Evolución del pipeline a 12 etapas (humanización, jueces, scrub, enrich e imagen).         |
 | 6    | Observabilidad (coste por etapa, registro de errores), endurecimiento y despliegue Docker. |
 
-La evolución del pipeline (de 5 a 6 y de 6 a 11 etapas) está documentada en los ADR 0004 y
+La evolución del pipeline (de 5 a 6 y de 6 a 12 etapas) está documentada en los ADR 0004 y
 0006, y refleja un aprendizaje real del uso del sistema con casos concretos.
 
 ### 4.3. Control de versiones y flujo de trabajo
@@ -303,11 +302,13 @@ el propio repositorio.
 
 ### 5.1. Actores
 
-- **Usuario registrado.** Genera artículos, revisa los hechos y la estructura, y consulta su
-  historial. Gestiona su cuenta (contraseña, passkeys).
+- **Usuario registrado.** Genera artículos, imágenes y lotes, revisa los hechos y la estructura,
+  consulta su historial y exporta o publica piezas. Gestiona su cuenta (contraseña, passkeys y
+  claves de API personales).
 - **Administrador.** Primer usuario registrado; además de lo anterior, configura las claves
   de API, el proveedor de búsqueda, el modelo y prompt de cada etapa, los tipos de noticia,
-  los presets de longitud, la voz editorial, y consulta los paneles de coste y errores.
+  los presets de longitud, los estilos de imagen, la voz editorial, y consulta los paneles de
+  coste y errores.
 
 ### 5.2. Requisitos funcionales
 
@@ -315,7 +316,7 @@ el propio repositorio.
 | ---- | ---------------------------------------------------------------------------------------------------------------- |
 | RF1  | Registro abierto de usuarios con política de contraseñas fuertes; el primer usuario se promueve a admin.         |
 | RF2  | Inicio de sesión con email/contraseña y, opcionalmente, con **passkey** (WebAuthn).                              |
-| RF3  | Generar un artículo a partir de un tema (y contexto opcional), eligiendo tipo de noticia y longitud.             |
+| RF3  | Generar un artículo a partir de un tema (y contexto opcional), eligiendo tipo, longitud e idioma.                |
 | RF4  | Investigar y **descargar** el contenido de varias fuentes web reales como base del artículo.                     |
 | RF5  | Pausar la generación para que el usuario **revise/edite los hechos** extraídos antes de redactar.                |
 | RF6  | Pausar la generación para que el usuario **revise/edite la estructura** (titular, secciones, keyword).           |
@@ -326,6 +327,9 @@ el propio repositorio.
 | RF11 | Configurar (admin) modelo y prompt por etapa, tipos de noticia, presets de longitud y voz editorial.             |
 | RF12 | Gestionar (admin) las claves de API de forma **cifrada** y elegir el proveedor de búsqueda.                      |
 | RF13 | Ofrecer (admin) observabilidad: **coste estimado por etapa/ejecución** y **registro de errores**.                |
+| RF14 | Generar imágenes destacadas integradas o imágenes sueltas reutilizables desde una galería.                       |
+| RF15 | Exportar Markdown/HTML, publicar en WordPress y exponer una API autenticada con claves revocables por usuario.   |
+| RF16 | Crear lotes de temas con presupuesto y seguimiento de progreso.                                                  |
 
 ### 5.3. Requisitos no funcionales
 
@@ -435,11 +439,12 @@ research → extract → [revisión humana opcional]
 | 9   | **fixer**          | Sí            | Corrige según los informes; al cierre genera la **meta SEO** sin reescribir el cuerpo.    |
 | 10  | **scrub**          | No (regex)    | Elimina meta-referencias de investigación del texto final.                                |
 | 11  | **enrich**         | Sí            | Titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt de imagen.           |
+| 12  | **feature-image**  | Sí (imagen)   | Genera y persiste la imagen destacada a partir del prompt de `enrich`, si está activada.  |
 
-Las etapas **humanize**, **factual-review** y **quality-review** son **opcionales** según el
-tipo de noticia; `research` nunca lo es. Además, dentro del bucle corre un **validador
-editorial determinista** (sin IA) que comprueba reglas mecánicas (palabras prohibidas,
-densidad, citas) y fusiona sus hallazgos en el informe de `validate`.
+Las etapas **humanize**, **factual-review**, **quality-review** y **feature-image** son
+**opcionales** según el tipo de noticia; `research` nunca lo es. Además, dentro del bucle corre
+un **validador editorial determinista** (sin IA) que comprueba reglas mecánicas (palabras
+prohibidas, densidad, citas) y fusiona sus hallazgos en el informe de `validate`.
 
 ### 6.5. Bucle de calidad y revisión humana
 
@@ -512,7 +517,7 @@ consecuencias:
   seguro» que `.env` para un secreto único: aporta gestión por UI, no seguridad adicional).
 - **ADR 0004** — Pipeline de 6 etapas con revisión humana y bucle de calidad (histórico).
 - **ADR 0005** — Progreso por streaming NDJSON sobre POST (frente a SSE/polling).
-- **ADR 0006** — Evolución del pipeline a 11 etapas (humanización, jueces, scrub, enrich).
+- **ADR 0006** — Evolución del pipeline a 12 etapas (humanización, jueces, scrub, enrich e imagen).
 
 ---
 
@@ -688,10 +693,11 @@ mantenibilidad.
 ### 9.1. Producto obtenido
 
 El resultado es una aplicación web **completa y funcional** que cubre los requisitos
-planteados: registro y autenticación robustos, generación de artículos por un pipeline de 11
-etapas con fuentes reales, revisión humana opcional, progreso en vivo, panel de administración
-con configuración por etapa y observabilidad de coste, e historial por usuario. El proyecto se
-empaqueta con **Docker** (imagen multi-stage, usuario no-root, secretos solo en `.env`,
+planteados: registro y autenticación robustos, generación de artículos por un pipeline de 12
+etapas con fuentes reales, revisión humana opcional, progreso en vivo, imagen destacada,
+exportación/publicación, API pública, lotes, panel de administración con configuración por etapa
+y observabilidad de coste, e historial por usuario. El proyecto se empaqueta con **Docker**
+(imagen multi-stage, usuario no-root, secretos solo en `.env`,
 migraciones automáticas al arrancar y healthcheck), de modo que levantarlo se reduce a un
 `docker compose up`.
 
@@ -717,18 +723,18 @@ La trazabilidad de coste por etapa hace ese gasto visible en el panel de adminis
 
 ### 9.3. Grado de cumplimiento de objetivos
 
-| Objetivo | Estado | Evidencia                                                               |
-| -------- | ------ | ----------------------------------------------------------------------- |
-| O1       | ✅     | 11 etapas con contratos Zod; catálogo único en `stages.ts`.             |
-| O2       | ✅     | _research_ descarga el contenido real de N fuentes.                     |
-| O3       | ✅     | `resolveStepConfig`: modelo y prompt por etapa, configurables en admin. |
-| O4       | ✅     | Pausas `awaiting_review` y `awaiting_blueprint_review`.                 |
-| O5       | ✅     | _humanize_ gobernada por `aiScore`; jueces especializados.              |
-| O6       | ✅     | _enrich_: meta, keywords, FAQ, Schema.org, alt, prompt de imagen.       |
-| O7       | ✅     | Better Auth, roles, AES-256-GCM, Zod, cabeceras, rate limit.            |
-| O8       | ✅     | 158 tests (unit/integración) + e2e Playwright + CI.                     |
-| O9       | ✅     | Documentación (`docs/`), 6 ADRs, Conventional Commits, PRs.             |
-| O10      | ✅     | Docker multi-stage con migraciones automáticas.                         |
+| Objetivo | Estado | Evidencia                                                                  |
+| -------- | ------ | -------------------------------------------------------------------------- |
+| O1       | ✅     | 12 etapas con contratos Zod; catálogo único en `stages.ts`.                |
+| O2       | ✅     | _research_ descarga el contenido real de N fuentes.                        |
+| O3       | ✅     | `resolveStepConfig`: modelo y prompt por etapa, configurables en admin.    |
+| O4       | ✅     | Pausas `awaiting_review` y `awaiting_blueprint_review`.                    |
+| O5       | ✅     | _humanize_ gobernada por `aiScore`; jueces especializados.                 |
+| O6       | ✅     | _enrich_ + _feature-image_: meta, keywords, FAQ, Schema.org, alt e imagen. |
+| O7       | ✅     | Better Auth, roles, AES-256-GCM, Zod, cabeceras, rate limit.               |
+| O8       | ✅     | 158 tests (unit/integración) + e2e Playwright + CI.                        |
+| O9       | ✅     | Documentación (`docs/`), 6 ADRs, Conventional Commits, PRs.                |
+| O10      | ✅     | Docker multi-stage con migraciones automáticas.                            |
 
 ---
 
@@ -758,10 +764,12 @@ por interfaz, no seguridad adicional—, o que la validación monolítica inicia
   trabajo asíncrono con sondeo de estado ampliaría las opciones de despliegue (ADR 0005).
 - **Claves por usuario.** El cifrado en BD ya deja la puerta abierta a que cada usuario use su
   propia clave de OpenRouter, en lugar de una única clave global.
-- **Multi-idioma** y perfiles de voz editorial por marca.
-- **Generación real de imágenes** a partir del _prompt_ ya producido por la etapa de enrich.
+- **Perfiles de voz editorial por marca o portal.** El idioma ya es parámetro de generación; el
+  siguiente paso es separar varias identidades editoriales dentro de una misma instalación.
+- **Cola durable para lotes largos.** La generación por lotes ya existe, pero una cola persistente
+  permitiría reanudar trabajos tras reinicios y escalar trabajadores.
 - **Métricas agregadas** y paneles de evolución de calidad/coste entre ejecuciones.
-- **Publicación directa** en gestores de contenido externos (p. ej. WordPress) vía API.
+- **Conectores CMS adicionales** más allá de WordPress.
 - **Migración a PostgreSQL** para escenarios de mayor concurrencia (cambio de `datasource`).
 
 ---
@@ -844,7 +852,7 @@ del proyecto.
 | Documento                          | Contenido                                      |
 | ---------------------------------- | ---------------------------------------------- |
 | [arquitectura.md](arquitectura.md) | Visión general, capas y flujo de datos.        |
-| [pipeline.md](pipeline.md)         | Las 11 etapas, contratos y modelo por etapa.   |
+| [pipeline.md](pipeline.md)         | Las 12 etapas, contratos y modelo por etapa.   |
 | [stack.md](stack.md)               | Stack tecnológico y justificación.             |
 | [seguridad.md](seguridad.md)       | Modelo de amenazas y controles.                |
 | [modelo-datos.md](modelo-datos.md) | Entidades de la base de datos y relaciones.    |

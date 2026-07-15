@@ -5,7 +5,7 @@
 | Documento                                            | Contenido                                                 |
 | ---------------------------------------------------- | --------------------------------------------------------- |
 | [arquitectura.md](arquitectura.md)                   | Visión general, componentes y flujo de datos.             |
-| [pipeline.md](pipeline.md)                           | Las 11 etapas del pipeline, contratos y modelo por etapa. |
+| [pipeline.md](pipeline.md)                           | Las 12 etapas del pipeline, contratos y modelo por etapa. |
 | [stack.md](stack.md)                                 | Stack tecnológico y justificación de cada elección.       |
 | [seguridad.md](seguridad.md)                         | Modelo de amenazas y controles de seguridad.              |
 | [modelo-datos.md](modelo-datos.md)                   | Entidades de la base de datos y relaciones.               |

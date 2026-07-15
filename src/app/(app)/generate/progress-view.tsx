@@ -24,6 +24,7 @@ const STATUS_DOT: Record<StageView["status"], string> = {
   running: "bg-primary animate-pulse",
   done: "bg-green-500",
   error: "bg-red-500",
+  skipped: "bg-muted/50",
 };
 
 const STATUS_LABEL: Record<StageView["status"], string> = {
@@ -31,6 +32,7 @@ const STATUS_LABEL: Record<StageView["status"], string> = {
   running: "En curso…",
   done: "Hecho",
   error: "Error",
+  skipped: "Omitido",
 };
 
 /**
