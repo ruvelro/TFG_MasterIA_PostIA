@@ -19,6 +19,7 @@ import { getAllStepConfigs } from "@/lib/settings/pipeline-config";
 import { getSecretStatus } from "@/lib/settings/secrets";
 import { ModelCombobox } from "@/components/model-combobox";
 import { CollapsibleEditor } from "@/components/collapsible-editor";
+import { AI_TIMEOUT_MAX_MS, AI_TIMEOUT_MIN_MS } from "@/lib/config/ai-timeout";
 
 import {
   saveGenerationConfig,
@@ -324,12 +325,14 @@ export default async function AdminPage() {
               />
             </label>
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Timeout por llamada de IA (ms)</span>
+              <span className="font-medium">
+                Timeout por llamada de IA (ms, recomendado 300000)
+              </span>
               <input
                 name="aiTimeoutMs"
                 type="number"
-                min={10000}
-                max={300000}
+                min={AI_TIMEOUT_MIN_MS}
+                max={AI_TIMEOUT_MAX_MS}
                 step={1000}
                 defaultValue={generation.aiTimeoutMs}
                 className={inputClass}

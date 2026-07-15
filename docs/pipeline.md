@@ -126,6 +126,16 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
 {{editorialVoice}} {{seoRules}} {{proseRhythm}} {{sourceCatalog}}`.
 - El modelo se introduce como texto libre, p. ej. `google/gemini-2.5-flash`.
 
+## Timeout y reintentos de IA
+
+Cada llamada al AI SDK tiene una ventana configurable desde Admin que abarca también sus
+reintentos internos. El valor de fábrica es **300.000 ms (5 minutos)** para dar margen a prompts
+largos y objetos estructurados extensos, especialmente la salida del `fixer`. El administrador
+puede ajustarlo entre 10.000 y 600.000 ms; el límite superior evita que una conexión abandonada
+por el proveedor bloquee indefinidamente la generación. Las instalaciones que conservaban el
+valor anterior de 120.000 ms se elevan una vez mediante migración, sin reducir configuraciones
+manuales que ya fueran superiores.
+
 ## Arquitectura y testabilidad
 
 - `orchestrator.ts` recibe las **dependencias inyectadas** (`PipelineDeps`: IA y búsqueda)

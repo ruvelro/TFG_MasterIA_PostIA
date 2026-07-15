@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { prisma } from "@/lib/db/client";
+import { AI_TIMEOUT_MAX_MS, AI_TIMEOUT_MIN_MS } from "@/lib/config/ai-timeout";
 import { DEFAULT_PIPELINE_PARAMS } from "@/lib/pipeline/default-config";
 import { DEFAULT_SCRUB_PATTERNS } from "@/lib/pipeline/steps/scrub";
 import { DEFAULT_VALIDATOR_CONFIG } from "@/lib/pipeline/steps/editorial-validator";
@@ -51,12 +52,16 @@ describe("getGenerationConfig — parámetros del bucle de calidad y limpieza", 
     expect(cfg.maxHumanizeRetries).toBe(5);
   });
 
-  it("acota la resiliencia de IA: reintentos a 0-5 y timeout a 10s-5min", async () => {
+  it("acota la resiliencia de IA: reintentos a 0-5 y timeout a 10s-10min", async () => {
     await setAppSetting(SETTING_KEYS.aiMaxRetries, "99");
     await setAppSetting(SETTING_KEYS.aiTimeoutMs, "1"); // por debajo del mínimo
-    const cfg = await getGenerationConfig();
-    expect(cfg.aiMaxRetries).toBe(5);
-    expect(cfg.aiTimeoutMs).toBe(10_000);
+    const minimum = await getGenerationConfig();
+    expect(minimum.aiMaxRetries).toBe(5);
+    expect(minimum.aiTimeoutMs).toBe(AI_TIMEOUT_MIN_MS);
+
+    await setAppSetting(SETTING_KEYS.aiTimeoutMs, "9999999");
+    const maximum = await getGenerationConfig();
+    expect(maximum.aiTimeoutMs).toBe(AI_TIMEOUT_MAX_MS);
   });
 
   it("parsea los patrones de limpieza desde el textarea (uno por línea)", async () => {

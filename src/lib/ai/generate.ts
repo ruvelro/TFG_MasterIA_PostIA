@@ -7,6 +7,7 @@ import {
   parseStructuredObjectFromText,
   repairStructuredObjectText,
 } from "@/lib/ai/structured-output";
+import { AI_TIMEOUT_DEFAULT_MS } from "@/lib/config/ai-timeout";
 
 export {
   parseStructuredObjectFromText,
@@ -22,10 +23,10 @@ const MAX_RETRIES = 2;
 
 /**
  * Tiempo máximo por llamada de IA. Sin él, una etapa colgada bloquearía la generación
- * indefinidamente (y mantendría la conexión de streaming abierta). 2 minutos cubre incluso a
- * los modelos lentos con prompts largos.
+ * indefinidamente (y mantendría la conexión de streaming abierta). Cinco minutos dan margen a
+ * modelos lentos y salidas estructuradas largas sin renunciar a un límite defensivo.
  */
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = AI_TIMEOUT_DEFAULT_MS;
 
 /**
  * Los informes factuales y el fixer pueden producir JSON extenso. Sin un límite explícito,
