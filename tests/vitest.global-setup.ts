@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 
 /**
  * Setup global de Vitest: prepara una base de datos SQLite DEDICADA y LIMPIA (`test.db`)
@@ -11,5 +11,7 @@ export default function setup() {
   for (const file of ["test.db", "test.db-journal"]) {
     rmSync(file, { force: true });
   }
+  // Prisma puede migrar un SQLite vacío incluso cuando el motor local no logra crearlo.
+  writeFileSync("test.db", "");
   execSync("npx prisma migrate deploy", { env, stdio: "inherit" });
 }
