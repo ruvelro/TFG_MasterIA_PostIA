@@ -99,11 +99,11 @@ export function createFakePipelineDeps(): PipelineDeps {
   };
 
   return {
-    search: async (_query, limit) =>
+    search: async (query, limit) =>
       Array.from({ length: limit }, (_unused, index) => ({
-        title: `Fuente de ejemplo ${index}`,
+        title: `${query}: fuente de ejemplo ${index}`,
         url: `https://example.com/${index}`,
-        snippet: `Extracto de ejemplo ${index}`,
+        snippet: `Información sobre ${query}, extracto de ejemplo ${index}`,
       })),
     fetchContent: async (url) => `Contenido simulado descargado de ${url}.`,
     runText: async () => ({

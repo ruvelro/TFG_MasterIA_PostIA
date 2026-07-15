@@ -163,6 +163,18 @@ export function reportToText(report: ValidationReport): string {
     .join("\n");
 }
 
+/** Incidencias concretas que humanize debe corregir, sin mezclar SEO o fidelidad factual. */
+export function aiToneReviewToText(report?: ValidationReport): string {
+  const issues = report?.issues.filter((issue) => issue.category === "ai-tone") ?? [];
+  if (issues.length === 0) return "(primera pasada: no existe todavía un informe de estilo)";
+  return issues
+    .map(
+      (issue, index) =>
+        `${index + 1}. [${issue.severity}] ${issue.description}\n   Corrección: ${issue.suggestion}`,
+    )
+    .join("\n");
+}
+
 export function factualReviewToText(report: FactualReview): string {
   const claims = report.claims.map((c) => `- [${c.status}] ${c.claim} — ${c.reason}`).join("\n");
   return [`Nivel de riesgo: ${report.riskLevel}`, report.summary, claims]

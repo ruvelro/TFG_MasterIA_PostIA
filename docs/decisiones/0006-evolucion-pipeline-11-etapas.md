@@ -64,9 +64,15 @@ Decisiones de diseño que acompañan a la ampliación:
   `validate`: las reglas mecánicas no deben gastar tokens ni depender del juicio del modelo.
 - **Corrección factual accionable.** `fixer` recibe primero y de forma obligatoria solo las
   afirmaciones `doubtful` o `discarded`; las confirmadas no ocultan los cambios pendientes.
+- **Humanización dirigida y reversible.** Cada reintento recibe las incidencias `ai-tone` del
+  último informe. El texto se vuelve a medir y, si aumenta el `aiScore`, se restaura el borrador
+  anterior para impedir una regresión editorial.
 - **Selección documental posterior a la descarga.** `research` reúne un pool mayor que el número
   final de fuentes, descarga los candidatos y después descarta redes sociales y snippets mínimos,
-  prioriza autoridad y actualidad y limita referencias comunitarias cuando hay alternativas.
+  exige relevancia entre tema y metadatos, elimina cuerpos duplicados conservando la fuente más
+  autorizada, prioriza actualidad y limita referencias comunitarias cuando hay alternativas.
+- **Cronología explícita para el juez.** `quality-review` recibe la fecha de ejecución para no
+  confundir hechos recientes posteriores al corte de conocimiento del modelo con simulaciones.
 
 ## Alternativas descartadas
 

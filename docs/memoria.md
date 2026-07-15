@@ -453,7 +453,9 @@ Tras la primera humanización, el orquestador ejecuta los jueces y, en función 
 media/alta, hasta `maxHumanizeRetries`) o corrige con **fixer**. El corrector recibe en primer
 lugar únicamente las afirmaciones factuales dudosas o descartadas como criterios obligatorios,
 sin enterrarlas entre las ya confirmadas. Ambas transformaciones tienen presupuestos
-independientes, de modo que una rehumanización no reduce las `maxFixIterations` disponibles. La aprobación
+independientes, de modo que una rehumanización no reduce las `maxFixIterations` disponibles.
+Cada rehumanización recibe las incidencias de tono concretas y se descarta si la nueva medición
+empeora el `aiScore`. La aprobación
 final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
 un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se vuelve
 a evaluar antes de decidir la siguiente. Los metadatos SEO se generan después con un contrato
@@ -600,8 +602,9 @@ La etapa de _research_ consulta el proveedor de búsqueda activo a través de la
 reciente; cuando el tema menciona el año actual se aplica además una ventana automática de
 frescura. Los resultados se deduplican en un pool mayor que el número final solicitado y se
 **descargan antes de seleccionar**: así pueden descartarse redes sociales y snippets mínimos,
-priorizar documentos oficiales, actuales y completos, y relegar referencias comunitarias si hay
-alternativas. Como descargar URLs arbitrarias amplía la superficie de ataque, la descarga incluye
+rechazar resultados sin relación verificable con el tema, eliminar cuerpos duplicados conservando
+la fuente más autorizada, priorizar documentos oficiales, actuales y completos, y relegar
+referencias comunitarias si hay alternativas. Como descargar URLs arbitrarias amplía la superficie de ataque, la descarga incluye
 un **guard anti-SSRF**, _timeout_ y límite de tamaño, y cae al _snippet_ si la descarga falla.
 
 ### 7.6. Autenticación, contraseñas fuertes y passkeys
