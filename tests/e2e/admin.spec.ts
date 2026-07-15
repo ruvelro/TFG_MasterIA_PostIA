@@ -35,6 +35,15 @@ test.describe("panel de administración", () => {
     await page.getByRole("button", { name: "Guardar claves" }).click();
 
     await expect(page.getByPlaceholder(/Configurada \(••••1234\)/)).toBeVisible();
+
+    for (const tab of ["Tipos de noticia", "Longitudes", "Imágenes", "Pipeline"]) {
+      await page.getByRole("button", { name: tab, exact: true }).click();
+      const editor = page.locator("details[data-collapsible-editor]:visible").first();
+      await expect(editor).toBeVisible();
+      await expect(editor).not.toHaveAttribute("open", "");
+      await editor.locator(":scope > summary").click();
+      await expect(editor).toHaveAttribute("open", "");
+    }
   });
 
   test("un usuario no administrador no puede entrar en /admin", async ({ page }) => {

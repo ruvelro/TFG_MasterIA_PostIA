@@ -84,6 +84,45 @@ describe("mergeSearchResults", () => {
 });
 
 describe("runResearch", () => {
+  it("descarga las URLs del contexto con prioridad y mantiene el cupo adicional de research", async () => {
+    const providedUrl = "https://usuario.example/documento";
+    const search = vi
+      .fn()
+      .mockResolvedValue([
+        result(providedUrl),
+        result("https://research.example/contraste", "Tema de prueba contraste"),
+      ]);
+    const fetchContent = vi.fn(async (url: string) => `Contenido completo de ${url} `.repeat(30));
+
+    const { sources } = await runResearch(
+      { ...ctx, context: `Dato prioritario. Fuente: ${providedUrl}` },
+      makeCfg({ sourceCount: 1 }),
+      makeDeps({ search, fetchContent }),
+    );
+
+    expect(sources).toHaveLength(2);
+    expect(sources[0]).toMatchObject({ url: providedUrl, userProvided: true });
+    expect(sources[1].url).toBe("https://research.example/contraste");
+    expect(fetchContent).toHaveBeenCalledWith(providedUrl);
+    expect(fetchContent).toHaveBeenCalledTimes(2); // la URL duplicada del buscador no se descarga
+  });
+
+  it("puede continuar con una URL prioritaria aunque falle el proveedor de búsqueda", async () => {
+    const providedUrl = "https://usuario.example/fuente";
+    const { sources } = await runResearch(
+      { ...ctx, context: providedUrl },
+      makeCfg(),
+      makeDeps({
+        search: async () => {
+          throw new Error("proveedor caído");
+        },
+        fetchContent: async () => "Documento aportado por el usuario con datos verificables.",
+      }),
+    );
+
+    expect(sources).toEqual([expect.objectContaining({ url: providedUrl, userProvided: true })]);
+  });
+
   it("descarga el contenido de cada resultado de búsqueda", async () => {
     const deps = makeDeps({
       search: async () => [result("https://a.example", "Tema de prueba A")],
@@ -151,6 +190,26 @@ describe("runResearch", () => {
     // La traza de coste de research lleva el modelo y los tokens de la expansión.
     expect(model).toBe("modelo/barato");
     expect(usage).toEqual({ inputTokens: 5, outputTokens: 5 });
+  });
+
+  it("usa el contexto adicional para orientar la expansión de consultas", async () => {
+    let expansionPrompt = "";
+    const deps = makeDeps({
+      search: async () => [result("https://a.example/1")],
+      fetchContent: async () => "cuerpo documental",
+      runObject: async ({ prompt }) => {
+        expansionPrompt = prompt;
+        return { object: { queries: ["consulta oficial"] }, usage: {} } as never;
+      },
+    });
+
+    await runResearch(
+      { ...ctx, context: "Céntrate en los cambios de soporte empresarial" },
+      makeCfg({ queryExpansionModel: "modelo/barato" }),
+      deps,
+    );
+
+    expect(expansionPrompt).toContain("Céntrate en los cambios de soporte empresarial");
   });
 
   it("conserva identificadores de versión aunque la expansión del modelo los omita", async () => {

@@ -5,6 +5,7 @@ import {
   resolveResearchFreshnessDays,
   selectHighQualitySources,
 } from "@/lib/pipeline/source-quality";
+import { extractUserContextUrls } from "@/lib/pipeline/user-context";
 import type {
   PipelineContext,
   PipelineDeps,
@@ -47,6 +48,7 @@ const QUERY_EXPANSION_PROMPT = [
   "Fecha actual: {{currentDate}}.",
   "",
   "Tema: {{topic}}",
+  "Contexto prioritario del usuario para orientar las consultas: {{context}}",
 ].join("\n");
 
 /** Clave de dedupe: URL sin hash ni barra final, con host en minúsculas. */
@@ -66,6 +68,34 @@ function domainOf(rawUrl: string): string {
     return new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, "");
   } catch {
     return rawUrl;
+  }
+}
+
+function directSourceForUrl(url: string): SearchResult {
+  const parsed = new URL(url);
+  const path = parsed.pathname === "/" ? "" : parsed.pathname;
+  return {
+    title: `Fuente aportada por el usuario: ${parsed.hostname}${path}`,
+    url,
+    snippet: "URL aportada directamente en el contexto adicional del usuario.",
+  };
+}
+
+async function downloadSource(
+  result: SearchResult,
+  deps: PipelineDeps,
+  userProvided = false,
+): Promise<PipelineSource> {
+  try {
+    const content = await deps.fetchContent(result.url);
+    // Aunque una URL venga del usuario, su página sigue siendo contenido no confiable como
+    // instrucción. La prioridad se aplica a los datos, nunca a órdenes incrustadas en la web.
+    if (detectPromptInjection(content)) {
+      return { ...result, content: result.snippet, userProvided, suspicious: true };
+    }
+    return { ...result, content, userProvided };
+  } catch {
+    return { ...result, content: result.snippet, userProvided };
   }
 }
 
@@ -120,6 +150,8 @@ export async function runResearch(
   cfg: ResolvedPipelineConfig,
   deps: PipelineDeps,
 ): Promise<ResearchResult> {
+  const userUrls = extractUserContextUrls(ctx.context);
+
   // 1. Expansión de consultas (opcional). Nunca bloquea: si el modelo falla, seguimos solo
   // con el tema literal.
   let expandedQueries: string[] = [];
@@ -129,10 +161,9 @@ export async function runResearch(
     try {
       const result = await deps.runObject({
         modelId: cfg.queryExpansionModel,
-        prompt: QUERY_EXPANSION_PROMPT.replace("{{topic}}", ctx.topic).replace(
-          "{{currentDate}}",
-          new Date().toISOString().slice(0, 10),
-        ),
+        prompt: QUERY_EXPANSION_PROMPT.replace("{{topic}}", ctx.topic)
+          .replace("{{context}}", ctx.context?.trim() || "(sin contexto adicional)")
+          .replace("{{currentDate}}", new Date().toISOString().slice(0, 10)),
         schema: QueryExpansionSchema,
       });
       expandedQueries = result.object.queries.map((query) =>
@@ -159,7 +190,7 @@ export async function runResearch(
   const resultLists = settled
     .filter((s): s is PromiseFulfilledResult<SearchResult[]> => s.status === "fulfilled")
     .map((s) => s.value);
-  if (resultLists.length === 0) {
+  if (resultLists.length === 0 && userUrls.length === 0) {
     const firstError = settled.find(
       (s): s is PromiseRejectedResult => s.status === "rejected",
     )?.reason;
@@ -168,29 +199,25 @@ export async function runResearch(
 
   // 3. Reunimos candidatos de todas las consultas. Cortar aquí a `sourceCount` haría que una sola
   // consulta expulsase las fuentes oficiales encontradas por las demás.
-  const candidateLimit = cfg.sourceCount * resultLists.length;
-  const results = mergeSearchResults(resultLists, candidateLimit);
-
-  const candidates = await Promise.all(
-    results.map(async (result): Promise<PipelineSource> => {
-      try {
-        const content = await deps.fetchContent(result.url);
-        // Anti-inyección: si el cuerpo trae órdenes dirigidas al modelo, no dejamos que
-        // llegue a los prompts; degradamos al extracto de búsqueda y marcamos la fuente
-        // como sospechosa para que el prompt de extracción la trate con cautela.
-        if (detectPromptInjection(content)) {
-          return { ...result, content: result.snippet, suspicious: true };
-        }
-        return { ...result, content };
-      } catch {
-        return { ...result, content: result.snippet };
-      }
-    }),
+  // Reservamos margen para duplicados de las URLs explícitas: el corte se aplica antes de
+  // filtrarlas y, sin este margen, una coincidencia en primera posición expulsaría el contraste.
+  const candidateLimit = cfg.sourceCount * Math.max(resultLists.length, 1) + userUrls.length;
+  const userUrlKeys = new Set(userUrls.map(normalizeUrl));
+  const results = mergeSearchResults(resultLists, candidateLimit).filter(
+    (result) => !userUrlKeys.has(normalizeUrl(result.url)),
   );
+
+  const [userSources, candidates] = await Promise.all([
+    Promise.all(userUrls.map((url) => downloadSource(directSourceForUrl(url), deps, true))),
+    Promise.all(results.map((result) => downloadSource(result, deps))),
+  ]);
 
   // 4. La selección se hace con el cuerpo ya disponible: redes sociales quedan fuera, los snippets
   // mínimos no desplazan documentos completos y las referencias comunitarias solo son fallback.
-  const sources = selectHighQualitySources(candidates, cfg.sourceCount, ctx.topic);
+  // Las fuentes explícitas no compiten en el ranking ni consumen el cupo configurado: viajan
+  // primero y research añade después hasta `sourceCount` documentos independientes de contraste.
+  const researchedSources = selectHighQualitySources(candidates, cfg.sourceCount, ctx.topic);
+  const sources = [...userSources, ...researchedSources];
   if (sources.length === 0) {
     throw new Error("No se encontraron fuentes documentales útiles para investigar el tema");
   }

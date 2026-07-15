@@ -18,6 +18,8 @@ export async function saveSources(runId: string, sources: PipelineSource[]): Pro
       title: source.title,
       snippet: source.snippet,
       content: source.content,
+      userProvided: source.userProvided ?? false,
+      suspicious: source.suspicious ?? false,
     })),
   });
 }
@@ -27,7 +29,18 @@ export async function getSourcesByRun(runId: string): Promise<PipelineSource[]> 
   const rows = await prisma.generationSource.findMany({
     where: { runId },
     orderBy: { createdAt: "asc" },
-    select: { url: true, title: true, snippet: true, content: true },
+    select: {
+      url: true,
+      title: true,
+      snippet: true,
+      content: true,
+      userProvided: true,
+      suspicious: true,
+    },
   });
-  return rows;
+  return rows.map((row) => ({
+    ...row,
+    userProvided: row.userProvided || undefined,
+    suspicious: row.suspicious || undefined,
+  }));
 }

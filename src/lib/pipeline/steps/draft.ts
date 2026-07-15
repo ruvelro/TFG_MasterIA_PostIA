@@ -5,7 +5,11 @@ import {
   newsTypeDirectivesToText,
 } from "@/lib/pipeline/format";
 import { DEFAULT_ARTICLE_LANGUAGE } from "@/lib/pipeline/language";
-import { appendUserContext, renderTemplate } from "@/lib/pipeline/render-template";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
   PipelineDeps,
@@ -26,20 +30,25 @@ export async function runDraft(
   if (!ctx.blueprint) throw new Error("draft requiere la estructura de la etapa blueprint");
 
   const step = cfg.steps.draft;
-  const prompt = appendUserContext(
-    renderTemplate(step.prompt, {
-      topic: ctx.topic,
-      facts: factsToText(ctx.facts),
-      blueprint: blueprintToText(ctx.blueprint),
-      editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
-      seoRules: cfg.seoRules,
-      geoRules: cfg.geoRules,
-      formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
-      context: ctx.context ?? "",
-      language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
-    }),
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        topic: ctx.topic,
+        facts: factsToText(ctx.facts),
+        blueprint: blueprintToText(ctx.blueprint),
+        editorialVoice,
+        seoRules: cfg.seoRules,
+        geoRules: cfg.geoRules,
+        formatDirectives: newsTypeDirectivesToText(ctx.newsType, ctx.lengthPreset),
+        context: ctx.context ?? "",
+        language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
+      }),
+      step.prompt,
+      ctx.context,
+    ),
     step.prompt,
-    ctx.context,
+    editorialVoice,
   );
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

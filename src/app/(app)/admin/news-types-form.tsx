@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CollapsibleEditor } from "@/components/collapsible-editor";
 import type { NewsType } from "@/lib/pipeline/schemas";
 
 import { saveNewsTypes } from "./actions";
@@ -65,216 +66,222 @@ function NewsTypeCard({
   }
 
   return (
-    <fieldset className="border-muted/20 flex flex-col gap-3 rounded-lg border p-4">
-      <div className="flex items-center justify-between gap-2">
-        <legend className="text-sm font-semibold">{type.label || "(sin nombre)"}</legend>
-        <button type="button" onClick={onRemove} className="text-xs font-medium text-red-600">
-          Eliminar
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Nombre</span>
-          <input
-            value={type.label}
-            onChange={(e) => onPatch({ label: e.target.value })}
-            className={inputClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Identificador (minúsculas, guiones)</span>
-          <input
-            value={type.id}
-            onChange={(e) => onPatch({ id: e.target.value })}
-            className={`${inputClass} font-mono`}
-          />
-        </label>
-      </div>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Descripción</span>
-        <input
-          value={type.description}
-          onChange={(e) => onPatch({ description: e.target.value })}
-          className={inputClass}
-        />
-      </label>
-
-      <div className="flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={type.enableHumanize}
-            onChange={(e) => onPatch({ enableHumanize: e.target.checked })}
-          />
-          <span>Humanización</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={type.enableFactualReview}
-            onChange={(e) => onPatch({ enableFactualReview: e.target.checked })}
-          />
-          <span>Revisión factual</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={type.enableQualityReview}
-            onChange={(e) => onPatch({ enableQualityReview: e.target.checked })}
-          />
-          <span>Control de calidad</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={type.sourceStrict}
-            onChange={(e) => onPatch({ sourceStrict: e.target.checked })}
-          />
-          <span>Ceñirse a las fuentes</span>
-        </label>
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={type.enableFeatureImage}
-            onChange={(e) => onPatch({ enableFeatureImage: e.target.checked })}
-          />
-          <span>Imagen destacada</span>
-        </label>
-      </div>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span className="font-medium">Instrucción de estructura</span>
-        <textarea
-          rows={2}
-          value={type.structureInstruction}
-          onChange={(e) => onPatch({ structureInstruction: e.target.value })}
-          className={inputClass}
-        />
-      </label>
-
-      <div className="grid grid-cols-2 gap-3">
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Palabras objetivo (0 = sin objetivo)</span>
-          <input
-            type="number"
-            min={0}
-            max={10000}
-            value={type.targetWordCount}
-            onChange={(e) => onPatch({ targetWordCount: Number(e.target.value) || 0 })}
-            className={inputClass}
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Frescura de fuentes en días (0 = sin filtro)</span>
-          <input
-            type="number"
-            min={0}
-            max={365}
-            value={type.freshnessDays}
-            onChange={(e) => onPatch({ freshnessDays: Number(e.target.value) || 0 })}
-            className={inputClass}
-          />
-        </label>
-      </div>
-
-      {/* ── Voz editorial específica de este tipo (complementa la voz global) ── */}
-      <fieldset className="border-muted/20 flex flex-col gap-3 rounded-md border p-3">
-        <legend className="px-1 text-xs font-semibold tracking-wide uppercase">
-          Voz editorial de este tipo
-        </legend>
-        <p className="text-muted text-xs">
-          Complementa la voz global del portal con el enfoque propio de este formato. Edítala a mano
-          o entrénala con URLs de artículos de ESTE tipo.
-        </p>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Voz/tono específico</span>
-          <textarea
-            rows={2}
-            value={type.voiceBrand}
-            onChange={(e) => onPatch({ voiceBrand: e.target.value })}
-            placeholder="p. ej. ágil y directo para noticias de última hora"
-            className={inputClass}
-          />
-        </label>
-
-        <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Reglas de casa de este tipo</span>
-          <textarea
-            rows={2}
-            value={type.voiceHouseRules}
-            onChange={(e) => onPatch({ voiceHouseRules: e.target.value })}
-            className={inputClass}
-          />
-        </label>
-
-        <div className="flex flex-col gap-2">
-          <span className="text-sm font-medium">Ejemplos de referencia de este tipo</span>
-          {type.voiceExamples.map((example, i) => (
-            <div key={i} className="flex flex-col gap-1">
-              <textarea
-                rows={3}
-                value={example}
-                onChange={(e) =>
-                  onPatch({
-                    voiceExamples: type.voiceExamples.map((x, j) => (j === i ? e.target.value : x)),
-                  })
-                }
-                placeholder="Pega un párrafo real escrito en el estilo de este tipo"
-                className={inputClass}
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  onPatch({ voiceExamples: type.voiceExamples.filter((_, j) => j !== i) })
-                }
-                className="self-end text-xs font-medium text-red-600"
-              >
-                Eliminar ejemplo
-              </button>
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => onPatch({ voiceExamples: [...type.voiceExamples, ""] })}
-            className="border-muted/30 self-start rounded-md border px-3 py-1.5 text-sm font-medium"
-          >
-            Añadir ejemplo
+    <CollapsibleEditor
+      title={type.label || "(sin nombre)"}
+      description={type.description || type.id}
+    >
+      <div className="flex flex-col gap-3">
+        <div className="flex justify-end">
+          <button type="button" onClick={onRemove} className="text-xs font-medium text-red-600">
+            Eliminar
           </button>
         </div>
 
-        <details className="border-muted/20 rounded-md border p-3">
-          <summary className="cursor-pointer text-sm font-medium">
-            🌐 Entrenar esta voz desde URLs
-          </summary>
-          <div className="mt-3 flex flex-col gap-2">
-            <p className="text-muted text-xs">
-              Pega URLs de artículos representativos de este tipo (una por línea). La IA rellenará
-              la voz, las reglas y los ejemplos de arriba para que los revises. No se guarda solo.
-            </p>
-            <textarea
-              rows={4}
-              value={urls}
-              onChange={(e) => setUrls(e.target.value)}
-              placeholder={"https://tu-medio.com/noticia-1\nhttps://tu-medio.com/noticia-2"}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Nombre</span>
+            <input
+              value={type.label}
+              onChange={(e) => onPatch({ label: e.target.value })}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Identificador (minúsculas, guiones)</span>
+            <input
+              value={type.id}
+              onChange={(e) => onPatch({ id: e.target.value })}
               className={`${inputClass} font-mono`}
             />
-            {progress ? <p className="text-primary text-xs">{progress}</p> : null}
-            {error ? <p className="text-xs text-red-600">Error: {error}</p> : null}
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Descripción</span>
+          <input
+            value={type.description}
+            onChange={(e) => onPatch({ description: e.target.value })}
+            className={inputClass}
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={type.enableHumanize}
+              onChange={(e) => onPatch({ enableHumanize: e.target.checked })}
+            />
+            <span>Humanización</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={type.enableFactualReview}
+              onChange={(e) => onPatch({ enableFactualReview: e.target.checked })}
+            />
+            <span>Revisión factual</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={type.enableQualityReview}
+              onChange={(e) => onPatch({ enableQualityReview: e.target.checked })}
+            />
+            <span>Control de calidad</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={type.sourceStrict}
+              onChange={(e) => onPatch({ sourceStrict: e.target.checked })}
+            />
+            <span>Ceñirse a las fuentes</span>
+          </label>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={type.enableFeatureImage}
+              onChange={(e) => onPatch({ enableFeatureImage: e.target.checked })}
+            />
+            <span>Imagen destacada</span>
+          </label>
+        </div>
+
+        <label className="flex flex-col gap-1 text-sm">
+          <span className="font-medium">Instrucción de estructura</span>
+          <textarea
+            rows={2}
+            value={type.structureInstruction}
+            onChange={(e) => onPatch({ structureInstruction: e.target.value })}
+            className={inputClass}
+          />
+        </label>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Palabras objetivo (0 = sin objetivo)</span>
+            <input
+              type="number"
+              min={0}
+              max={10000}
+              value={type.targetWordCount}
+              onChange={(e) => onPatch({ targetWordCount: Number(e.target.value) || 0 })}
+              className={inputClass}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Frescura de fuentes en días (0 = sin filtro)</span>
+            <input
+              type="number"
+              min={0}
+              max={365}
+              value={type.freshnessDays}
+              onChange={(e) => onPatch({ freshnessDays: Number(e.target.value) || 0 })}
+              className={inputClass}
+            />
+          </label>
+        </div>
+
+        {/* ── Voz editorial específica de este tipo (complementa la voz global) ── */}
+        <fieldset className="border-muted/20 flex flex-col gap-3 rounded-md border p-3">
+          <legend className="px-1 text-xs font-semibold tracking-wide uppercase">
+            Voz editorial de este tipo
+          </legend>
+          <p className="text-muted text-xs">
+            Complementa la voz global del portal con el enfoque propio de este formato. Edítala a
+            mano o entrénala con URLs de artículos de ESTE tipo.
+          </p>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Voz/tono específico</span>
+            <textarea
+              rows={2}
+              value={type.voiceBrand}
+              onChange={(e) => onPatch({ voiceBrand: e.target.value })}
+              placeholder="p. ej. ágil y directo para noticias de última hora"
+              className={inputClass}
+            />
+          </label>
+
+          <label className="flex flex-col gap-1 text-sm">
+            <span className="font-medium">Reglas de casa de este tipo</span>
+            <textarea
+              rows={2}
+              value={type.voiceHouseRules}
+              onChange={(e) => onPatch({ voiceHouseRules: e.target.value })}
+              className={inputClass}
+            />
+          </label>
+
+          <div className="flex flex-col gap-2">
+            <span className="text-sm font-medium">Ejemplos de referencia de este tipo</span>
+            {type.voiceExamples.map((example, i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <textarea
+                  rows={3}
+                  value={example}
+                  onChange={(e) =>
+                    onPatch({
+                      voiceExamples: type.voiceExamples.map((x, j) =>
+                        j === i ? e.target.value : x,
+                      ),
+                    })
+                  }
+                  placeholder="Pega un párrafo real escrito en el estilo de este tipo"
+                  className={inputClass}
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    onPatch({ voiceExamples: type.voiceExamples.filter((_, j) => j !== i) })
+                  }
+                  className="self-end text-xs font-medium text-red-600"
+                >
+                  Eliminar ejemplo
+                </button>
+              </div>
+            ))}
             <button
               type="button"
-              onClick={runAnalysis}
-              disabled={analyzing}
-              className="bg-primary self-start rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              onClick={() => onPatch({ voiceExamples: [...type.voiceExamples, ""] })}
+              className="border-muted/30 self-start rounded-md border px-3 py-1.5 text-sm font-medium"
             >
-              {analyzing ? "Analizando…" : "Analizar y rellenar voz"}
+              Añadir ejemplo
             </button>
           </div>
-        </details>
-      </fieldset>
-    </fieldset>
+
+          <details className="border-muted/20 rounded-md border p-3">
+            <summary className="cursor-pointer text-sm font-medium">
+              🌐 Entrenar esta voz desde URLs
+            </summary>
+            <div className="mt-3 flex flex-col gap-2">
+              <p className="text-muted text-xs">
+                Pega URLs de artículos representativos de este tipo (una por línea). La IA rellenará
+                la voz, las reglas y los ejemplos de arriba para que los revises. No se guarda solo.
+              </p>
+              <textarea
+                rows={4}
+                value={urls}
+                onChange={(e) => setUrls(e.target.value)}
+                placeholder={"https://tu-medio.com/noticia-1\nhttps://tu-medio.com/noticia-2"}
+                className={`${inputClass} font-mono`}
+              />
+              {progress ? <p className="text-primary text-xs">{progress}</p> : null}
+              {error ? <p className="text-xs text-red-600">Error: {error}</p> : null}
+              <button
+                type="button"
+                onClick={runAnalysis}
+                disabled={analyzing}
+                className="bg-primary self-start rounded-md px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              >
+                {analyzing ? "Analizando…" : "Analizar y rellenar voz"}
+              </button>
+            </div>
+          </details>
+        </fieldset>
+      </div>
+    </CollapsibleEditor>
   );
 }
 

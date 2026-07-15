@@ -1,5 +1,10 @@
 import { DEFAULT_ARTICLE_LANGUAGE } from "@/lib/pipeline/language";
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import { composeEditorialVoice } from "@/lib/pipeline/format";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import { EnrichStepOutputSchema, type EnrichStepOutput } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -23,12 +28,23 @@ export async function runEnrich(
   if (!ctx.blueprint) throw new Error("enrich requiere el blueprint para la keyword objetivo");
 
   const step = cfg.steps.enrich;
-  const prompt = renderTemplate(step.prompt, {
-    topic: ctx.topic,
-    targetKeyword: ctx.blueprint.targetKeyword,
-    article: ctx.article.contentMarkdown,
-    language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
-  });
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        topic: ctx.topic,
+        targetKeyword: ctx.blueprint.targetKeyword,
+        article: ctx.article.contentMarkdown,
+        language: ctx.language ?? DEFAULT_ARTICLE_LANGUAGE,
+        context: ctx.context ?? "",
+        editorialVoice,
+      }),
+      step.prompt,
+      ctx.context,
+    ),
+    step.prompt,
+    editorialVoice,
+  );
 
   const { object, usage } = await deps.runObject({
     modelId: step.model,

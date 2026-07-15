@@ -148,6 +148,8 @@ function serializeContext(ctx: PipelineContext): string {
       url: source.url,
       snippet: source.snippet,
       content: "",
+      userProvided: source.userProvided,
+      suspicious: source.suspicious,
     })),
   };
   return JSON.stringify(lean);
@@ -395,6 +397,7 @@ export async function reviseGeneration(params: ReviseParams): Promise<Generation
     blueprint: sourceContext.blueprint,
     newsType: sourceContext.newsType,
     lengthPreset: sourceContext.lengthPreset,
+    context: sourceContext.context,
     language: sourceContext.language,
     draft: sourceArticleMarkdown,
     revisionInstructions: instructions,

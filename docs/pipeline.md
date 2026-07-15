@@ -22,23 +22,39 @@ research → extract → [revisión humana opcional]
 
 | #   | Etapa              | ¿IA?          | Entrada                                              | Salida                                                                        |
 | --- | ------------------ | ------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | **research**       | No (búsqueda) | tema                                                 | N fuentes con su **contenido descargado** (fuente de verdad)                  |
-| 2   | **extract**        | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**        |
-| 3   | **blueprint**      | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**         |
+| 1   | **research**       | No (búsqueda) | tema + URLs del contexto                             | fuentes explícitas prioritarias + N fuentes investigadas con contenido        |
+| 2   | **extract**        | Sí            | tema + contexto + fuentes                            | hechos con procedencia `{claim, source}` (Zod) — **revisable por el usuario** |
+| 3   | **blueprint**      | Sí            | tema + contexto + hechos + voz                       | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**         |
 | 4   | **draft**          | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                          |
-| 5   | **humanize**       | Sí            | borrador + diagnóstico de ritmo                      | borrador reescrito sin muletillas ni estructura repetitiva de IA              |
-| 6   | **validate**       | Sí (juez)     | borrador + hechos + fuentes                          | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)       |
-| 7   | **factual-review** | Sí (juez)     | borrador + hechos + procedencia                      | estado, tipo de evidencia, autoridad de fuente y riesgo global                |
-| 8   | **quality-review** | Sí (juez)     | borrador + métricas de ritmo                         | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA)   |
-| 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido; al cierre genera la **meta SEO** sin reescribir el cuerpo |
+| 5   | **humanize**       | Sí            | borrador + contexto + voz + diagnóstico de ritmo     | borrador reescrito sin muletillas ni estructura repetitiva de IA              |
+| 6   | **validate**       | Sí (juez)     | borrador + hechos + contexto + voz                   | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)       |
+| 7   | **factual-review** | Sí (juez)     | borrador + hechos + procedencia + contexto           | estado, tipo de evidencia, autoridad de fuente y riesgo global                |
+| 8   | **quality-review** | Sí (juez)     | borrador + contexto + voz + métricas de ritmo        | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA)   |
+| 9   | **fixer**          | Sí            | borrador + informes + contexto + voz                 | artículo corregido; al cierre genera la **meta SEO** sin reescribir el cuerpo |
 | 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                                |
-| 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen   |
+| 11  | **enrich**         | Sí            | artículo + contexto + voz + métricas                 | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen   |
 | 12  | **feature-image**  | Sí (imagen)   | prompt de imagen de enrich                           | imagen destacada persistida (opcional; el artículo no depende de ella)        |
 
 Además, dentro del bucle corre un **validador editorial determinista** (sin IA,
 `steps/editorial-validator.ts`) que comprueba reglas mecánicas (palabras prohibidas,
 densidad, citas…) y **fusiona** sus hallazgos en el informe de `validate`; los de severidad
 alta marcan el informe como NO superado.
+
+## Contratos transversales de contexto y voz
+
+El contexto adicional y la voz editorial no dependen de que el prompt editable conserve un
+marcador concreto. `appendUserContext` y `appendEditorialVoice` añaden contratos obligatorios a
+toda etapa que redacta, reescribe, evalúa o genera metadata. Por tanto, un prompt personalizado
+sin `{{context}}` o `{{editorialVoice}}` sigue recibiendo esos valores y su prioridad. Los jueces
+no pueden pedir una corrección que contradiga el contexto ni sacrificar la voz por una sugerencia
+SEO/GEO genérica.
+
+Las URLs HTTP(S) incluidas en el contexto se descargan directamente y se marcan como
+`userProvided`. Aparecen antes que las fuentes descubiertas, no consumen el cupo `sourceCount` y
+no pasan por el ranking de relevancia. El research normal se mantiene para contrastar y ampliar.
+La prioridad afecta a los datos, nunca a órdenes incrustadas en una página: el guard
+anti-inyección y el guard SSRF siguen aplicándose. El texto del contexto, la procedencia y la
+marca de seguridad sobreviven a pausas y a Revision Mode.
 
 ## Etapas opcionales (tipo de noticia)
 
@@ -90,8 +106,8 @@ contenido exacto que se persistirá antes de `enrich`.
 ## Revisión dirigida (Revision Mode)
 
 `reviseGeneration` regenera un artículo existente a partir de unas **instrucciones**, sin volver
-a investigar: reutiliza hechos, estructura y fuentes del run original y toma el artículo previo
-como borrador de partida, reentrando directamente en el bucle de calidad.
+a investigar: reutiliza contexto adicional, hechos, estructura y fuentes del run original y toma
+el artículo previo como borrador de partida, reentrando directamente en el bucle de calidad.
 
 ## Modelo y prompt por etapa
 
@@ -139,7 +155,8 @@ refuerza en cuatro frentes:
 
 - **Expansión de consultas**: una micro-llamada de IA (modelo barato configurable en
   `/admin`, desactivable) genera 2-3 consultas complementarias al tema literal; los
-  resultados se fusionan. Si el modelo falla, se degrada al tema tal cual. No es una etapa
+  resultados se fusionan. Recibe el contexto para respetar el foco solicitado. Si el modelo
+  falla, se degrada al tema tal cual. No es una etapa
   del catálogo: su coste y tokens se registran en la fila `GenerationStep` de research.
 - **Relevancia y deduplicación**: descarta resultados cuyo título, ruta y extracto no guardan
   relación verificable con el tema, bloquea páginas de apuestas ajenas al encargo y elimina
@@ -147,6 +164,8 @@ refuerza en cuatro frentes:
   limita a 2 fuentes por dominio. Los identificadores alfanuméricos distintivos (`26H2`, `USB4`,
   `GPT-5.5`) deben aparecer en los metadatos y en el cuerpo; también se preservan de forma
   determinista en cada consulta expandida.
+- **Fuentes aportadas**: cada URL del contexto se descarga de forma explícita, se deduplica frente
+  a los resultados del buscador y se conserva con prioridad por delante del cupo investigado.
 - **Frescura**: si el tipo de noticia define `freshnessDays > 0`, el proveedor limita los
   resultados a los últimos N días (Tavily: `topic=news&days=N`; Google: `dateRestrict=dN`).
 - **Extracción del cuerpo**: el HTML descargado pasa por `@mozilla/readability` sobre

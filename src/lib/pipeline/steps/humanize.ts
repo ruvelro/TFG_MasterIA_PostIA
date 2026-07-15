@@ -1,6 +1,10 @@
 import { aiToneReviewToText, composeEditorialVoice } from "@/lib/pipeline/format";
 import { analyzeProseRhythm, proseRhythmToText } from "@/lib/pipeline/prose-rhythm";
-import { renderTemplate } from "@/lib/pipeline/render-template";
+import {
+  appendEditorialVoice,
+  appendUserContext,
+  renderTemplate,
+} from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
   PipelineDeps,
@@ -21,12 +25,22 @@ export async function runHumanize(
   if (!ctx.draft) throw new Error("humanize requiere el borrador de la etapa draft");
 
   const step = cfg.steps.humanize;
-  const prompt = renderTemplate(step.prompt, {
-    draft: ctx.draft,
-    editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
-    styleIssues: aiToneReviewToText(ctx.report, ctx.qualityReport),
-    proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
-  });
+  const editorialVoice = composeEditorialVoice(cfg.editorialVoice, ctx.newsType);
+  const prompt = appendEditorialVoice(
+    appendUserContext(
+      renderTemplate(step.prompt, {
+        draft: ctx.draft,
+        editorialVoice,
+        styleIssues: aiToneReviewToText(ctx.report, ctx.qualityReport),
+        proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
+        context: ctx.context ?? "",
+      }),
+      step.prompt,
+      ctx.context,
+    ),
+    step.prompt,
+    editorialVoice,
+  );
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });
   return { draft: text, model: step.model, usage };
