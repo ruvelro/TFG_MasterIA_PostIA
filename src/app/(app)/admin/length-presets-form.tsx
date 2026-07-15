@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CollapsibleEditor } from "@/components/collapsible-editor";
 import type { LengthPreset } from "@/lib/pipeline/schemas";
 
 import { saveLengthPresets } from "./actions";
@@ -49,59 +50,64 @@ export function LengthPresetsForm({ initialPresets }: { initialPresets: LengthPr
       {message ? <p className="text-muted text-sm">{message}</p> : null}
 
       {presets.map((preset, index) => (
-        <fieldset key={index} className="border-muted/20 flex flex-col gap-3 rounded-lg border p-4">
-          <div className="flex items-center justify-between gap-2">
-            <legend className="text-sm font-semibold">{preset.label || "(sin nombre)"}</legend>
-            <button
-              type="button"
-              onClick={() => setPresets((prev) => prev.filter((_, i) => i !== index))}
-              className="text-xs font-medium text-red-600"
-            >
-              Eliminar
-            </button>
-          </div>
+        <CollapsibleEditor
+          key={index}
+          title={preset.label || "(sin nombre)"}
+          description={`${preset.minWords}-${preset.maxWords} palabras`}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPresets((prev) => prev.filter((_, i) => i !== index))}
+                className="text-xs font-medium text-red-600"
+              >
+                Eliminar
+              </button>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Nombre</span>
-              <input
-                value={preset.label}
-                onChange={(e) => patch(index, { label: e.target.value })}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Identificador (minúsculas, guiones)</span>
-              <input
-                value={preset.id}
-                onChange={(e) => patch(index, { id: e.target.value })}
-                className={`${inputClass} font-mono`}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Palabras mínimas</span>
-              <input
-                type="number"
-                min={0}
-                max={20000}
-                value={preset.minWords}
-                onChange={(e) => patch(index, { minWords: Number(e.target.value) || 0 })}
-                className={inputClass}
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Palabras máximas</span>
-              <input
-                type="number"
-                min={1}
-                max={20000}
-                value={preset.maxWords}
-                onChange={(e) => patch(index, { maxWords: Number(e.target.value) || 0 })}
-                className={inputClass}
-              />
-            </label>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Nombre</span>
+                <input
+                  value={preset.label}
+                  onChange={(e) => patch(index, { label: e.target.value })}
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Identificador (minúsculas, guiones)</span>
+                <input
+                  value={preset.id}
+                  onChange={(e) => patch(index, { id: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Palabras mínimas</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={20000}
+                  value={preset.minWords}
+                  onChange={(e) => patch(index, { minWords: Number(e.target.value) || 0 })}
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Palabras máximas</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20000}
+                  value={preset.maxWords}
+                  onChange={(e) => patch(index, { maxWords: Number(e.target.value) || 0 })}
+                  className={inputClass}
+                />
+              </label>
+            </div>
           </div>
-        </fieldset>
+        </CollapsibleEditor>
       ))}
 
       <div className="flex items-center gap-3">

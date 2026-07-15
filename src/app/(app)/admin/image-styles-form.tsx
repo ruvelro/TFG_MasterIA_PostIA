@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { CollapsibleEditor } from "@/components/collapsible-editor";
 import type { ImageStyle } from "@/lib/pipeline/schemas";
 
 import { saveImageStyles } from "./actions";
@@ -53,48 +54,53 @@ export function ImageStylesForm({ initialStyles }: { initialStyles: ImageStyle[]
       {message ? <p className="text-muted text-sm">{message}</p> : null}
 
       {styles.map((style, index) => (
-        <fieldset key={index} className="border-muted/20 flex flex-col gap-3 rounded-lg border p-4">
-          <div className="flex items-center justify-between gap-2">
-            <legend className="text-sm font-semibold">{style.label || "(sin nombre)"}</legend>
-            <button
-              type="button"
-              onClick={() => setStyles((prev) => prev.filter((_, i) => i !== index))}
-              className="text-xs font-medium text-red-600"
-            >
-              Eliminar
-            </button>
-          </div>
+        <CollapsibleEditor
+          key={index}
+          title={style.label || "(sin nombre)"}
+          description={style.promptSuffix || "Sin modificador estético"}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setStyles((prev) => prev.filter((_, i) => i !== index))}
+                className="text-xs font-medium text-red-600"
+              >
+                Eliminar
+              </button>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Nombre</span>
+                <input
+                  value={style.label}
+                  onChange={(e) => patch(index, { label: e.target.value })}
+                  className={inputClass}
+                />
+              </label>
+              <label className="flex flex-col gap-1 text-sm">
+                <span className="font-medium">Identificador (minúsculas, guiones)</span>
+                <input
+                  value={style.id}
+                  onChange={(e) => patch(index, { id: e.target.value })}
+                  className={`${inputClass} font-mono`}
+                />
+              </label>
+            </div>
+
             <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Nombre</span>
-              <input
-                value={style.label}
-                onChange={(e) => patch(index, { label: e.target.value })}
+              <span className="font-medium">Sufijo de prompt (estética)</span>
+              <textarea
+                rows={2}
+                value={style.promptSuffix}
+                onChange={(e) => patch(index, { promptSuffix: e.target.value })}
+                placeholder="p. ej. editorial photojournalism, natural lighting, no text"
                 className={inputClass}
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
-              <span className="font-medium">Identificador (minúsculas, guiones)</span>
-              <input
-                value={style.id}
-                onChange={(e) => patch(index, { id: e.target.value })}
-                className={`${inputClass} font-mono`}
-              />
-            </label>
           </div>
-
-          <label className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">Sufijo de prompt (estética)</span>
-            <textarea
-              rows={2}
-              value={style.promptSuffix}
-              onChange={(e) => patch(index, { promptSuffix: e.target.value })}
-              placeholder="p. ej. editorial photojournalism, natural lighting, no text"
-              className={inputClass}
-            />
-          </label>
-        </fieldset>
+        </CollapsibleEditor>
       ))}
 
       <div className="flex items-center gap-3">
