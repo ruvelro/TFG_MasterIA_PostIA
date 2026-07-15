@@ -162,11 +162,11 @@ function makeDeps(options: {
   };
 
   return {
-    search: async (_query, limit) =>
+    search: async (query, limit) =>
       Array.from({ length: limit }, (_unused, index) => ({
-        title: `Fuente ${index}`,
+        title: `${query} Fuente ${index}`,
         url: `https://e.example/${index}`,
-        snippet: `extracto ${index}`,
+        snippet: `${query} extracto ${index}`,
       })),
     fetchContent: async (url) => `contenido descargado de ${url}`,
     runText: async () => ({
@@ -538,6 +538,29 @@ describe("orquestador del pipeline", () => {
       "fixer:3",
     ]);
     expect(result.context.enrichment?.qualitySummary.validationPassed).toBe(true);
+  });
+
+  it("restaura el borrador anterior si la re-humanización empeora el aiScore", async () => {
+    const result = await startGeneration({
+      userId,
+      topic: "Regresión estilística",
+      pauseForReview: false,
+      cfg: makeConfig(0),
+      deps: makeDeps({
+        validatePasses: false,
+        validationPasses: [false, true],
+        validationAiToneSeverity: "medium",
+        aiScores: [24, 61],
+      }),
+    });
+
+    expect(result.status).toBe("needs_review");
+    expect(result.context.qualityReport?.aiScore).toBe(24);
+    expect(result.context.enrichment?.aiDetection).toEqual({ score: 24, label: "humano" });
+    const humanizeSteps = await prisma.generationStep.findMany({
+      where: { runId: result.runId, stageId: "humanize" },
+    });
+    expect(humanizeSteps).toHaveLength(2);
   });
 
   it("corrige un riesgo factual medio y solo aprueba después de volver a riesgo bajo", async () => {

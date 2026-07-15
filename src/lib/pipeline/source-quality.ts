@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import type { PipelineSource } from "@/lib/pipeline/types";
 
 const MIN_USEFUL_CONTENT_CHARS = 280;
@@ -18,6 +20,39 @@ const BLOCKED_DOMAINS = [
 
 const COMMUNITY_REFERENCE_DOMAINS = ["wikipedia.org", "fandom.com"];
 
+const GENERIC_TOKENS = new Set([
+  "actualizado",
+  "analysis",
+  "analisis",
+  "article",
+  "claves",
+  "comunicado",
+  "noticia",
+  "news",
+  "oficial",
+  "official",
+  "prediction",
+  "press",
+  "prevision",
+]);
+
+const STOP_WORDS = new Set([
+  "para",
+  "como",
+  "desde",
+  "hasta",
+  "sobre",
+  "entre",
+  "esta",
+  "este",
+  "that",
+  "this",
+  "with",
+  "from",
+  "into",
+  "have",
+]);
+
 function hostnameOf(rawUrl: string): string {
   try {
     return new URL(rawUrl).hostname.toLowerCase().replace(/^www\./, "");
@@ -32,6 +67,78 @@ function matchesDomain(hostname: string, domains: string[]): boolean {
 
 function normalizedLength(text: string): number {
   return text.replace(/\s+/g, " ").trim().length;
+}
+
+function tokensOf(text: string, ignoredTokens: Set<string> = new Set()): Set<string> {
+  const normalized = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  const tokens = normalized.match(/[a-z0-9]+/g) ?? [];
+  return new Set(
+    tokens
+      .map((token) => {
+        if (token.length > 6 && token.endsWith("es")) return token.slice(0, -2);
+        if (token.length > 5 && token.endsWith("s")) return token.slice(0, -1);
+        return token;
+      })
+      .filter(
+        (token) =>
+          token.length >= 4 &&
+          !/^\d+$/.test(token) &&
+          !GENERIC_TOKENS.has(token) &&
+          !STOP_WORDS.has(token) &&
+          !ignoredTokens.has(token),
+      ),
+  );
+}
+
+function overlapSize(left: Set<string>, right: Set<string>): number {
+  let count = 0;
+  for (const token of left) if (right.has(token)) count += 1;
+  return count;
+}
+
+function sourceIsRelevant(source: PipelineSource, topic: string): boolean {
+  const hostname = hostnameOf(source.url);
+  const ignoredDomainTokens = tokensOf(hostname);
+  const pathname = (() => {
+    try {
+      return new URL(source.url).pathname;
+    } catch {
+      return "";
+    }
+  })();
+  const topicTokens = tokensOf(topic);
+  const titleTokens = tokensOf(`${source.title} ${pathname}`, ignoredDomainTokens);
+  const snippetTokens = tokensOf(source.snippet, ignoredDomainTokens);
+  const titleTopicOverlap = overlapSize(titleTokens, topicTokens);
+  const snippetTopicOverlap = overlapSize(snippetTokens, topicTokens);
+  const titleSnippetOverlap = overlapSize(titleTokens, snippetTokens);
+  const topicYears = new Set(topic.match(/\b20\d{2}\b/g) ?? []);
+  const metadataYears = new Set(
+    `${source.title} ${source.url} ${source.snippet}`.match(/\b20\d{2}\b/g) ?? [],
+  );
+  const sharesTopicYear = [...topicYears].some((year) => metadataYears.has(year));
+
+  if (titleTopicOverlap > 0) return true;
+  if (titleSnippetOverlap > 0 && snippetTopicOverlap > 0) return true;
+  return isOfficialSource(source) && (snippetTopicOverlap > 0 || sharesTopicYear);
+}
+
+function contentSignature(content: string): string {
+  const normalized = content.replace(/\s+/g, " ").trim().toLowerCase();
+  return createHash("sha256").update(normalized).digest("hex");
+}
+
+function deduplicateByContent(sources: PipelineSource[]): PipelineSource[] {
+  const signatures = new Set<string>();
+  return sources.filter((source) => {
+    const signature = contentSignature(source.content);
+    if (signatures.has(signature)) return false;
+    signatures.add(signature);
+    return true;
+  });
 }
 
 function isOfficialSource(source: PipelineSource): boolean {
@@ -102,9 +209,17 @@ export function selectHighQualitySources(
   topic: string,
   now = new Date(),
 ): PipelineSource[] {
-  const allowed = sources.filter(
-    (source) => !matchesDomain(hostnameOf(source.url), BLOCKED_DOMAINS),
-  );
+  const topicAllowsBetting = /\b(apuestas?|betting|odds|cuotas?|casino)\b/i.test(topic);
+  const allowed = sources.filter((source) => {
+    if (matchesDomain(hostnameOf(source.url), BLOCKED_DOMAINS)) return false;
+    if (
+      !topicAllowsBetting &&
+      /sports[-_/]?betting|betting[-_/]?tips|\/odds?(?:\/|$)/i.test(source.url)
+    ) {
+      return false;
+    }
+    return sourceIsRelevant(source, topic);
+  });
   if (allowed.length === 0) return [];
 
   const useful = allowed.filter(
@@ -119,13 +234,13 @@ export function selectHighQualitySources(
   if (nonCommunity.length >= Math.min(limit, 2)) candidates = nonCommunity;
 
   const currentYear = now.getUTCFullYear();
-  return candidates
+  const ranked = candidates
     .map((source, discoveryOrder) => ({
       source,
       discoveryOrder,
       score: sourceScore(source, topic, currentYear),
     }))
     .sort((a, b) => b.score - a.score || a.discoveryOrder - b.discoveryOrder)
-    .slice(0, limit)
     .map(({ source }) => source);
+  return deduplicateByContent(ranked).slice(0, limit);
 }
