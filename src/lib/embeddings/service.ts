@@ -18,7 +18,7 @@ import { cosineSimilarity } from "./similarity";
  */
 
 /** Similitud mínima para considerar que dos piezas tratan el mismo tema. */
-const SIMILARITY_THRESHOLD = 0.82;
+const SIMILARITY_THRESHOLD = 0.72;
 /** Máximo de sugerencias de enlaces internos por artículo. */
 const MAX_INTERNAL_LINKS = 3;
 
