@@ -413,7 +413,7 @@ Dos ejes de variación se resuelven con **interfaces**, no con condicionales dis
 
 ### 6.4. El pipeline de generación
 
-El núcleo del sistema. Convierte un tema en un artículo mediante **once etapas** encadenadas,
+El núcleo del sistema. Convierte un tema en un artículo mediante **doce etapas** encadenadas,
 cada una con una responsabilidad única y un contrato tipado. El catálogo único y ordenado vive
 en `src/lib/pipeline/stages.ts` (`STAGE_IDS`), del que beben tanto la UI como el orquestador,
 de modo que añadir o reordenar una etapa es un cambio en un solo sitio.
@@ -426,20 +426,20 @@ research → extract → [revisión humana opcional]
         → scrub → enrich → Article
 ```
 
-| #   | Etapa              | ¿IA?          | Responsabilidad                                                                           |
-| --- | ------------------ | ------------- | ----------------------------------------------------------------------------------------- |
-| 1   | **research**       | No (búsqueda) | Busca N fuentes y **descarga su contenido** (fuente de verdad).                           |
-| 2   | **extract**        | Sí            | Extrae hechos con su cita `{claim, source}`. **Revisable** por el usuario.                |
-| 3   | **blueprint**      | Sí            | Diseña titular, ángulo, secciones y keyword. **Revisable** por el usuario.                |
-| 4   | **draft**          | Sí            | Redacta el borrador con hechos + estructura + voz editorial + reglas SEO/GEO.             |
-| 5   | **humanize**       | Sí            | Reescribe para eliminar patrones de IA (muletillas, estructura repetitiva).               |
-| 6   | **validate**       | Sí (juez)     | Informe estructurado: fidelidad, tono, editorial, SEO/GEO.                                |
-| 7   | **factual-review** | Sí (juez)     | Clasifica cada afirmación (confirmada/dudosa/descartada) + riesgo global.                 |
-| 8   | **quality-review** | Sí (juez)     | Puntúa estructura, soporte factual, SEO y el **aiScore** que gobierna la re-humanización. |
-| 9   | **fixer**          | Sí            | Corrige según los informes; al cierre genera la **meta SEO** sin reescribir el cuerpo.    |
-| 10  | **scrub**          | No (regex)    | Elimina meta-referencias de investigación del texto final.                                |
-| 11  | **enrich**         | Sí            | Titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt de imagen.           |
-| 12  | **feature-image**  | Sí (imagen)   | Genera y persiste la imagen destacada a partir del prompt de `enrich`, si está activada.  |
+| #   | Etapa              | ¿IA?          | Responsabilidad                                                                          |
+| --- | ------------------ | ------------- | ---------------------------------------------------------------------------------------- |
+| 1   | **research**       | No (búsqueda) | Busca N fuentes y **descarga su contenido** (fuente de verdad).                          |
+| 2   | **extract**        | Sí            | Extrae hechos con su cita `{claim, source}`. **Revisable** por el usuario.               |
+| 3   | **blueprint**      | Sí            | Diseña titular, ángulo, secciones y keyword. **Revisable** por el usuario.               |
+| 4   | **draft**          | Sí            | Redacta el borrador con hechos + estructura + voz editorial + reglas SEO/GEO.            |
+| 5   | **humanize**       | Sí            | Reescribe con feedback de tono y un diagnóstico determinista del ritmo.                  |
+| 6   | **validate**       | Sí (juez)     | Informe estructurado: fidelidad, tono, editorial, SEO/GEO.                               |
+| 7   | **factual-review** | Sí (juez)     | Clasifica estado, evidencia y autoridad de procedencia + riesgo global.                  |
+| 8   | **quality-review** | Sí (juez)     | Combina juez y ritmo medido para gobernar la re-humanización mediante **aiScore**.       |
+| 9   | **fixer**          | Sí            | Corrige según los informes; al cierre genera la **meta SEO** sin reescribir el cuerpo.   |
+| 10  | **scrub**          | No (regex)    | Elimina meta-referencias de investigación del texto final.                               |
+| 11  | **enrich**         | Sí            | Titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt de imagen.          |
+| 12  | **feature-image**  | Sí (imagen)   | Genera y persiste la imagen destacada a partir del prompt de `enrich`, si está activada. |
 
 Las etapas **humanize**, **factual-review**, **quality-review** y **feature-image** son
 **opcionales** según el tipo de noticia; `research` nunca lo es. Además, dentro del bucle corre
@@ -457,8 +457,13 @@ independientes, de modo que una rehumanización no reduce las `maxFixIterations`
 Cada rehumanización recibe las incidencias de tono concretas y se descarta si la nueva medición
 empeora el `aiScore`. Las incidencias de `quality-review` están categorizadas mediante Zod y el
 juez debe emitir al menos una corrección `ai-tone` cuando la puntuación alcanza el umbral; de ese
-modo, una rehumanización nunca se ejecuta solo con una cifra sin diagnóstico. La aprobación
-final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
+modo, una rehumanización nunca se ejecuta solo con una cifra sin diagnóstico. El ritmo se mide
+también sin IA mediante dispersión y concentración de longitudes de párrafo; si ambas señales
+detectan uniformidad artificial, se fuerza un issue de tono y el umbral mínimo. La revisión factual
+distingue respaldo directo, inferencia, ausencia de evidencia y contradicción, además de procedencia
+primaria o secundaria. Un saneamiento posterior impide confirmar una extrapolación aunque el juez
+devuelva estados incoherentes. La aprobación final exige además fuentes suficientes y riesgo
+factual y de cada dimensión de calidad `low`;
 un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se vuelve
 a evaluar antes de decidir la siguiente. Los metadatos SEO se generan después con un contrato
 separado que conserva literalmente el cuerpo
@@ -595,7 +600,8 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
 
 Los prompts son **plantillas** (`render-template.ts`) con variables que el pipeline rellena
 (`{{topic}}`, `{{sources}}`, `{{facts}}`, `{{blueprint}}`, `{{draft}}`, `{{report}}`,
-`{{editorialVoice}}`, `{{seoRules}}`, etc.). El modelo se introduce como texto libre de
+`{{editorialVoice}}`, `{{seoRules}}`, `{{proseRhythm}}`, `{{sourceCatalog}}`, etc.). El modelo
+se introduce como texto libre de
 OpenRouter (p. ej. `google/gemini-2.5-flash`).
 
 ### 7.5. Investigación con fuentes reales y guard anti-SSRF

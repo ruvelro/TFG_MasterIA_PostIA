@@ -1,4 +1,5 @@
 import { aiToneReviewToText, composeEditorialVoice } from "@/lib/pipeline/format";
+import { analyzeProseRhythm, proseRhythmToText } from "@/lib/pipeline/prose-rhythm";
 import { renderTemplate } from "@/lib/pipeline/render-template";
 import type {
   PipelineContext,
@@ -24,6 +25,7 @@ export async function runHumanize(
     draft: ctx.draft,
     editorialVoice: composeEditorialVoice(cfg.editorialVoice, ctx.newsType),
     styleIssues: aiToneReviewToText(ctx.report, ctx.qualityReport),
+    proseRhythm: proseRhythmToText(analyzeProseRhythm(ctx.draft)),
   });
 
   const { text, usage } = await deps.runText({ modelId: step.model, prompt });

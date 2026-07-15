@@ -1,5 +1,6 @@
-import { factsToText } from "@/lib/pipeline/format";
+import { factsToText, sourceCatalogToText } from "@/lib/pipeline/format";
 import { renderTemplate } from "@/lib/pipeline/render-template";
+import { sanitizeFactualReview } from "@/lib/pipeline/review-sanitizer";
 import { FactualReviewSchema, type FactualReview } from "@/lib/pipeline/schemas";
 import type {
   PipelineContext,
@@ -25,6 +26,7 @@ export async function runFactualReview(
   const prompt = renderTemplate(step.prompt, {
     topic: ctx.topic,
     facts: factsToText(ctx.facts),
+    sourceCatalog: sourceCatalogToText(ctx.sources),
     draft: ctx.draft,
   });
 
@@ -33,5 +35,5 @@ export async function runFactualReview(
     prompt,
     schema: FactualReviewSchema,
   });
-  return { factualReport: object, model: step.model, usage };
+  return { factualReport: sanitizeFactualReview(object), model: step.model, usage };
 }

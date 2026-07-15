@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   requestsVisibleSources,
+  sanitizeFactualReview,
   sanitizeQualityReview,
   sanitizeValidationReport,
 } from "@/lib/pipeline/review-sanitizer";
@@ -64,5 +65,51 @@ describe("sanitización de informes editoriales", () => {
     ).toBe(true);
 
     expect(sanitizeValidationReport({ passed: false, issues: [] }).passed).toBe(false);
+  });
+
+  it("rebaja inferencias confirmadas y eleva el riesgo factual de forma coherente", () => {
+    const sanitized = sanitizeFactualReview({
+      riskLevel: "low",
+      claims: [
+        {
+          claim: "Microsoft confirmó que el paquete pesa 174 KB.",
+          status: "confirmed",
+          evidenceType: "inferred",
+          sourceAuthority: "secondary",
+          reason: "Un medio extrapola el tamaño desde la versión anterior.",
+        },
+      ],
+      summary: "El dato necesita cautela.",
+      researchSufficiency: { sufficient: true, reason: "Hay fuentes sobre el lanzamiento." },
+    });
+
+    expect(sanitized.claims[0].status).toBe("doubtful");
+    expect(sanitized.riskLevel).toBe("medium");
+  });
+
+  it("fuerza feedback ai-tone cuando la métrica detecta párrafos uniformes", () => {
+    const draft = Array.from({ length: 10 }, (_unused, index) =>
+      Array.from({ length: 50 + (index % 2) }, (_word, word) => `p${index}-${word}`).join(" "),
+    ).join("\n\n");
+    const sanitized = sanitizeQualityReview(
+      {
+        structureScore: 90,
+        factualSupportScore: 90,
+        seoScore: 90,
+        wordCount: 505,
+        aiScore: 5,
+        issues: [],
+        suggestions: [],
+      },
+      { draft, aiScoreThreshold: 25 },
+    );
+
+    expect(sanitized.aiScore).toBe(25);
+    expect(sanitized.issues).toEqual([
+      expect.objectContaining({
+        category: "ai-tone",
+        description: expect.stringContaining("10 de 10"),
+      }),
+    ]);
   });
 });

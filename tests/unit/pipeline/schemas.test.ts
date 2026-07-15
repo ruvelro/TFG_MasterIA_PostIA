@@ -4,6 +4,7 @@ import {
   ArticleMetadataSchema,
   BlueprintSchema,
   FactsSchema,
+  FactualReviewSchema,
   FixerOutputSchema,
   QualityReviewSchema,
   ValidationReportSchema,
@@ -67,6 +68,34 @@ describe("esquemas del pipeline", () => {
       QualityReviewSchema.safeParse({
         ...base,
         issues: [{ description: "Sin categoría", suggestion: "Corregir" }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("FactualReviewSchema exige grado de evidencia y autoridad de procedencia", () => {
+    const base = {
+      riskLevel: "medium",
+      summary: "Una afirmación requiere cautela.",
+      researchSufficiency: { sufficient: true, reason: "Hay documentación suficiente." },
+    };
+    expect(
+      FactualReviewSchema.safeParse({
+        ...base,
+        claims: [
+          {
+            claim: "La empresa confirmó 174 KB.",
+            status: "doubtful",
+            evidenceType: "inferred",
+            sourceAuthority: "secondary",
+            reason: "La cifra se extrapola desde otra versión.",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      FactualReviewSchema.safeParse({
+        ...base,
+        claims: [{ claim: "Dato sin trazabilidad", status: "confirmed", reason: "Consta" }],
       }).success,
     ).toBe(false);
   });

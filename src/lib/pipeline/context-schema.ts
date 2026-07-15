@@ -53,6 +53,32 @@ const LegacyBlueprintSchema = z
 
 const ContextBlueprintSchema = BlueprintSchema.or(LegacyBlueprintSchema);
 
+/** Los informes anteriores al grado de evidencia se completan sin inventar autoridad. */
+const ContextFactualReviewSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || !("claims" in value)) return value;
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.claims)) return value;
+  return {
+    ...record,
+    claims: record.claims.map((claim) => {
+      if (typeof claim !== "object" || claim === null) return claim;
+      const item = claim as Record<string, unknown>;
+      const status = item.status;
+      return {
+        ...item,
+        evidenceType:
+          item.evidenceType ??
+          (status === "confirmed"
+            ? "direct"
+            : status === "discarded"
+              ? "contradicted"
+              : "unsupported"),
+        sourceAuthority: item.sourceAuthority ?? "unknown",
+      };
+    }),
+  };
+}, FactualReviewSchema);
+
 /** Los informes guardados antes de categorizar quality issues siguen siendo reanudables. */
 const ContextQualityReviewSchema = z.preprocess((value) => {
   if (typeof value !== "object" || value === null || !("issues" in value)) return value;
@@ -81,7 +107,7 @@ export const PipelineContextSchema = z.object({
   blueprint: ContextBlueprintSchema.optional(),
   draft: z.string().optional(),
   report: ValidationReportSchema.optional(),
-  factualReport: FactualReviewSchema.optional(),
+  factualReport: ContextFactualReviewSchema.optional(),
   qualityReport: ContextQualityReviewSchema.optional(),
   humanizeAttempts: z.number().int().optional(),
   article: FixerOutputSchema.optional(),

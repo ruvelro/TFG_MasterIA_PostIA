@@ -26,10 +26,10 @@ research → extract → [revisión humana opcional]
 | 2   | **extract**        | Sí            | tema + fuentes                                       | hechos con cita `{claim, source}` (Zod) — **revisable por el usuario**        |
 | 3   | **blueprint**      | Sí            | tema + hechos                                        | estructura: titular, ángulo, secciones, keyword (Zod) — **revisable**         |
 | 4   | **draft**          | Sí            | hechos + estructura + voz editorial + reglas SEO/GEO | borrador en Markdown                                                          |
-| 5   | **humanize**       | Sí            | borrador                                             | borrador reescrito sin muletillas ni estructura repetitiva de IA              |
+| 5   | **humanize**       | Sí            | borrador + diagnóstico de ritmo                      | borrador reescrito sin muletillas ni estructura repetitiva de IA              |
 | 6   | **validate**       | Sí (juez)     | borrador + hechos + fuentes                          | informe `{passed, issues[]}` (faithfulness / ai-tone / editorial / seo)       |
-| 7   | **factual-review** | Sí (juez)     | borrador + hechos                                    | clasificación por afirmación (confirmada/dudosa/descartada) + riesgo global   |
-| 8   | **quality-review** | Sí (juez)     | borrador                                             | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA)   |
+| 7   | **factual-review** | Sí (juez)     | borrador + hechos + procedencia                      | estado, tipo de evidencia, autoridad de fuente y riesgo global                |
+| 8   | **quality-review** | Sí (juez)     | borrador + métricas de ritmo                         | puntuaciones de estructura, soporte factual, SEO y **aiScore** (sabor a IA)   |
 | 9   | **fixer**          | Sí            | borrador + informes                                  | artículo corregido; al cierre genera la **meta SEO** sin reescribir el cuerpo |
 | 10  | **scrub**          | No (regex)    | artículo                                             | artículo sin meta-referencias de investigación                                |
 | 11  | **enrich**         | Sí            | artículo + métricas                                  | titulares alternativos, tags, FAQ, alt de imagen, Schema.org, prompt imagen   |
@@ -70,6 +70,12 @@ la nueva medición empeora el `aiScore`, el orquestador restaura el borrador y l
 Los issues de `quality-review` se clasifican como `structure`, `factual-support`, `seo` o
 `ai-tone`: solo estos últimos llegan a `humanize`, mientras el informe completo alimenta al fixer.
 Si la puntuación alcanza el umbral, el juez debe emitir al menos un diagnóstico de tono accionable.
+Además, una métrica determinista mide la dispersión y la banda dominante de longitudes de párrafo.
+Con ocho o más párrafos, una dispersión baja y al menos el 75 % dentro de una banda de 25 palabras
+obligan a registrar una incidencia `ai-tone` y a alcanzar el umbral, aunque el juez la omita.
+`factual-review` separa respaldo directo, inferencia, ausencia de evidencia y contradicción, junto
+con la autoridad primaria o secundaria de la procedencia; el postprocesado no permite confirmar
+una inferencia ni mantener una contradicción como dudosa.
 El artículo solo se aprueba cuando la validación
 editorial pasa, el `aiScore` queda por debajo del umbral, las fuentes se consideran suficientes y
 los riesgos factual y de cada dimensión de calidad son `low`; un riesgo `medium` vuelve al
@@ -101,7 +107,7 @@ override puntual (por generación)  >  configuración guardada (admin)  >  valor
   umbral anti-IA con la base persistente. Conserva los modelos elegidos y el perfil editorial.
 - Prompts como **plantillas** (`src/lib/pipeline/render-template.ts`) con variables que el
   pipeline rellena: `{{topic}} {{sources}} {{facts}} {{blueprint}} {{draft}} {{report}}
-{{editorialVoice}} {{seoRules}}`.
+{{editorialVoice}} {{seoRules}} {{proseRhythm}} {{sourceCatalog}}`.
 - El modelo se introduce como texto libre, p. ej. `google/gemini-2.5-flash`.
 
 ## Arquitectura y testabilidad
