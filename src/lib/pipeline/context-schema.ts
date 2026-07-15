@@ -53,6 +53,20 @@ const LegacyBlueprintSchema = z
 
 const ContextBlueprintSchema = BlueprintSchema.or(LegacyBlueprintSchema);
 
+/** Los informes guardados antes de categorizar quality issues siguen siendo reanudables. */
+const ContextQualityReviewSchema = z.preprocess((value) => {
+  if (typeof value !== "object" || value === null || !("issues" in value)) return value;
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.issues)) return value;
+  return {
+    ...record,
+    issues: record.issues.map((issue) => {
+      if (typeof issue !== "object" || issue === null || "category" in issue) return issue;
+      return { ...issue, category: "structure" };
+    }),
+  };
+}, QualityReviewSchema);
+
 export const PipelineContextSchema = z.object({
   topic: z.string(),
   sources: z.array(SourceSchema),
@@ -68,7 +82,7 @@ export const PipelineContextSchema = z.object({
   draft: z.string().optional(),
   report: ValidationReportSchema.optional(),
   factualReport: FactualReviewSchema.optional(),
-  qualityReport: QualityReviewSchema.optional(),
+  qualityReport: ContextQualityReviewSchema.optional(),
   humanizeAttempts: z.number().int().optional(),
   article: FixerOutputSchema.optional(),
   enrichment: ArticleEnrichmentSchema.optional(),

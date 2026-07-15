@@ -5,6 +5,7 @@ import {
   BlueprintSchema,
   FactsSchema,
   FixerOutputSchema,
+  QualityReviewSchema,
   ValidationReportSchema,
 } from "@/lib/pipeline/schemas";
 
@@ -37,6 +38,35 @@ describe("esquemas del pipeline", () => {
       ValidationReportSchema.safeParse({
         passed: false,
         issues: [{ category: "inventada", severity: "low", description: "d", suggestion: "s" }],
+      }).success,
+    ).toBe(false);
+  });
+
+  it("QualityReviewSchema exige una categoría accionable en cada issue", () => {
+    const base = {
+      structureScore: 80,
+      factualSupportScore: 80,
+      seoScore: 80,
+      wordCount: 700,
+      aiScore: 30,
+      suggestions: [],
+    };
+    expect(
+      QualityReviewSchema.safeParse({
+        ...base,
+        issues: [
+          {
+            category: "ai-tone",
+            description: "Ritmo uniforme",
+            suggestion: "Variar construcciones",
+          },
+        ],
+      }).success,
+    ).toBe(true);
+    expect(
+      QualityReviewSchema.safeParse({
+        ...base,
+        issues: [{ description: "Sin categoría", suggestion: "Corregir" }],
       }).success,
     ).toBe(false);
   });

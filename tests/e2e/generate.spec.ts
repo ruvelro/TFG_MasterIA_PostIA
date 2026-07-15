@@ -36,7 +36,7 @@ test.describe("generador de artículos", () => {
       timeout: 20_000,
     });
     // El cuerpo del artículo (Markdown) se ha renderizado.
-    await expect(page.getByRole("heading", { name: "Resumen" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Borrador de ejemplo" })).toBeVisible();
   });
 
   test("genera sin revisión y va directo al artículo", async ({ page }) => {
