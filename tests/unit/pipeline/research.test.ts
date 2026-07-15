@@ -118,7 +118,7 @@ describe("runResearch", () => {
     expect(sources[0].suspicious).toBe(true);
   });
 
-  it("expande las consultas y fusiona los resultados (el tema literal va primero)", async () => {
+  it("expande las consultas y prioriza las búsquedas oficial y reciente", async () => {
     const search = vi
       .fn()
       .mockImplementation(async (query: string) =>
@@ -144,9 +144,9 @@ describe("runResearch", () => {
 
     expect(search).toHaveBeenCalledTimes(3); // tema + 2 consultas expandidas
     expect(sources.map((s) => s.url)).toEqual([
-      "https://literal.example/1",
       "https://alt-1.example/1",
       "https://alt-2.example/1",
+      "https://literal.example/1",
     ]);
     // La traza de coste de research lleva el modelo y los tokens de la expansión.
     expect(model).toBe("modelo/barato");
@@ -219,5 +219,24 @@ describe("runResearch", () => {
     };
     await runResearch(newsCtx, makeCfg(), deps);
     expect(search).toHaveBeenCalledWith("tema de prueba", 3, { freshnessDays: 7 });
+  });
+
+  it("aplica frescura automática cuando el tema menciona el año actual", async () => {
+    const search = vi.fn().mockResolvedValue([result("https://a.example/1")]);
+    const deps = makeDeps({ search, fetchContent: async () => "cuerpo" });
+    await runResearch(
+      { topic: `Balance ${new Date().getUTCFullYear()}`, sources: [] },
+      makeCfg(),
+      deps,
+    );
+    expect(search).toHaveBeenCalledWith(expect.any(String), 3, { freshnessDays: 45 });
+  });
+
+  it("rechaza una investigación compuesta únicamente por redes sociales", async () => {
+    const deps = makeDeps({
+      search: async () => [result("https://facebook.com/post/1")],
+      fetchContent: async () => "contenido social extenso ".repeat(30),
+    });
+    await expect(runResearch(ctx, makeCfg(), deps)).rejects.toThrow("fuentes documentales útiles");
   });
 });

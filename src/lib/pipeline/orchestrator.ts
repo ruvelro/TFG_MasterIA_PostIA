@@ -538,19 +538,21 @@ async function runQualityAndFinalize(
     reviewAttempt += 1;
     await reviewCurrentDraft(reviewAttempt);
 
+    const validationPassed = ctx.report?.passed ?? false;
+    const validationIssues = ctx.report?.issues ?? [];
+    const hasBlockingAiToneIssue = validationIssues.some(
+      (issue) => issue.category === "ai-tone" && issue.severity !== "low",
+    );
     const aiScore = ctx.qualityReport?.aiScore ?? 0;
     const aiScoreAccepted = !runQualityReviewStage || aiScore < cfg.aiScoreThreshold;
     const needsHumanize =
       runHumanizeStage &&
-      runQualityReviewStage &&
-      !aiScoreAccepted &&
+      ((runQualityReviewStage && !aiScoreAccepted) || hasBlockingAiToneIssue) &&
       (ctx.humanizeAttempts ?? 0) < cfg.maxHumanizeRetries;
     const factualRiskAccepted = !runFactualReviewStage || isFactualReviewAccepted(ctx);
     const qualityRiskAccepted =
       !runQualityReviewStage ||
       (ctx.qualityReport !== undefined && computeQualityRisk(ctx.qualityReport) === "low");
-    const validationPassed = ctx.report?.passed ?? false;
-    const validationIssues = ctx.report?.issues ?? [];
     const hasNonAiValidationIssue =
       !validationPassed &&
       (validationIssues.length === 0 ||

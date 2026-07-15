@@ -449,9 +449,11 @@ prohibidas, densidad, citas) y fusiona sus hallazgos en el informe de `validate`
 ### 6.5. Bucle de calidad y revisión humana
 
 Tras la primera humanización, el orquestador ejecuta los jueces y, en función de sus resultados,
-**re-humaniza** (si el `aiScore` supera `aiScoreThreshold`, hasta `maxHumanizeRetries`) o corrige
-con **fixer**. Ambas transformaciones tienen presupuestos independientes, de modo que una
-rehumanización no reduce las `maxFixIterations` disponibles. La aprobación
+**re-humaniza** (si el `aiScore` supera `aiScoreThreshold` o queda una incidencia `ai-tone`
+media/alta, hasta `maxHumanizeRetries`) o corrige con **fixer**. El corrector recibe en primer
+lugar únicamente las afirmaciones factuales dudosas o descartadas como criterios obligatorios,
+sin enterrarlas entre las ya confirmadas. Ambas transformaciones tienen presupuestos
+independientes, de modo que una rehumanización no reduce las `maxFixIterations` disponibles. La aprobación
 final exige además fuentes suficientes y riesgo factual y de cada dimensión de calidad `low`;
 un riesgo `medium` vuelve al corrector mientras queden iteraciones. Cada transformación se vuelve
 a evaluar antes de decidir la siguiente. Los metadatos SEO se generan después con un contrato
@@ -594,9 +596,13 @@ OpenRouter (p. ej. `google/gemini-2.5-flash`).
 ### 7.5. Investigación con fuentes reales y guard anti-SSRF
 
 La etapa de _research_ consulta el proveedor de búsqueda activo a través de la interfaz
-`SearchProvider` y **descarga** el cuerpo de las páginas resultantes. Como descargar URLs
-arbitrarias amplía la superficie de ataque, la descarga incluye un **guard anti-SSRF**,
-_timeout_ y límite de tamaño, y cae al _snippet_ de la búsqueda si la descarga falla.
+`SearchProvider`. Las consultas complementarias buscan primero fuentes primarias y cobertura
+reciente; cuando el tema menciona el año actual se aplica además una ventana automática de
+frescura. Los resultados se deduplican en un pool mayor que el número final solicitado y se
+**descargan antes de seleccionar**: así pueden descartarse redes sociales y snippets mínimos,
+priorizar documentos oficiales, actuales y completos, y relegar referencias comunitarias si hay
+alternativas. Como descargar URLs arbitrarias amplía la superficie de ataque, la descarga incluye
+un **guard anti-SSRF**, _timeout_ y límite de tamaño, y cae al _snippet_ si la descarga falla.
 
 ### 7.6. Autenticación, contraseñas fuertes y passkeys
 
